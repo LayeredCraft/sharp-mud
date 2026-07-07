@@ -1,10 +1,11 @@
+using SharpMud.Engine.Combat;
 using SharpMud.Engine.World;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
 public static class BuiltinCommands
 {
-    public static void RegisterAll(ICommandRegistry registry)
+    public static void RegisterAll(ICommandRegistry registry, ICombatManager combatManager, IRandomSource random)
     {
         registry.Register(new MoveCommand(Direction.North, "north", ["n"]));
         registry.Register(new MoveCommand(Direction.South, "south", ["s"]));
@@ -22,6 +23,8 @@ public static class BuiltinCommands
         registry.Register(new EmoteCommand());
         registry.Register(new WhoCommand());
         registry.Register(new QuitCommand());
+        registry.Register(new AttackCommand(combatManager));
+        registry.Register(new FleeCommand(combatManager, random));
         registry.Register(new HelpCommand(registry));
     }
 }

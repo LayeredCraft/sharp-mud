@@ -9,40 +9,64 @@ this system hooks into.
 
 Simple round-based combat (Diku/Circle-style), per SPEC.md: auto-attack on
 the global tick, hit/miss/damage messages, minimal per-round input required
-once engaged.
+once engaged. **v1 scope is player-vs-NPC only** — no PvP verb or aggression
+rules exist yet, so every encounter is keyed by the attacking player.
+
+Implemented shape (`src/SharpMud.Engine/Combat/`) differs from the original
+sketch in two ways: `ITickable.OnTick` is `Task OnTickAsync(...)`, not `void`
+(it needs to `await` `ISession` writes each round — same reasoning as
+`IWorld.MovePlayer` becoming `MovePlayerAsync`), and there's one
+`CombatManager` registered with `IGameLoop`, not one `ITickable` per
+encounter — it owns a `Dictionary<PlayerId, CombatEncounter>` and resolves
+every active encounter each tick:
 
 ```csharp
-public sealed class CombatEncounter : ITickable
+public sealed class CombatEncounter
 {
     public required Player Attacker { get; init; }
-    public required ICombatant Defender { get; init; } // Player or Npc
-    public CombatState State { get; set; }
-
-    public void OnTick(TickContext ctx)
-    {
-        // resolve one round: hit check -> damage -> apply -> check death
-    }
+    public required Npc Defender { get; init; }
 }
 
-public interface ICombatant
+public interface ICombatManager
 {
-    int CurrentHitPoints { get; set; }
-    int ArmorClass { get; }
-    (int min, int max) DamageRange { get; }
+    bool IsInCombat(PlayerId playerId);
+    void StartEncounter(Player attacker, Npc defender);
+    void EndEncounter(PlayerId playerId);
+    bool TryGetEncounter(PlayerId playerId, out CombatEncounter? encounter);
 }
 
-public enum CombatState { Engaged, Fleeing, Linkdead, Abandoned, Ended }
+public sealed class CombatManager(IWorld world, ICombatResolver resolver, RoomId hubRoomId)
+    : ICombatManager, ITickable
+{
+    public Task OnTickAsync(TickContext ctx, CancellationToken ct) { /* see below */ }
+}
 ```
 
-Hit/damage formula: Diku/Circle-style THAC0-ish roll — attacker rolls d20 +
-level/skill modifiers vs. defender Armor Class to hit; damage = weapon dice +
-STR modifier (see [character.md](character.md) for the attribute source).
-Directly authentic to the classic MUD lineage this project revives; exact
-modifier scaling (how level/skill translate to a to-hit bonus) still to be
-tuned, see Open Items.
+`ICombatant` also grew two members beyond the original sketch
+(`CurrentHitPoints`/`ArmorClass`/`DamageRange` only) — `Name` and
+`MaxHitPoints`, both needed for round messages and death/respawn handling
+that the doc implied but didn't spell out as interface members:
 
-Formulas live in a dedicated `ICombatResolver` (pure, unit-testable, no I/O)
-so combat math can be tested without a live tick loop or session:
+```csharp
+public interface ICombatant
+{
+    string Name { get; }
+    int CurrentHitPoints { get; set; }
+    int MaxHitPoints { get; }
+    int ArmorClass { get; }
+    (int Min, int Max) DamageRange { get; }
+}
+```
+
+`Player` and `Npc` both implement `ICombatant`.
+
+Hit/damage formula: Diku/Circle-style d20-vs-AC roll — attacker rolls d20 vs.
+defender Armor Class to hit; damage is a random roll within the attacker's
+`DamageRange`. **Currently implemented as an unmodified d20 roll** — no
+level/skill to-hit bonus yet (see Open Items; the modifier-scaling formula
+is still undecided, so the code has nothing to apply).
+
+Formulas live in a dedicated `ICombatResolver` (pure, unit-testable, no I/O):
 
 ```csharp
 public interface ICombatResolver
@@ -53,76 +77,84 @@ public interface ICombatResolver
 public sealed record CombatRoundResult(bool Hit, int Damage, bool DefenderDefeated);
 ```
 
+`ResolveRound` both computes **and applies** the round (mutates
+`defender.CurrentHitPoints` directly) — matching the original "resolve one
+round: hit check → damage → apply → check death" description.
+
 ## Sequence: Combat Round Resolves
 
-1. Player types `"kill goblin"` → `AttackCommand` resolves the target NPC in
-   the room, creates a `CombatEncounter`, registers it with `IGameLoop` as an
-   `ITickable`, sends `"You attack the goblin!"` immediately (engagement is
-   instant; resolution is tick-gated).
-2. On the next global tick, `IGameLoop` calls `CombatEncounter.OnTick`.
-3. `ICombatResolver` computes hit/miss (e.g. attacker roll vs. defender AC),
-   then damage if hit.
-4. `CombatEncounter` applies damage to `Defender.CurrentHitPoints`, sends
-   round message to both combatants' rooms via `ISession`.
-5. If `CurrentHitPoints <= 0`: encounter ends, death/loot handling fires,
-   encounter deregisters from `IGameLoop`.
-6. Otherwise the encounter stays registered and resolves again next tick —
-   repeats without further player input until death, flee, or disconnect.
+1. Player types `"kill cave rat"` → `AttackCommand` resolves the target NPC
+   in the room (`ctx.CurrentRoom.Npcs` → `IWorld.GetNpc`, matched by
+   case-insensitive substring), calls `ICombatManager.StartEncounter`, sends
+   `"You attack cave rat!"` immediately (engagement is instant; resolution is
+   tick-gated). If the player is already in combat, the command instead sends
+   `"You are already fighting!"`.
+2. On the next global tick, `IGameLoop` calls `CombatManager.OnTickAsync`,
+   which iterates every active encounter.
+3. `ICombatResolver.ResolveRound(attacker, defender)` computes the player's
+   attack; a hit/miss message is sent immediately via the player's session.
+4. If the NPC is defeated, see Death & Respawn below and the round ends there
+   (no counter-attack).
+5. Otherwise, **the NPC counter-attacks the same round** (classic mutual
+   combat) via a second `ResolveRound(defender, attacker)` call; another
+   hit/miss message is sent. If this defeats the player, see Death & Respawn.
+6. Otherwise the encounter stays in the dictionary and resolves again next
+   tick — repeats without further player input until death or `flee`
+   (disconnect handling is a stub for now, see below).
 
-## Sequence: Player Disconnects Mid-Fight
+## Disconnect Mid-Fight (stub)
 
-1. The transport adapter detects the underlying stream closed/EOF, calls
-   `ISession.DisconnectAsync` (see [networking.md](networking.md)).
-2. `Host`'s session-loop catches this, fires a `PlayerDisconnectedEvent`.
-3. Engine's disconnect handler: if the player has an active
-   `CombatEncounter`, the encounter transitions to `CombatState.Linkdead`. The
-   NPC keeps attacking the disconnected player's body for a grace period
-   (a fixed number of ticks — classic MUD tension/risk: you can die while
-   disconnected). If the player doesn't reconnect before the grace period
-   expires, the encounter force-ends as `CombatState.Abandoned` and final
-   state is saved. If they reconnect in time, the encounter resumes normally.
-   Exact grace-period tick count is an Open Item.
-4. `IPlayerRepository.SaveAsync` persists final state regardless of combat
-   outcome so no progress is lost on disconnect.
-5. Room occupants notified ("Alice's link has died.").
+The full design — `CombatState.Linkdead`, a grace period before the
+encounter is force-abandoned, resuming on reconnect — is **not implemented**.
+Currently, if `IWorld.GetSession(playerId)` returns `null` on a tick (no
+session registered for that player), `CombatManager` just removes the
+encounter immediately. This is an intentional stub, not a design change —
+implementing the real grace-period behavior needs session
+reconnect/resumption (see [networking.md](networking.md)), which doesn't
+exist yet since there's only one local transport.
 
 ## Death & Respawn
 
-Classic-stakes model:
+Classic-stakes model, implemented in `CombatManager`:
 
-- **NPC death**: `CurrentHitPoints <= 0` → items drop to `Room.ItemsOnGround`
-  (see [world-model.md](world-model.md)), XP awarded to the attacker (applied
-  to `Player.Experience`, see [character.md](character.md)), NPC removed from
-  the room.
-- **Player death**: XP-loss penalty — player loses a percentage of
-  current-level XP (exact percentage TBD, see Open Items), respawns at the
-  hub/starting area (`Player.CurrentRoomId` reset to the hub `RoomId`) with
-  HP reset to a fraction of `MaxHitPoints` (exact fraction TBD). No item loss
-  and no corpse-run — items stay in inventory/equipped through death,
-  keeping the death loop low-friction (no corpse decay/looting system
-  needed).
+- **NPC death**: attacker's `Player.Experience` increases by
+  `Npc.ExperienceReward`, the NPC is removed from the world via
+  `IWorld.RemoveNpc` (which also removes it from its room's occupant list —
+  see [world-model.md](world-model.md)), the encounter ends. Loot drops are
+  **not implemented** — the item system itself is a later build-order phase,
+  so there's nothing to drop yet.
+- **Player death**: `Player.Experience` is reduced by a flat **10%**
+  (placeholder — exact percentage is still an open item), `CurrentHitPoints`
+  is reset to `MaxHitPoints / 2` (placeholder — exact fraction is still an
+  open item, minimum 1), `CurrentRoomId` is reset to the hub room, and the
+  hub's description is sent via `LookCommand.SendRoomDescriptionAsync`. No
+  item loss and no corpse-run.
 
 ## Flee
 
-`flee` command attempts escape to a random adjacent room (via `Room.Exits`,
-see [world-model.md](world-model.md)). Success chance scales with the
-fleeing combatant's Dexterity vs. the opponent's (exact formula TBD, see
-Open Items). On failure, the round is wasted (no movement, no attack) and
-the combatant remains `CombatState.Engaged`. On success, `MovePlayer` runs
-as in a normal move (see [commands.md](commands.md)) and the
-`CombatEncounter` ends.
+Implemented in `FleeCommand`. Requires an active encounter
+(`ICombatManager.TryGetEncounter`) and at least one exit in the current room.
+Success chance is currently a **flat 60%** via `IRandomSource.Next(1, 100)`
+— the real DEX-differential formula from the original design is still an
+open item, and `Npc`/`ICombatant` doesn't carry Dexterity, so there's nothing
+to differential against yet. On success, a random exit is chosen
+(`IRandomSource.Next` over `Room.Exits`), the encounter ends, and
+`IWorld.MovePlayerAsync` runs exactly as a normal move (see
+[commands.md](commands.md)).
 
 ## Open Items
 
 - Exact to-hit modifier scaling (how level/skill translate into a d20 bonus)
-  — formula style decided above, precise numbers not yet tuned.
-- Grace-period tick count before a linkdead encounter is force-abandoned —
-  mechanism decided above, exact value not yet chosen.
+  — not implemented at all yet (currently an unmodified roll).
+- Real linkdead/reconnect handling — currently a stub that just ends the
+  encounter; needs session resumption (see [networking.md](networking.md))
+  to implement properly.
 - Flee success-chance formula (exact DEX-differential-to-probability curve)
-  — mechanism decided above, precise numbers not yet tuned.
-- XP-loss percentage on player death — mechanism decided above, exact
-  percentage not yet chosen.
-- Respawn HP fraction (full heal vs. partial) not yet chosen.
-- Tick interval default value (see [architecture.md](architecture.md), now
-  configurable rather than hardcoded) directly affects combat pacing feel —
-  needs to be tuned alongside the damage formula, not independently.
+  — currently a flat 60%; would also need Dexterity added to `ICombatant` or
+  a separate lookup.
+- XP-loss percentage on player death — currently a flat 10% placeholder.
+- Respawn HP fraction — currently `MaxHitPoints / 2` placeholder.
+- Loot drops on NPC death — not implemented; blocked on the item system.
+- Tick interval default value (see [architecture.md](architecture.md)) is
+  still the 2-second default from `GameLoopOptions`; not yet tuned against
+  the placeholder combat formulas above.

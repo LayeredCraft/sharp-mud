@@ -1,17 +1,28 @@
 using Microsoft.Extensions.DependencyInjection;
 using SharpMud.Adapters.Cli;
 using SharpMud.Engine.Characters;
+using SharpMud.Engine.Combat;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Sessions;
+using SharpMud.Engine.Ticking;
 using SharpMud.Engine.World;
+
+var (world, startingRoomId) = WorldBuilder.BuildHub();
+
+var random = new RandomSource();
+var combatResolver = new CombatResolver(random);
+var combatManager = new CombatManager(world, combatResolver, startingRoomId);
+
+var gameLoop = new GameLoop(new GameLoopOptions());
+gameLoop.Register(combatManager);
 
 var services = new ServiceCollection();
 services.AddSingleton<ICommandParser, CommandParser>();
 services.AddSingleton<ICommandRegistry>(_ =>
 {
     var registry = new CommandRegistry();
-    BuiltinCommands.RegisterAll(registry);
+    BuiltinCommands.RegisterAll(registry, combatManager, random);
     return registry;
 });
 
@@ -19,8 +30,6 @@ await using var provider = services.BuildServiceProvider();
 
 var parser = provider.GetRequiredService<ICommandParser>();
 var registry = provider.GetRequiredService<ICommandRegistry>();
-
-var (world, startingRoomId) = WorldBuilder.BuildHub();
 
 ISession session = new ConsoleSession();
 var player = Player.CreateDefault("Adventurer", startingRoomId);
@@ -32,6 +41,8 @@ Console.CancelKeyPress += (_, e) =>
     e.Cancel = true;
     cts.Cancel();
 };
+
+var gameLoopTask = gameLoop.RunAsync(cts.Token);
 
 await session.WriteLineAsync("Welcome to SharpMud.", cts.Token);
 await session.WriteLineAsync(string.Empty, cts.Token);
@@ -66,3 +77,13 @@ while (session.IsConnected && !cts.IsCancellationRequested)
 }
 
 world.Disconnect(player.Id);
+
+cts.Cancel();
+try
+{
+    await gameLoopTask;
+}
+catch (OperationCanceledException)
+{
+    // Expected on shutdown.
+}

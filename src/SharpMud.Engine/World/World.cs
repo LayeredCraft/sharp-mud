@@ -11,8 +11,23 @@ public sealed class World : IWorld
     private readonly Dictionary<RoomId, Room> _rooms = [];
     private readonly Dictionary<PlayerId, Player> _players = [];
     private readonly Dictionary<PlayerId, ISession> _sessions = [];
+    private readonly Dictionary<NpcId, Npc> _npcs = [];
 
     public void RegisterRoom(Room room) => _rooms[room.Id] = room;
+
+    public void RegisterNpc(Npc npc)
+    {
+        _npcs[npc.Id] = npc;
+        GetRoom(npc.RoomId)?.Npcs.Add(npc.Id);
+    }
+
+    public Npc? GetNpc(NpcId id) => _npcs.GetValueOrDefault(id);
+
+    public void RemoveNpc(NpcId id)
+    {
+        if (_npcs.Remove(id, out var npc))
+            GetRoom(npc.RoomId)?.Npcs.Remove(id);
+    }
 
     public void Connect(Player player, ISession session)
     {

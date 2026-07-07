@@ -29,6 +29,19 @@ public static class WorldBuilder
         Connect(townSquare, oldWell, Direction.West);
         Connect(marketStreet, generalStore, Direction.East);
 
+        world.RegisterNpc(new Npc
+        {
+            Id = NpcId.New(),
+            Name = "cave rat",
+            RoomId = oldWell.Id,
+            MaxHitPoints = 6,
+            CurrentHitPoints = 6,
+            ArmorClass = 8,
+            DamageMin = 1,
+            DamageMax = 3,
+            ExperienceReward = 10,
+        });
+
         return (world, townSquare.Id);
     }
 

@@ -40,7 +40,7 @@ repository-interface decisions.
 ```csharp
 public interface ITickable
 {
-    void OnTick(TickContext ctx);
+    Task OnTickAsync(TickContext ctx, CancellationToken ct); // async, not void - see docs/combat.md
 }
 
 public interface IGameLoop
@@ -49,12 +49,13 @@ public interface IGameLoop
 }
 ```
 
-Single server-wide heartbeat (per SPEC.md) that calls `OnTick` on every
+Single server-wide heartbeat (per SPEC.md) that calls `OnTickAsync` on every
 registered `ITickable` — combat rounds in progress, NPC AI, regen. Player
 commands (movement, look, chat) are NOT gated by the tick; they execute
-immediately via the command pipeline (see [commands.md](commands.md)). Only
-round-based systems hook into `ITickable` — see [combat.md](combat.md) for the
-primary consumer.
+immediately via the command pipeline (see [commands.md](commands.md)).
+`Host` now starts `GameLoop.RunAsync` as a background task alongside the
+session's read loop, since `CombatManager` (see [combat.md](combat.md)) is
+the first real `ITickable` consumer.
 
 ## Dependency Injection
 

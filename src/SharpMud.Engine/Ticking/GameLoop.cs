@@ -22,7 +22,7 @@ public sealed class GameLoop(GameLoopOptions options) : IGameLoop
         {
             var context = new TickContext(DateTimeOffset.UtcNow);
             foreach (var tickable in _tickables.ToArray())
-                tickable.OnTick(context);
+                await tickable.OnTickAsync(context, ct);
         }
     }
 }

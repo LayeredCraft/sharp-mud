@@ -11,5 +11,8 @@ public interface IWorld
     IEnumerable<Player> AllPlayers { get; }
     ISession? GetSession(PlayerId playerId);
 
+    Npc? GetNpc(NpcId id);
+    void RemoveNpc(NpcId id);
+
     Task MovePlayerAsync(Player player, Room from, Room to, Direction? direction, CancellationToken ct);
 }
