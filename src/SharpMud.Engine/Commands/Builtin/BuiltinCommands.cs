@@ -25,6 +25,12 @@ public static class BuiltinCommands
         registry.Register(new QuitCommand());
         registry.Register(new AttackCommand(combatManager));
         registry.Register(new FleeCommand(combatManager, random));
+        registry.Register(new GetCommand());
+        registry.Register(new DropCommand());
+        registry.Register(new WearCommand());
+        registry.Register(new RemoveCommand());
+        registry.Register(new InventoryCommand());
+        registry.Register(new GiveCommand());
         registry.Register(new HelpCommand(registry));
     }
 }

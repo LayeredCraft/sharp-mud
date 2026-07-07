@@ -12,6 +12,7 @@ public sealed class World : IWorld
     private readonly Dictionary<PlayerId, Player> _players = [];
     private readonly Dictionary<PlayerId, ISession> _sessions = [];
     private readonly Dictionary<NpcId, Npc> _npcs = [];
+    private readonly Dictionary<ItemId, Item> _items = [];
 
     public void RegisterRoom(Room room) => _rooms[room.Id] = room;
 
@@ -28,6 +29,17 @@ public sealed class World : IWorld
         if (_npcs.Remove(id, out var npc))
             GetRoom(npc.RoomId)?.Npcs.Remove(id);
     }
+
+    // roomId is optional so items can also be registered directly into a
+    // player's inventory (loot) without ever touching a room's ground list.
+    public void RegisterItem(Item item, RoomId? roomId = null)
+    {
+        _items[item.Id] = item;
+        if (roomId is { } id)
+            GetRoom(id)?.ItemsOnGround.Add(item.Id);
+    }
+
+    public Item? GetItem(ItemId id) => _items.GetValueOrDefault(id);
 
     public void Connect(Player player, ISession session)
     {

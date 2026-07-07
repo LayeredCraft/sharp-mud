@@ -41,8 +41,11 @@ public sealed class Player : ICombatant
     public long Experience { get; set; }
 
     public required RoomId CurrentRoomId { get; set; }
-    public List<InventoryItem> Inventory { get; } = [];
-    public Dictionary<EquipSlot, InventoryItem?> Equipped { get; } = [];
+
+    // Item instances themselves live in IWorld (like NPCs/rooms) - Player
+    // only holds references, resolved via IWorld.GetItem.
+    public List<ItemId> Inventory { get; } = [];
+    public Dictionary<EquipSlot, ItemId?> Equipped { get; } = [];
     public List<string> Aliases { get; } = [];
 
     // Dice-roll character creation (docs/character.md) isn't implemented yet -

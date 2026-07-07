@@ -97,25 +97,29 @@ first/nearest match in scope (room, then inventory, depending on verb);
 immediately before the object name, so there's no ambiguity with item names
 that happen to contain numbers (unlike a trailing-number scheme). Applied
 consistently across all object-targeting verbs (`get`, `drop`, `kill`,
-`wear`, `give`, etc).
+`wear`, `give`, etc) via a single shared `ObjectMatcher.FindMatch<T>` helper
+(`src/SharpMud.Engine/Commands/ObjectMatcher.cs`) rather than each command
+reimplementing the parsing.
 
 ## V1 Verb List
 
-Broader set — core interaction plus social/utility:
+Broader set — core interaction plus social/utility. Status reflects what's
+actually implemented as of the inventory/items build-order phase:
 
-- **Movement**: `north`/`n`, `south`/`s`, `east`/`e`, `west`/`w`,
+- **Movement** ✅: `north`/`n`, `south`/`s`, `east`/`e`, `west`/`w`,
   `northeast`/`ne`, `northwest`/`nw`, `southeast`/`se`, `southwest`/`sw`,
   `up`/`u`, `down`/`d`.
-- **Perception**: `look`/`l` (room or `look <target>`), `examine`/`ex`
-  (detailed look at one object/NPC).
-- **Social**: `say`, `tell <player> <msg>`, `emote`/`:`, `who` (online
-  players list).
-- **Items**: `inventory`/`i`, `get`/`take`, `drop`, `wear`, `remove`,
+- **Perception**: `look`/`l` ✅ (room only so far — `look <target>` and
+  `examine`/`ex` for a single object/NPC are **not implemented yet**).
+- **Social**: `say` ✅, `emote`/`:` ✅, `who` ✅. `tell <player> <msg>`
+  (direct/private message) is **not implemented yet**.
+- **Items** ✅: `inventory`/`i`, `get`/`take`, `drop`, `wear`, `remove`,
   `give <item> to <player>`.
-- **Combat**: `kill`/`attack`, `flee`.
+- **Combat** ✅: `kill`/`attack`, `flee` (see [combat.md](combat.md) for
+  placeholder formulas still pending).
 - **Character**: `score`/`stats` (display derived stats — see
-  [character.md](character.md)).
-- **Meta**: `help`, `quit`.
+  [character.md](character.md)) is **not implemented yet**.
+- **Meta** ✅: `help`, `quit`.
 - **Builder/admin verbs** (`@dig`, `@describe`, etc.) explicitly excluded —
   those belong to the deferred in-game building phase (see
   [world-model.md](world-model.md)).

@@ -1,3 +1,5 @@
+using SharpMud.Engine.Characters;
+
 namespace SharpMud.Engine.World;
 
 // Phase 1 of the content-authoring evolution in docs/world-model.md:
@@ -41,6 +43,29 @@ public static class WorldBuilder
             DamageMax = 3,
             ExperienceReward = 10,
         });
+
+        world.RegisterItem(new Item
+        {
+            Id = ItemId.New(),
+            Name = "rusty sword",
+            Description = "A short sword, pitted with rust but still sharp.",
+            Slot = EquipSlot.MainHand,
+        }, townSquare.Id);
+
+        world.RegisterItem(new Item
+        {
+            Id = ItemId.New(),
+            Name = "leather cap",
+            Description = "A worn leather cap, cracked at the seams.",
+            Slot = EquipSlot.Head,
+        }, generalStore.Id);
+
+        world.RegisterItem(new Item
+        {
+            Id = ItemId.New(),
+            Name = "gold coin",
+            Description = "A small, tarnished gold coin.",
+        }, oldWell.Id);
 
         return (world, townSquare.Id);
     }

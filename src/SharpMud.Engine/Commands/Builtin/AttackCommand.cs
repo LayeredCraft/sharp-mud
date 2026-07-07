@@ -1,4 +1,5 @@
 using SharpMud.Engine.Combat;
+using SharpMud.Engine.World;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
@@ -22,9 +23,10 @@ public sealed class AttackCommand(ICombatManager combatManager) : ICommand
         }
 
         var targetName = string.Join(' ', ctx.Args);
-        var npc = ctx.CurrentRoom.Npcs
-            .Select(ctx.World.GetNpc)
-            .FirstOrDefault(n => n is not null && n.Name.Contains(targetName, StringComparison.OrdinalIgnoreCase));
+        var npc = ObjectMatcher.FindMatch(
+            ctx.CurrentRoom.Npcs.Select(ctx.World.GetNpc).OfType<Npc>(),
+            targetName,
+            n => n.Name);
 
         if (npc is null)
         {

@@ -42,8 +42,12 @@ public sealed class Player
     public long Experience { get; set; }
 
     public RoomId CurrentRoomId { get; set; }
-    public List<InventoryItem> Inventory { get; set; } = [];
-    public Dictionary<EquipSlot, InventoryItem?> Equipped { get; set; } = [];
+
+    // Item instances live in IWorld (like NPCs/rooms) - Player only holds
+    // ItemId references, resolved via IWorld.GetItem. Same pattern as
+    // Room.ItemsOnGround / Room.Npcs (see world-model.md).
+    public List<ItemId> Inventory { get; set; } = [];
+    public Dictionary<EquipSlot, ItemId?> Equipped { get; set; } = [];
 
     public List<string> Aliases { get; set; } = []; // player-defined command macros
 }

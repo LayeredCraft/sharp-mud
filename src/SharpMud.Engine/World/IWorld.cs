@@ -14,5 +14,7 @@ public interface IWorld
     Npc? GetNpc(NpcId id);
     void RemoveNpc(NpcId id);
 
+    Item? GetItem(ItemId id);
+
     Task MovePlayerAsync(Player player, Room from, Room to, Direction? direction, CancellationToken ct);
 }
