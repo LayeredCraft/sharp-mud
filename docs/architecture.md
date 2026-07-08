@@ -20,7 +20,7 @@ sharp-mud.sln
     SharpMud.Persistence/      # EF Core DbContext + repository implementations.
                                 # References Engine (for domain types / repo interfaces).
     SharpMud.Adapters.Cli/     # local stdin/stdout ISession implementation.
-    SharpMud.Adapters.Telnet/  # (later) telnet ISession implementation.
+    SharpMud.Adapters.Telnet/  # raw TCP ISession + listener - see networking.md.
     SharpMud.Adapters.Ssh/     # (later)
     SharpMud.Adapters.WebSocket/ # (later)
     SharpMud.Host/             # composition root: DI wiring (Microsoft.Extensions.

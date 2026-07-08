@@ -35,10 +35,6 @@ await using var provider = services.BuildServiceProvider();
 var parser = provider.GetRequiredService<ICommandParser>();
 var registry = provider.GetRequiredService<ICommandRegistry>();
 
-ISession session = new ConsoleSession();
-var player = HubWorldBuilder.CreatePlayer(world, "Adventurer", startingRoom);
-player.FindBehavior<PlayerBehavior>()!.Session = session;
-
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
 {
@@ -48,38 +44,19 @@ Console.CancelKeyPress += (_, e) =>
 
 var gameLoopTask = gameLoop.RunAsync(cts.Token);
 
-await session.WriteLineAsync("Welcome to SharpMud.", cts.Token);
-await session.WriteLineAsync(string.Empty, cts.Token);
-
-await LookCommand.SendRoomDescriptionAsync(player, startingRoom, cts.Token);
-
-while (session.IsConnected && !cts.IsCancellationRequested)
+if (args.Length > 0 && args[0] == "--telnet")
 {
-    await session.WriteAsync("> ", cts.Token);
-
-    var input = await session.ReadLineAsync(cts.Token);
-    if (input is null)
-        break;
-
-    var parsed = parser.Parse(input);
-    if (parsed.Verb.Length == 0)
-        continue;
-
-    var currentRoom = player.Parent;
-    if (currentRoom is null)
-        break;
-
-    if (!registry.TryResolve(parsed.Verb, out var command))
-    {
-        await session.WriteLineAsync("Huh?", cts.Token);
-        continue;
-    }
-
-    var context = new CommandContext(player, currentRoom, parsed.Args, world, session);
-    await command.ExecuteAsync(context, cts.Token);
+    var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4000;
+    await HostRunner.RunTelnetAsync(world, parser, registry, startingRoom, port, cts.Token);
 }
+else
+{
+    ISession session = new ConsoleSession();
+    var player = HubWorldBuilder.CreatePlayer(world, "Adventurer", startingRoom);
+    player.FindBehavior<PlayerBehavior>()!.Session = session;
 
-world.Unregister(player.Id);
+    await SessionLoop.RunAsync(world, parser, registry, session, player, startingRoom, cts.Token);
+}
 
 cts.Cancel();
 try

@@ -21,6 +21,7 @@ SharpMud.sln
                                  # References Engine only.
     SharpMud.Persistence/       # EF Core repositories
     SharpMud.Adapters.Cli/      # local stdin/stdout session adapter
+    SharpMud.Adapters.Telnet/   # raw TCP session adapter + listener
     SharpMud.Host/              # composition root / entry point / hub world content
   tests/
     SharpMud.Engine.Tests/
@@ -33,4 +34,11 @@ SharpMud.sln
 ```
 dotnet build SharpMud.sln
 dotnet test SharpMud.sln
+```
+
+## Running
+
+```
+dotnet run --project src/SharpMud.Host       # local single-player CLI
+dotnet run --project src/SharpMud.Host -- --telnet [port]  # telnet server, default port 4000
 ```

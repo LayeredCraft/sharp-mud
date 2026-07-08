@@ -136,9 +136,15 @@ derivatives separate "instant" commands from round-based combat resolution.
    `WanderManager`, engine-level since it needs no ruleset-specific state) is
    implemented; shopkeepers/quest givers are deferred until currency/trade/
    quest systems exist to give them something to do.
-6. **Networking**: Telnet/SSH/WebSocket adapters, multi-player concurrency
-   hardening.
-7. **Accounts & auth**: see below.
+6. **Networking**: Telnet adapter and multi-session `Host` implemented —
+   `SharpMud.Adapters.Telnet` plus a shared `SessionLoop` used by every
+   transport, confirmed with concurrent players seeing/interacting with each
+   other over real TCP connections. SSH/WebSocket adapters, idle timeouts,
+   connection limits, and telnet protocol negotiation (MCCP/MXP/NAWS) remain
+   deferred — see [docs/networking.md](docs/networking.md) Open Items.
+7. **Accounts & auth**: see below. New Telnet connections currently prompt
+   for a plain name (no identity verification) as a placeholder until this
+   phase lands.
 8. **Moderation/admin tooling**, **procedural frontier generation**,
    **in-game building/scripting**: later phases (see Deferred/Open Items).
 

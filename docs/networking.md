@@ -26,18 +26,43 @@ terminal or just a queued line on stdout for v1.
 
 ## Adapter Plan
 
-1. **`SharpMud.Adapters.Cli`** (v1) — implements `ISession` over
+1. **`SharpMud.Adapters.Cli`** ✅ — implements `ISession` over
    `Console.In`/`Console.Out`. Single process, single local player, fast
-   iteration.
-2. **`SharpMud.Adapters.Telnet`** (later) — raw TCP, classic MUD client
-   compatibility (Mudlet, TinTin++, etc).
+   iteration. `Host` uses this when run with no arguments.
+2. **`SharpMud.Adapters.Telnet`** ✅ — `TelnetSession` (raw TCP via
+   `TcpClient`/`NetworkStream`, line-based I/O with IAC (0xFF) byte sequences
+   stripped from input) + `TelnetListener` (accepts connections, yields one
+   `ISession` per client via `IAsyncEnumerable`). **Does not negotiate MCCP/
+   MXP/NAWS** — that's still deferred, see Open Items; WheelMUD's
+   `Server/Telnet/` (docs/research/wheelmud-findings.md) is the reference to
+   consult when it's actually needed. `Host` uses this when run with
+   `--telnet [port]` (default 4000).
 3. **`SharpMud.Adapters.Ssh`** (later) — secure terminal access.
 4. **`SharpMud.Adapters.WebSocket`** (later) — browser play via xterm.js.
 
 Adding a transport is additive — a new project implementing `ISession` — and
 never requires changes to game logic, command parsing, or world state (see
 [architecture.md](architecture.md) for the enforced dependency direction that
-guarantees this).
+guarantees this). Confirmed in practice: the Telnet adapter required zero
+changes to `SharpMud.Engine` or `SharpMud.Ruleset.Classic`.
+
+## Multi-Session Host
+
+`Host`'s per-connection read-eval loop is `SessionLoop.RunAsync` (extracted
+from what used to be inline in `Program.cs`), shared by every transport. For
+Telnet, `HostRunner.RunTelnetAsync` accepts connections in a loop and spawns
+one `SessionLoop.RunAsync` task per connection against the same shared
+`World`/`IGameLoop`/`ICommandRegistry` — this is what makes concurrent players
+actually see and interact with each other (confirmed via a live two-client
+smoke test: both players saw each other in `look`, received each other's
+`say` output, and both received the wandering NPC's room-broadcast message).
+Each connection is wrapped in a try/catch so one bad session can't take down
+the listener or other connections (same exception-isolation principle as
+command execution, see [architecture.md](architecture.md)).
+
+New Telnet connections are prompted for a name (`"Name: "`) before a player
+`Thing` is created — this is a placeholder for real login (see
+[accounts-auth.md](accounts-auth.md)'s OAuth device-code flow), not auth.
 
 ## Sequence: Player Disconnects Mid-Fight
 
@@ -70,7 +95,14 @@ connection slot, classic MUD behavior on public servers. Exact minutes TBD.
 ## Open Items
 
 - Exact reconnect grace-window duration, and whether it's the same constant
-  as the combat linkdead grace period or configured separately.
-- Exact idle-timeout duration.
-- Concurrent-connection limits and backpressure once multiplayer transports
-  land — not yet specified.
+  as the combat linkdead grace period or configured separately. Not
+  implemented — a fresh Telnet connection always creates a new player
+  `Thing`, there's no reconnect-to-existing-character path yet.
+- Exact idle-timeout duration. Not implemented — a Telnet connection stays
+  open indefinitely until the client disconnects.
+- Concurrent-connection limits and backpressure — not yet specified;
+  `TelnetListener` currently accepts without limit.
+- MCCP/MXP/NAWS telnet protocol negotiation — deferred, see Adapter Plan
+  above.
+- Real login/auth on connect — currently just a name prompt, no identity
+  verification; see [accounts-auth.md](accounts-auth.md).
