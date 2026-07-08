@@ -47,6 +47,7 @@ public static class HubWorldBuilder
             DamageMax = 3,
             ExperienceReward = 10,
         });
+        caveRat.Behaviors.Add(new WanderingBehavior());
         oldWell.Add(caveRat);
         world.Register(caveRat);
 

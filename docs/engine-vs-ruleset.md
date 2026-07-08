@@ -179,6 +179,13 @@ exit canceling a move, a full container canceling an item pickup).
   just `Children` of the actor not present in this dictionary's values — no
   separate `Inventory` list needed, since `Thing.Children` already is the
   generic container.
+- `WanderingBehavior` — `int WanderChancePercent`. Presence + a registered
+  `WanderManager` (`ITickable`, like `CombatManager`) means "this NPC has a
+  chance each tick of moving to a random adjacent room." Deliberately
+  engine-level, not ruleset-level, since it depends only on `NpcBehavior`/
+  `ExitBehavior` — no combat or stat system involved. First real validation
+  that the split holds for a whole feature, not just data classes:
+  `SharpMud.Ruleset.Classic.Tests` never had to change for this to work.
 
 ## Ruleset-level behaviors (`SharpMud.Ruleset.Classic`)
 

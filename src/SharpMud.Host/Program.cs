@@ -3,6 +3,7 @@ using SharpMud.Adapters.Cli;
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
+using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
 using SharpMud.Host;
@@ -13,9 +14,11 @@ var (world, startingRoom) = HubWorldBuilder.Build();
 var random = new RandomSource();
 var combatResolver = new CombatResolver(random);
 var combatManager = new CombatManager(combatResolver, startingRoom);
+var wanderManager = new WanderManager(world, random);
 
 var gameLoop = new GameLoop(new GameLoopOptions());
 gameLoop.Register(combatManager);
+gameLoop.Register(wanderManager);
 
 var services = new ServiceCollection();
 services.AddSingleton<ICommandParser, CommandParser>();

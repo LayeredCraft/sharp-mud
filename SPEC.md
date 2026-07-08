@@ -132,8 +132,10 @@ derivatives separate "instant" commands from round-based combat resolution.
    per [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md). Doing this
    before NPCs/networking/accounts land means those phases are built against
    the real engine boundary instead of needing their own retrofit later.
-5. **NPCs**: basic AI — wandering mobs, shopkeepers, quest givers, driven by
-   the same data-config model as rooms.
+5. **NPCs**: basic AI. Wandering (tick-driven `WanderingBehavior`/
+   `WanderManager`, engine-level since it needs no ruleset-specific state) is
+   implemented; shopkeepers/quest givers are deferred until currency/trade/
+   quest systems exist to give them something to do.
 6. **Networking**: Telnet/SSH/WebSocket adapters, multi-player concurrency
    hardening.
 7. **Accounts & auth**: see below.

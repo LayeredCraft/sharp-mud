@@ -1,4 +1,4 @@
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Engine.Core;
 
 public sealed class RandomSource : IRandomSource
 {
