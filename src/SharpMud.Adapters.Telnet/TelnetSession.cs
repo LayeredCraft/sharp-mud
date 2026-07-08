@@ -69,7 +69,7 @@ public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
 
         var command = buffer[0];
         if (command is >= 251 and <= 254) // WILL, WONT, DO, DONT
-            await _stream.ReadAsync(buffer, ct);
+            _ = await _stream.ReadAsync(buffer, ct);
     }
 
     public async ValueTask WriteLineAsync(string text, CancellationToken ct) => await _writer.WriteLineAsync(text);

@@ -157,11 +157,15 @@ Deferred until networked play lands (v1 local CLI has no login).
 
 ## Deployment
 
-Containerized (Docker) from the start, with AWS as the intended eventual home
-(pairing with the DynamoDB EF Core provider and other AWS-managed
-infrastructure). The MUD's always-on tick loop and persistent connections mean
-it runs as one long-running containerized process (e.g. ECS/Fargate), not a
-serverless/request-response model.
+Containerized (Docker) ✅ — multi-stage `Dockerfile` at the repo root, built
+and verified locally (real telnet client connecting to the containerized
+server end-to-end). AWS is still the intended eventual home (pairing with the
+DynamoDB EF Core provider and other AWS-managed infrastructure) but nothing
+AWS-specific exists yet. The MUD's always-on tick loop and persistent
+connections mean it runs as one long-running containerized process (e.g.
+ECS/Fargate), not a serverless/request-response model. See
+[docs/deployment.md](docs/deployment.md) for the container's runtime
+configuration and open items.
 
 ## Deferred / Open Items
 

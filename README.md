@@ -27,6 +27,7 @@ SharpMud.sln
     SharpMud.Engine.Tests/
     SharpMud.Ruleset.Classic.Tests/
     SharpMud.Persistence.Tests/
+    SharpMud.Host.Tests/
 ```
 
 ## Building & testing
@@ -42,3 +43,13 @@ dotnet test SharpMud.sln
 dotnet run --project src/SharpMud.Host       # local single-player CLI
 dotnet run --project src/SharpMud.Host -- --telnet [port]  # telnet server, default port 4000
 ```
+
+## Containerized
+
+```
+docker build -t sharpmud .
+docker run -p 4000:4000 sharpmud   # telnet server (container default)
+```
+
+See [docs/deployment.md](docs/deployment.md) for runtime configuration
+(env vars, mode selection) and current limitations.

@@ -44,10 +44,16 @@ Console.CancelKeyPress += (_, e) =>
 
 var gameLoopTask = gameLoop.RunAsync(cts.Token);
 
-if (args.Length > 0 && args[0] == "--telnet")
+var env = new Dictionary<string, string?>
 {
-    var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 4000;
-    await HostRunner.RunTelnetAsync(world, parser, registry, startingRoom, port, cts.Token);
+    ["SHARPMUD_MODE"] = Environment.GetEnvironmentVariable("SHARPMUD_MODE"),
+    ["SHARPMUD_TELNET_PORT"] = Environment.GetEnvironmentVariable("SHARPMUD_TELNET_PORT"),
+};
+var hostOptions = HostOptions.Parse(args, env);
+
+if (hostOptions.UseTelnet)
+{
+    await HostRunner.RunTelnetAsync(world, parser, registry, startingRoom, hostOptions.TelnetPort, cts.Token);
 }
 else
 {
