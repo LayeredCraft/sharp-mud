@@ -4,6 +4,10 @@
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="LayeredCraft.OptimizedEnums" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

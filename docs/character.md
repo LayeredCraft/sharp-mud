@@ -102,4 +102,8 @@ Constitution respectively, with class-specific multipliers (see
 - Actual per-class hit-die/mana/stamina constants for the derived-stat
   formulas — shape of the formula is decided, numbers are not.
 - Actual stat modifier tables for each Race and each Class — mechanism is
-  defined in the Stat System section above, numbers are not.
+  defined in the Stat System section above, numbers are not. `Race`/
+  `CharacterClass` are now `LayeredCraft.OptimizedEnums` (source-generated
+  smart enums, not plain `enum`s) specifically so each singleton instance can
+  eventually carry its own modifier data directly, rather than a parallel
+  `Dictionary<Race, StatModifiers>` lookup table.

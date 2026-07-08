@@ -7,8 +7,8 @@ namespace SharpMud.Ruleset.Classic;
 // this plus an engine PlayerBehavior is a player character.
 public sealed class StatsBehavior : Behavior
 {
-    public Race Race { get; set; }
-    public CharacterClass Class { get; set; }
+    public Race Race { get; set; } = Race.Human;
+    public CharacterClass Class { get; set; } = CharacterClass.Warrior;
 
     // Base attributes; Race/Class modifier tables are not yet defined (see
     // docs/character.md Open Items) so these are applied unmodified for now.

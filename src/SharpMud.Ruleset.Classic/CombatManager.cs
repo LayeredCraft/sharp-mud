@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
@@ -21,7 +22,7 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
 
     public void EndEncounter(ThingId thingId) => _encounters.Remove(thingId);
 
-    public bool TryGetEncounter(ThingId thingId, out CombatEncounter? encounter) =>
+    public bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter) =>
         _encounters.TryGetValue(thingId, out encounter);
 
     public async Task OnTickAsync(TickContext ctx, CancellationToken ct)

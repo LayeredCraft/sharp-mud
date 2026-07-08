@@ -4,9 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- App -->
+    <PackageVersion Include="LayeredCraft.OptimizedEnums" Version="1.4.2" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
   </ItemGroup>
-
   <ItemGroup>
     <!-- Test Framework: xUnit v3 on Microsoft.Testing.Platform v2 (MTP v2), per docs/architecture.md.
          Use xunit.v3.mtp-v2, not the plain xunit.v3 meta-package - the latter resolves
