@@ -1,81 +1,91 @@
-using SharpMud.Engine.Characters;
+using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
+using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
-using SharpMud.Engine.World;
 
 namespace SharpMud.Engine.Tests.Commands;
 
 public sealed class WearCommandTests
 {
-    [Theory, EngineAutoData]
-    public async Task ExecuteAsync_EquipsItemAndRemovesFromInventory_WhenItemIsWearable(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    private static Thing MakePlayer(ISession session)
     {
-        var room = new Room { Id = RoomId.New(), AreaId = AreaId.New(), Name = "Room", Description = "..." };
-        var item = new Item { Id = ItemId.New(), Name = "rusty sword", Slot = EquipSlot.MainHand };
+        var player = new Thing { Id = ThingId.New(), Name = "Adventurer" };
+        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new EquippedBehavior());
+        return player;
+    }
 
-        var player = Player.CreateDefault("Adventurer", room.Id);
-        player.Inventory.Add(item.Id);
+    [Theory, EngineAutoData]
+    public async Task ExecuteAsync_EquipsItemAndRemovesFromCarried_WhenItemIsWearable([Frozen] ISession session)
+    {
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = MakePlayer(session);
+        room.Add(player);
 
-        world.GetItem(item.Id).Returns(item);
+        var item = new Thing { Id = ThingId.New(), Name = "rusty sword" };
+        item.Behaviors.Add(new ItemBehavior());
+        item.Behaviors.Add(new WearableBehavior { Slot = EquipSlot.MainHand });
+        player.Add(item);
 
+        var world = new World();
         var sut = new WearCommand();
         var ctx = new CommandContext(player, room, ["rusty", "sword"], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        player.Inventory.Should().NotContain(item.Id);
-        player.Equipped[EquipSlot.MainHand].Should().Be(item.Id);
+        player.FindBehavior<EquippedBehavior>()!.Equipped[EquipSlot.MainHand].Should().Be(item);
+        CarriedItems.Of(player).Should().NotContain(item);
         await session.Received(1).WriteLineAsync("You wear rusty sword.", Arg.Any<CancellationToken>());
     }
 
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_SendsCannotWearMessage_WhenItemHasNoSlot(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_SendsCannotWearMessage_WhenItemHasNoWearableBehavior([Frozen] ISession session)
     {
-        var room = new Room { Id = RoomId.New(), AreaId = AreaId.New(), Name = "Room", Description = "..." };
-        var item = new Item { Id = ItemId.New(), Name = "gold coin", Slot = null };
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = MakePlayer(session);
+        room.Add(player);
 
-        var player = Player.CreateDefault("Adventurer", room.Id);
-        player.Inventory.Add(item.Id);
+        var item = new Thing { Id = ThingId.New(), Name = "gold coin" };
+        item.Behaviors.Add(new ItemBehavior());
+        player.Add(item);
 
-        world.GetItem(item.Id).Returns(item);
-
+        var world = new World();
         var sut = new WearCommand();
         var ctx = new CommandContext(player, room, ["gold", "coin"], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await session.Received(1).WriteLineAsync("You can't wear that.", Arg.Any<CancellationToken>());
-        player.Equipped.Should().NotContainKey(EquipSlot.Head);
+        player.FindBehavior<EquippedBehavior>()!.Equipped.Should().NotContainKey(EquipSlot.Head);
     }
 
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_SwapsPreviouslyEquippedItemBackToInventory_WhenSlotIsOccupied(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_SwapsPreviouslyEquippedItemBackToCarried_WhenSlotIsOccupied([Frozen] ISession session)
     {
-        var room = new Room { Id = RoomId.New(), AreaId = AreaId.New(), Name = "Room", Description = "..." };
-        var oldItem = new Item { Id = ItemId.New(), Name = "old cap", Slot = EquipSlot.Head };
-        var newItem = new Item { Id = ItemId.New(), Name = "leather cap", Slot = EquipSlot.Head };
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = MakePlayer(session);
+        room.Add(player);
 
-        var player = Player.CreateDefault("Adventurer", room.Id);
-        player.Equipped[EquipSlot.Head] = oldItem.Id;
-        player.Inventory.Add(newItem.Id);
+        var oldItem = new Thing { Id = ThingId.New(), Name = "old cap" };
+        oldItem.Behaviors.Add(new ItemBehavior());
+        oldItem.Behaviors.Add(new WearableBehavior { Slot = EquipSlot.Head });
+        player.Add(oldItem);
+        player.FindBehavior<EquippedBehavior>()!.Equipped[EquipSlot.Head] = oldItem;
 
-        world.GetItem(newItem.Id).Returns(newItem);
-        world.GetItem(oldItem.Id).Returns(oldItem);
+        var newItem = new Thing { Id = ThingId.New(), Name = "leather cap" };
+        newItem.Behaviors.Add(new ItemBehavior());
+        newItem.Behaviors.Add(new WearableBehavior { Slot = EquipSlot.Head });
+        player.Add(newItem);
 
+        var world = new World();
         var sut = new WearCommand();
         var ctx = new CommandContext(player, room, ["leather", "cap"], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        player.Equipped[EquipSlot.Head].Should().Be(newItem.Id);
-        player.Inventory.Should().Contain(oldItem.Id);
+        player.FindBehavior<EquippedBehavior>()!.Equipped[EquipSlot.Head].Should().Be(newItem);
+        CarriedItems.Of(player).Should().Contain(oldItem);
         await session.Received(1).WriteLineAsync("You remove old cap.", Arg.Any<CancellationToken>());
         await session.Received(1).WriteLineAsync("You wear leather cap.", Arg.Any<CancellationToken>());
     }

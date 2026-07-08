@@ -1,11 +1,14 @@
-using SharpMud.Engine.Combat;
-using SharpMud.Engine.World;
+using SharpMud.Engine.Behaviors;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
+// Ruleset-agnostic commands only - kill/attack/flee (and anything else that
+// depends on a ruleset-specific behavior) register themselves separately;
+// see SharpMud.Ruleset.Classic's equivalent registration method, called by
+// Host alongside this one.
 public static class BuiltinCommands
 {
-    public static void RegisterAll(ICommandRegistry registry, ICombatManager combatManager, IRandomSource random)
+    public static void RegisterAll(ICommandRegistry registry)
     {
         registry.Register(new MoveCommand(Direction.North, "north", ["n"]));
         registry.Register(new MoveCommand(Direction.South, "south", ["s"]));
@@ -23,8 +26,6 @@ public static class BuiltinCommands
         registry.Register(new EmoteCommand());
         registry.Register(new WhoCommand());
         registry.Register(new QuitCommand());
-        registry.Register(new AttackCommand(combatManager));
-        registry.Register(new FleeCommand(combatManager, random));
         registry.Register(new GetCommand());
         registry.Register(new DropCommand());
         registry.Register(new WearCommand());

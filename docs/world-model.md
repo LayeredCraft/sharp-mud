@@ -4,6 +4,12 @@ See [README.md](README.md) for how this doc relates to `SPEC.md` and the other
 subsystem docs. See [character.md](character.md) for the Player entity that
 occupies rooms, and [persistence.md](persistence.md) for how rooms are stored.
 
+**Superseded by [engine-vs-ruleset.md](engine-vs-ruleset.md)**: `Room`/`Exit`/
+`Area` below are no longer dedicated classes — they're `Thing`s composed from
+`RoomBehavior`/`ExitBehavior`/`AreaBehavior`. This doc still describes the
+correct *shape* (exits, locking, hand-built hub vs. generated frontier); read
+engine-vs-ruleset.md for how that shape is actually represented in code now.
+
 ## Authoring Strategy
 
 Hybrid, per SPEC.md:

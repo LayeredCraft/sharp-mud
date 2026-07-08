@@ -4,6 +4,7 @@
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
     <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
     <ProjectReference Include="..\SharpMud.Adapters.Cli\SharpMud.Adapters.Cli.csproj" />
+    <ProjectReference Include="..\SharpMud.Ruleset.Classic\SharpMud.Ruleset.Classic.csproj" />
   </ItemGroup>
 
   <ItemGroup>

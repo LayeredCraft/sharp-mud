@@ -1,4 +1,4 @@
-using SharpMud.Engine.World;
+using SharpMud.Engine.Behaviors;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
@@ -9,17 +9,12 @@ public sealed class GetCommand : ICommand
 
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
-        if (ctx.Args.Count == 0)
-        {
-            await ctx.Session.WriteLineAsync("Get what?", ct);
+        if (await CommandGuards.RequireArgsAsync(ctx, "Get what?", ct))
             return;
-        }
 
         var target = string.Join(' ', ctx.Args);
         var item = ObjectMatcher.FindMatch(
-            ctx.CurrentRoom.ItemsOnGround.Select(ctx.World.GetItem).OfType<Item>(),
-            target,
-            i => i.Name);
+            ctx.CurrentRoom.Children.Where(c => c.HasBehavior<ItemBehavior>()), target, i => i.Name);
 
         if (item is null)
         {
@@ -27,16 +22,15 @@ public sealed class GetCommand : ICommand
             return;
         }
 
-        ctx.CurrentRoom.ItemsOnGround.Remove(item.Id);
-        ctx.Actor.Inventory.Add(item.Id);
+        if (!ctx.CurrentRoom.Remove(item))
+        {
+            await ctx.Session.WriteLineAsync("You can't take that.", ct);
+            return;
+        }
+
+        ctx.Actor.Add(item);
 
         await ctx.Session.WriteLineAsync($"You get {item.Name}.", ct);
-
-        foreach (var other in ctx.World.PlayersInRoom(ctx.CurrentRoom.Id).Where(p => p.Id != ctx.Actor.Id))
-        {
-            var session = ctx.World.GetSession(other.Id);
-            if (session is not null)
-                await session.WriteLineAsync($"{ctx.Actor.Name} picks up {item.Name}.", ct);
-        }
+        await RoomBroadcast.ToOccupantsAsync(ctx.CurrentRoom, ctx.Actor, $"{ctx.Actor.Name} picks up {item.Name}.", ct);
     }
 }

@@ -1,18 +1,18 @@
 using Microsoft.Extensions.DependencyInjection;
 using SharpMud.Adapters.Cli;
-using SharpMud.Engine.Characters;
-using SharpMud.Engine.Combat;
+using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
-using SharpMud.Engine.World;
+using SharpMud.Host;
+using SharpMud.Ruleset.Classic;
 
-var (world, startingRoomId) = WorldBuilder.BuildHub();
+var (world, startingRoom) = HubWorldBuilder.Build();
 
 var random = new RandomSource();
 var combatResolver = new CombatResolver(random);
-var combatManager = new CombatManager(world, combatResolver, startingRoomId);
+var combatManager = new CombatManager(combatResolver, startingRoom);
 
 var gameLoop = new GameLoop(new GameLoopOptions());
 gameLoop.Register(combatManager);
@@ -22,7 +22,8 @@ services.AddSingleton<ICommandParser, CommandParser>();
 services.AddSingleton<ICommandRegistry>(_ =>
 {
     var registry = new CommandRegistry();
-    BuiltinCommands.RegisterAll(registry, combatManager, random);
+    BuiltinCommands.RegisterAll(registry);
+    ClassicCommands.RegisterAll(registry, combatManager, random);
     return registry;
 });
 
@@ -32,8 +33,8 @@ var parser = provider.GetRequiredService<ICommandParser>();
 var registry = provider.GetRequiredService<ICommandRegistry>();
 
 ISession session = new ConsoleSession();
-var player = Player.CreateDefault("Adventurer", startingRoomId);
-world.Connect(player, session);
+var player = HubWorldBuilder.CreatePlayer(world, "Adventurer", startingRoom);
+player.FindBehavior<PlayerBehavior>()!.Session = session;
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -47,8 +48,7 @@ var gameLoopTask = gameLoop.RunAsync(cts.Token);
 await session.WriteLineAsync("Welcome to SharpMud.", cts.Token);
 await session.WriteLineAsync(string.Empty, cts.Token);
 
-var startingRoom = world.GetRoom(startingRoomId)!;
-await LookCommand.SendRoomDescriptionAsync(player, startingRoom, world, session, cts.Token);
+await LookCommand.SendRoomDescriptionAsync(player, startingRoom, cts.Token);
 
 while (session.IsConnected && !cts.IsCancellationRequested)
 {
@@ -62,7 +62,7 @@ while (session.IsConnected && !cts.IsCancellationRequested)
     if (parsed.Verb.Length == 0)
         continue;
 
-    var currentRoom = world.GetRoom(player.CurrentRoomId);
+    var currentRoom = player.Parent;
     if (currentRoom is null)
         break;
 
@@ -76,7 +76,7 @@ while (session.IsConnected && !cts.IsCancellationRequested)
     await command.ExecuteAsync(context, cts.Token);
 }
 
-world.Disconnect(player.Id);
+world.Unregister(player.Id);
 
 cts.Cancel();
 try

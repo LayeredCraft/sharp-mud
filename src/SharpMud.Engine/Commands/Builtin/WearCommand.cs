@@ -1,4 +1,4 @@
-using SharpMud.Engine.World;
+using SharpMud.Engine.Behaviors;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
@@ -9,17 +9,11 @@ public sealed class WearCommand : ICommand
 
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
-        if (ctx.Args.Count == 0)
-        {
-            await ctx.Session.WriteLineAsync("Wear what?", ct);
+        if (await CommandGuards.RequireArgsAsync(ctx, "Wear what?", ct))
             return;
-        }
 
         var target = string.Join(' ', ctx.Args);
-        var item = ObjectMatcher.FindMatch(
-            ctx.Actor.Inventory.Select(ctx.World.GetItem).OfType<Item>(),
-            target,
-            i => i.Name);
+        var item = ObjectMatcher.FindMatch(CarriedItems.Of(ctx.Actor), target, i => i.Name);
 
         if (item is null)
         {
@@ -27,23 +21,27 @@ public sealed class WearCommand : ICommand
             return;
         }
 
-        if (item.Slot is not { } slot)
+        var wearable = item.FindBehavior<WearableBehavior>();
+        if (wearable is null)
         {
             await ctx.Session.WriteLineAsync("You can't wear that.", ct);
             return;
         }
 
-        // Auto-swap: whatever's already in the slot goes back to inventory.
-        if (ctx.Actor.Equipped.TryGetValue(slot, out var previousId) && previousId is { } id)
+        var equipped = ctx.Actor.FindBehavior<EquippedBehavior>();
+        if (equipped is null)
         {
-            ctx.Actor.Inventory.Add(id);
-            var previous = ctx.World.GetItem(id);
-            if (previous is not null)
-                await ctx.Session.WriteLineAsync($"You remove {previous.Name}.", ct);
+            await ctx.Session.WriteLineAsync("You can't wear anything.", ct);
+            return;
         }
 
-        ctx.Actor.Inventory.Remove(item.Id);
-        ctx.Actor.Equipped[slot] = item.Id;
+        // Auto-swap: whatever's already in the slot comes off first.
+        if (equipped.Equipped.TryGetValue(wearable.Slot, out var previous) && previous is not null)
+        {
+            await ctx.Session.WriteLineAsync($"You remove {previous.Name}.", ct);
+        }
+
+        equipped.Equipped[wearable.Slot] = item;
 
         await ctx.Session.WriteLineAsync($"You wear {item.Name}.", ct);
     }

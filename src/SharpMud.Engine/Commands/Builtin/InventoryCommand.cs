@@ -1,3 +1,5 @@
+using SharpMud.Engine.Behaviors;
+
 namespace SharpMud.Engine.Commands.Builtin;
 
 public sealed class InventoryCommand : ICommand
@@ -7,28 +9,28 @@ public sealed class InventoryCommand : ICommand
 
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
+        var carried = CarriedItems.Of(ctx.Actor).ToList();
+
         await ctx.Session.WriteLineAsync("You are carrying:", ct);
-        if (ctx.Actor.Inventory.Count == 0)
+        if (carried.Count == 0)
         {
             await ctx.Session.WriteLineAsync("  nothing", ct);
         }
         else
         {
-            foreach (var item in ctx.Actor.Inventory.Select(ctx.World.GetItem))
-                if (item is not null)
-                    await ctx.Session.WriteLineAsync($"  {item.Name}", ct);
+            foreach (var item in carried)
+                await ctx.Session.WriteLineAsync($"  {item.Name}", ct);
         }
 
-        var worn = ctx.Actor.Equipped.Where(kvp => kvp.Value is not null).ToList();
-        if (worn.Count == 0)
+        var worn = ctx.Actor.FindBehavior<EquippedBehavior>()?.Equipped
+            .Where(kvp => kvp.Value is not null)
+            .ToList();
+
+        if (worn is not { Count: > 0 })
             return;
 
         await ctx.Session.WriteLineAsync("You are wearing:", ct);
-        foreach (var (slot, itemId) in worn)
-        {
-            var item = ctx.World.GetItem(itemId!.Value);
-            if (item is not null)
-                await ctx.Session.WriteLineAsync($"  {item.Name} ({slot})", ct);
-        }
+        foreach (var (slot, item) in worn)
+            await ctx.Session.WriteLineAsync($"  {item!.Name} ({slot})", ct);
     }
 }

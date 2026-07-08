@@ -1,3 +1,5 @@
+using SharpMud.Engine.Behaviors;
+
 namespace SharpMud.Engine.Commands.Builtin;
 
 public sealed class WhoCommand : ICommand
@@ -8,7 +10,7 @@ public sealed class WhoCommand : ICommand
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
         await ctx.Session.WriteLineAsync("Online players:", ct);
-        foreach (var player in ctx.World.AllPlayers)
+        foreach (var player in ctx.World.AllWithBehavior<PlayerBehavior>())
             await ctx.Session.WriteLineAsync($"  {player.Name}", ct);
     }
 }

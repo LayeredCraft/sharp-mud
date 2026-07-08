@@ -1,100 +1,87 @@
-using SharpMud.Engine.Characters;
+using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
+using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
-using SharpMud.Engine.World;
 
 namespace SharpMud.Engine.Tests.Commands;
 
 public sealed class MoveCommandTests
 {
-    [Theory, EngineAutoData]
-    public async Task ExecuteAsync_MovesPlayerAndShowsDestination_WhenExitExists(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    private static Thing MakeRoom(string name) => new()
     {
-        var destination = new Room
-        {
-            Id = RoomId.New(),
-            AreaId = AreaId.New(),
-            Name = "Market Street",
-            Description = "A busy street.",
-        };
-        var origin = new Room
-        {
-            Id = RoomId.New(),
-            AreaId = AreaId.New(),
-            Name = "Town Square",
-            Description = "A square.",
-        };
-        origin.Exits.Add(new Exit { Direction = Direction.North, DestinationRoomId = destination.Id });
+        Id = ThingId.New(),
+        Name = name,
+        Description = $"{name} description.",
+    };
 
-        var player = Player.CreateDefault("Adventurer", origin.Id);
+    private static Thing MakePlayer(string name, ISession session)
+    {
+        var player = new Thing { Id = ThingId.New(), Name = name };
+        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        return player;
+    }
 
-        world.GetRoom(destination.Id).Returns(destination);
-        world.PlayersInRoom(destination.Id).Returns([]);
+    [Theory, EngineAutoData]
+    public async Task ExecuteAsync_MovesPlayerAndShowsDestination_WhenExitExists([Frozen] ISession session)
+    {
+        var origin = MakeRoom("Town Square");
+        var destination = MakeRoom("Market Street");
+        var exit = new Thing { Id = ThingId.New(), Name = "north" };
+        exit.Behaviors.Add(new ExitBehavior { Direction = Direction.North, Destination = destination });
+        origin.Add(exit);
 
+        var player = MakePlayer("Adventurer", session);
+        origin.Add(player);
+
+        var world = new World();
         var sut = new MoveCommand(Direction.North, "north", ["n"]);
         var ctx = new CommandContext(player, origin, [], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        await world.Received(1).MovePlayerAsync(player, origin, destination, Direction.North, Arg.Any<CancellationToken>());
+        player.Parent.Should().Be(destination);
+        origin.Children.Should().NotContain(player);
         await session.Received(1).WriteLineAsync(destination.Name, Arg.Any<CancellationToken>());
     }
 
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_SendsCannotGoMessage_WhenNoExitExists(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_SendsCannotGoMessage_WhenNoExitExists([Frozen] ISession session)
     {
-        var origin = new Room
-        {
-            Id = RoomId.New(),
-            AreaId = AreaId.New(),
-            Name = "Town Square",
-            Description = "A square.",
-        };
-        var player = Player.CreateDefault("Adventurer", origin.Id);
+        var origin = MakeRoom("Town Square");
+        var player = MakePlayer("Adventurer", session);
+        origin.Add(player);
 
+        var world = new World();
         var sut = new MoveCommand(Direction.North, "north", ["n"]);
         var ctx = new CommandContext(player, origin, [], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await session.Received(1).WriteLineAsync("You can't go that way.", Arg.Any<CancellationToken>());
-        await world.DidNotReceive().MovePlayerAsync(
-            Arg.Any<Player>(), Arg.Any<Room>(), Arg.Any<Room>(), Arg.Any<Direction?>(), Arg.Any<CancellationToken>());
+        player.Parent.Should().Be(origin);
     }
 
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_SendsLockedMessage_WhenExitIsLocked(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_SendsLockedMessage_WhenExitIsLocked([Frozen] ISession session)
     {
-        var origin = new Room
-        {
-            Id = RoomId.New(),
-            AreaId = AreaId.New(),
-            Name = "Town Square",
-            Description = "A square.",
-        };
-        origin.Exits.Add(new Exit
-        {
-            Direction = Direction.North,
-            DestinationRoomId = RoomId.New(),
-            Lock = new ExitLockState { IsLocked = true },
-        });
+        var origin = MakeRoom("Town Square");
+        var destination = MakeRoom("Market Street");
+        var exit = new Thing { Id = ThingId.New(), Name = "north" };
+        exit.Behaviors.Add(new ExitBehavior { Direction = Direction.North, Destination = destination });
+        exit.Behaviors.Add(new LockableBehavior { IsLocked = true });
+        origin.Add(exit);
 
-        var player = Player.CreateDefault("Adventurer", origin.Id);
+        var player = MakePlayer("Adventurer", session);
+        origin.Add(player);
 
+        var world = new World();
         var sut = new MoveCommand(Direction.North, "north", ["n"]);
         var ctx = new CommandContext(player, origin, [], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await session.Received(1).WriteLineAsync("The door is locked.", Arg.Any<CancellationToken>());
-        await world.DidNotReceive().MovePlayerAsync(
-            Arg.Any<Player>(), Arg.Any<Room>(), Arg.Any<Room>(), Arg.Any<Direction?>(), Arg.Any<CancellationToken>());
+        player.Parent.Should().Be(origin);
     }
 }

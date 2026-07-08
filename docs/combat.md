@@ -5,6 +5,13 @@ subsystem docs. See [character.md](character.md) for Player stats and
 [architecture.md](architecture.md) for the `ITickable`/`IGameLoop` mechanism
 this system hooks into.
 
+**Superseded by [engine-vs-ruleset.md](engine-vs-ruleset.md)**: everything on
+this page now lives in `SharpMud.Ruleset.Classic`, not `SharpMud.Engine` -
+combat is ruleset-specific by design (see the findings doc's §9). `ICombatant`
+becomes `CombatantBehavior`, attached to whichever `Thing`s the ruleset wants
+to be able to fight; `Player`/`Npc` references below mean "a `Thing` with the
+relevant behaviors."
+
 ## Model
 
 Simple round-based combat (Diku/Circle-style), per SPEC.md: auto-attack on

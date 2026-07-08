@@ -12,8 +12,11 @@ implicit usings on, file-scoped namespaces throughout.
 ```
 sharp-mud.sln
   src/
-    SharpMud.Engine/           # pure domain + game loop. Zero deps on Adapters,
-                                # Persistence, or EF Core. This is the core.
+    SharpMud.Engine/           # Thing/Behavior, event system, generic behaviors,
+                                # command pipeline, session abstraction, tick loop.
+                                # Zero deps on Adapters, Persistence, or any ruleset.
+    SharpMud.Ruleset.Classic/  # D&D-flavored ruleset: stats, combat, kill/flee.
+                                # References Engine only - see engine-vs-ruleset.md.
     SharpMud.Persistence/      # EF Core DbContext + repository implementations.
                                 # References Engine (for domain types / repo interfaces).
     SharpMud.Adapters.Cli/     # local stdin/stdout ISession implementation.
@@ -22,18 +25,23 @@ sharp-mud.sln
     SharpMud.Adapters.WebSocket/ # (later)
     SharpMud.Host/             # composition root: DI wiring (Microsoft.Extensions.
                                 # DependencyInjection), config, process entry point.
+                                # The only project allowed to know about a specific
+                                # ruleset, and owns the hand-built hub world content.
   tests/
     SharpMud.Engine.Tests/     # xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions
+    SharpMud.Ruleset.Classic.Tests/
     SharpMud.Persistence.Tests/
 ```
 
 **Dependency direction (strict, enforced by project references):**
-`Adapters.* → Engine`, `Persistence → Engine`, `Host → everything`. Engine never
-references Adapters or Persistence. This is what makes transports (see
-[networking.md](networking.md)) and storage backends (see
-[persistence.md](persistence.md)) swappable without touching game logic — it's
-the physical enforcement of the SPEC.md session-abstraction and
-repository-interface decisions.
+`Ruleset.Classic → Engine`, `Adapters.* → Engine`, `Persistence → Engine`,
+`Host → everything`. Engine never references Adapters, Persistence, or any
+ruleset — see [engine-vs-ruleset.md](engine-vs-ruleset.md) for the full
+rationale (this is the actual mechanism behind the "engine, not just a game"
+goal in `SPEC.md`, not just the transport/persistence swappability described
+below). This is also what makes transports (see [networking.md](networking.md))
+and storage backends (see [persistence.md](persistence.md)) swappable without
+touching game logic.
 
 ## The Global Tick Loop
 
@@ -69,10 +77,11 @@ and engine services (`IGameLoop`, `ICommandRegistry`, `ICombatResolver`, etc).
 
 - **Unit tests** (xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions,
   per the `dotnet-unit-testing-patterns` skill conventions) required for:
-  `ICommandParser`, each `ICommand` implementation, `ICombatResolver`,
-  `IWorld.MovePlayer`, stat-derivation formulas. These are pure/deterministic
-  enough to test without a live session or tick loop — `ISession` and
-  repositories are mocked via NSubstitute.
+  `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (now in
+  `SharpMud.Ruleset.Classic.Tests`), `Thing`/`BehaviorManager`/`ThingEvents`
+  propagation, stat-derivation formulas. These are pure/deterministic enough
+  to test without a live session or tick loop — `ISession` and repositories
+  are mocked via NSubstitute.
 - **Test runner**: Microsoft.Testing.Platform (MTP), not VSTest. Test projects
   reference the `xunit.v3.mtp-v2` package (not the plain `xunit.v3`
   meta-package, which resolves an MTP-v1-compatible core and throws a

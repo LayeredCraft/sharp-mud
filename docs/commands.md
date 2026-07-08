@@ -4,6 +4,10 @@ See [README.md](README.md) for how this doc relates to `SPEC.md` and the other
 subsystem docs. See [world-model.md](world-model.md) for `IWorld`/`Room`, and
 [networking.md](networking.md) for `ISession`.
 
+**Updated by [engine-vs-ruleset.md](engine-vs-ruleset.md)**: `CommandContext`
+now carries `Thing` instead of `Player`/`Room`; the object-matching/error-
+handling/verb-list content below is unchanged.
+
 ## Pipeline
 
 ```csharp

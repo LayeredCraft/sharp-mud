@@ -1,10 +1,10 @@
-using SharpMud.Engine.World;
+using SharpMud.Engine.Behaviors;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
-// "give <item> to <player>" (docs/commands.md v1 verb list). Works against
-// any player in the room via IWorld.PlayersInRoom - the local CLI only ever
-// connects one player in v1, but the plumbing doesn't assume that.
+// "give <item> to <player>" - works against any player in the room via
+// Children/PlayerBehavior. The local CLI only ever connects one player in
+// v1, but the plumbing doesn't assume that.
 public sealed class GiveCommand : ICommand
 {
     public string Verb => "give";
@@ -32,19 +32,16 @@ public sealed class GiveCommand : ICommand
         var itemTarget = string.Join(' ', args.Take(toIndex));
         var playerName = string.Join(' ', args.Skip(toIndex + 1));
 
-        var item = ObjectMatcher.FindMatch(
-            ctx.Actor.Inventory.Select(ctx.World.GetItem).OfType<Item>(),
-            itemTarget,
-            i => i.Name);
-
+        var item = ObjectMatcher.FindMatch(CarriedItems.Of(ctx.Actor), itemTarget, i => i.Name);
         if (item is null)
         {
             await ctx.Session.WriteLineAsync("You aren't carrying that.", ct);
             return;
         }
 
-        var recipient = ctx.World.PlayersInRoom(ctx.CurrentRoom.Id)
-            .FirstOrDefault(p => p.Id != ctx.Actor.Id && p.Name.Contains(playerName, StringComparison.OrdinalIgnoreCase));
+        var recipient = ctx.CurrentRoom.Children
+            .Where(c => c != ctx.Actor && c.HasBehavior<PlayerBehavior>())
+            .FirstOrDefault(p => p.Name.Contains(playerName, StringComparison.OrdinalIgnoreCase));
 
         if (recipient is null)
         {
@@ -52,12 +49,17 @@ public sealed class GiveCommand : ICommand
             return;
         }
 
-        ctx.Actor.Inventory.Remove(item.Id);
-        recipient.Inventory.Add(item.Id);
+        if (!ctx.Actor.Remove(item))
+        {
+            await ctx.Session.WriteLineAsync("You can't give that away.", ct);
+            return;
+        }
+
+        recipient.Add(item);
 
         await ctx.Session.WriteLineAsync($"You give {item.Name} to {recipient.Name}.", ct);
 
-        var recipientSession = ctx.World.GetSession(recipient.Id);
+        var recipientSession = recipient.FindBehavior<PlayerBehavior>()?.Session;
         if (recipientSession is not null)
             await recipientSession.WriteLineAsync($"{ctx.Actor.Name} gives you {item.Name}.", ct);
     }

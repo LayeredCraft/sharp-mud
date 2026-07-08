@@ -1,61 +1,63 @@
-using SharpMud.Engine.Characters;
+using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
+using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
-using SharpMud.Engine.World;
 
 namespace SharpMud.Engine.Tests.Commands;
 
 public sealed class GiveCommandTests
 {
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_TransfersItemToRecipient_WhenRecipientIsInRoom(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_TransfersItemToRecipient_WhenRecipientIsInRoom([Frozen] ISession session)
     {
-        var room = new Room { Id = RoomId.New(), AreaId = AreaId.New(), Name = "Room", Description = "..." };
-        var item = new Item { Id = ItemId.New(), Name = "gold coin" };
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
 
-        var giver = Player.CreateDefault("Giver", room.Id);
-        giver.Inventory.Add(item.Id);
-        var recipient = Player.CreateDefault("Receiver", room.Id);
+        var giver = new Thing { Id = ThingId.New(), Name = "Giver" };
+        giver.Behaviors.Add(new PlayerBehavior { Session = session });
+        room.Add(giver);
+
+        var item = new Thing { Id = ThingId.New(), Name = "gold coin" };
+        item.Behaviors.Add(new ItemBehavior());
+        giver.Add(item);
+
         var recipientSession = Substitute.For<ISession>();
+        var recipient = new Thing { Id = ThingId.New(), Name = "Receiver" };
+        recipient.Behaviors.Add(new PlayerBehavior { Session = recipientSession });
+        room.Add(recipient);
 
-        world.GetItem(item.Id).Returns(item);
-        world.PlayersInRoom(room.Id).Returns([giver, recipient]);
-        world.GetSession(recipient.Id).Returns(recipientSession);
-
+        var world = new World();
         var sut = new GiveCommand();
         var ctx = new CommandContext(giver, room, ["gold", "coin", "to", "Receiver"], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        giver.Inventory.Should().NotContain(item.Id);
-        recipient.Inventory.Should().Contain(item.Id);
+        giver.Children.Should().NotContain(item);
+        recipient.Children.Should().Contain(item);
         await session.Received(1).WriteLineAsync("You give gold coin to Receiver.", Arg.Any<CancellationToken>());
         await recipientSession.Received(1).WriteLineAsync("Giver gives you gold coin.", Arg.Any<CancellationToken>());
     }
 
     [Theory, EngineAutoData]
-    public async Task ExecuteAsync_SendsNotHereMessage_WhenRecipientIsNotInRoom(
-        [Frozen] IWorld world,
-        [Frozen] ISession session)
+    public async Task ExecuteAsync_SendsNotHereMessage_WhenRecipientIsNotInRoom([Frozen] ISession session)
     {
-        var room = new Room { Id = RoomId.New(), AreaId = AreaId.New(), Name = "Room", Description = "..." };
-        var item = new Item { Id = ItemId.New(), Name = "gold coin" };
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
 
-        var giver = Player.CreateDefault("Giver", room.Id);
-        giver.Inventory.Add(item.Id);
+        var giver = new Thing { Id = ThingId.New(), Name = "Giver" };
+        giver.Behaviors.Add(new PlayerBehavior { Session = session });
+        room.Add(giver);
 
-        world.GetItem(item.Id).Returns(item);
-        world.PlayersInRoom(room.Id).Returns([giver]);
+        var item = new Thing { Id = ThingId.New(), Name = "gold coin" };
+        item.Behaviors.Add(new ItemBehavior());
+        giver.Add(item);
 
+        var world = new World();
         var sut = new GiveCommand();
         var ctx = new CommandContext(giver, room, ["gold", "coin", "to", "Nobody"], world, session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await session.Received(1).WriteLineAsync("They aren't here.", Arg.Any<CancellationToken>());
-        giver.Inventory.Should().Contain(item.Id);
+        giver.Children.Should().Contain(item);
     }
 }

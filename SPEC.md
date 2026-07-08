@@ -14,8 +14,34 @@ persistent public MUD.
   core, no legacy-C idioms carried over just for tradition.
 - Start as a local single-player CLI for fast iteration, grow into a networked,
   persistent, publicly-run game without rewriting the core.
+- **Engine, not just a game**: `SharpMud.Engine` must support a different game
+  (different stats, different combat rules, different content) being built on
+  top of it without forking or modifying the engine itself. This is a
+  from-the-start design goal, not an afterthought — see
+  [docs/research/wheelmud-findings.md](docs/research/wheelmud-findings.md) for
+  the prior art this is adapted from and
+  [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md) for the concrete
+  design. The game we're actually building (classic D&D-flavored stats/combat,
+  the hand-built hub) lives in a separate `SharpMud.Ruleset.Classic` project
+  that consumes the engine the same way a third party's game would.
 
 ## Architecture
+
+### Entity model: `Thing` + `Behavior` composition
+
+Every game object — room, player, item, NPC, exit, area — is the same sealed
+`Thing` class from `SharpMud.Engine`. What an object *is* comes entirely from
+which `Behavior`s are attached to it, not from subclassing. A player is a
+`Thing` with a `PlayerBehavior` (identity/session link); a room is a `Thing`
+with a `RoomBehavior`; an exit is a child `Thing` with an `ExitBehavior` (and
+optionally a `LockableBehavior`). This is adapted directly from WheelMUD (see
+[docs/research/wheelmud-findings.md](docs/research/wheelmud-findings.md)) and
+is the mechanism that makes the engine/ruleset split real: `SharpMud.Engine`
+ships generic, ruleset-agnostic behaviors (rooms, exits, containment,
+identity); `SharpMud.Ruleset.Classic` adds the D&D-flavored ones (stats,
+combat, dice-roll character creation) purely by composing more `Behavior`s
+onto the same `Thing`s — the engine never references ruleset types. Full
+design in [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md).
 
 ### Transport-agnostic sessions
 
@@ -69,9 +95,11 @@ derivatives separate "instant" commands from round-based combat resolution.
   perspective. This preserves classic MUD navigation muscle memory (N N E E S W
   means the same thing every time) while removing the grind of hand-authoring
   every room.
-- In-memory world model (`Room`, `Area`, `Exit`, etc.) must not assume its data
-  came from C# source — this is what allows moving from hardcoded rooms to a
-  data-driven/JSON format later without disturbing the rest of the engine.
+- Rooms/areas/exits are `Thing`s composed from `RoomBehavior`/`AreaBehavior`/
+  `ExitBehavior` (see Entity Model above), not dedicated classes — the world
+  model must not assume its data came from C# source either way, which is what
+  allows moving from hardcoded content to a data-driven/JSON format later
+  without disturbing the engine.
 
 ### Content authoring evolution (not all v1)
 
@@ -91,8 +119,6 @@ derivatives separate "instant" commands from round-based combat resolution.
   triggers) — no embedded scripting language (Roslyn/Lua/custom DSL) until a
   real need emerges. Revisit once content complexity demands it.
 
-## Build Order
-
 1. **Foundation**: session abstraction, local CLI adapter, command parser,
    world model, movement, `look`, chat/social commands (say/tell/emote). Prove
    out the core loop before adding systems.
@@ -100,12 +126,18 @@ derivatives separate "instant" commands from round-based combat resolution.
    the global tick, hit/miss/damage messages, minimal per-round input required
    once engaged.
 3. **Inventory & items**: pick up/drop/wear/wield, carry weight or slots.
-4. **NPCs**: basic AI — wandering mobs, shopkeepers, quest givers, driven by
+4. **Engine/ruleset split** (retrofit, done now rather than deferred): convert
+   the entity model built in phases 1–3 to `Thing`/`Behavior` composition and
+   extract the D&D-specific stat/combat rules into `SharpMud.Ruleset.Classic`,
+   per [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md). Doing this
+   before NPCs/networking/accounts land means those phases are built against
+   the real engine boundary instead of needing their own retrofit later.
+5. **NPCs**: basic AI — wandering mobs, shopkeepers, quest givers, driven by
    the same data-config model as rooms.
-5. **Networking**: Telnet/SSH/WebSocket adapters, multi-player concurrency
+6. **Networking**: Telnet/SSH/WebSocket adapters, multi-player concurrency
    hardening.
-6. **Accounts & auth**: see below.
-7. **Moderation/admin tooling**, **procedural frontier generation**,
+7. **Accounts & auth**: see below.
+8. **Moderation/admin tooling**, **procedural frontier generation**,
    **in-game building/scripting**: later phases (see Deferred/Open Items).
 
 ## Accounts & Auth
@@ -141,3 +173,9 @@ Explicitly out of scope for v1, to revisit later:
 - **DynamoDB EF Core provider readiness**: production persistence target
   depends on this provider (co-developed with Jonas Ha) reaching a usable
   state; SQLite remains the dev/default backend until then.
+- **Hot-swap ruleset/plugin loading**: ruleset assemblies are loaded via a
+  compile-time project reference plus a startup assembly-scan (see
+  [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md)), not a MEF-style
+  drop-a-DLL-in-a-folder mechanism. True dynamic loading
+  (`AssemblyLoadContext`-based) is deferred until there's a real third party
+  wanting to redistribute a ruleset without a sharp-mud source checkout.
