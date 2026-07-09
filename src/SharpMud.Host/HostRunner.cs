@@ -46,25 +46,14 @@ public static class HostRunner
     {
         try
         {
-            await session.WriteAsync("Name: ", ct);
-            var name = (await session.ReadLineAsync(ct))?.Trim();
-            if (string.IsNullOrWhiteSpace(name))
+            var player = await LoginFlow.RunAsync(session, world, repository, startingRoom, ct);
+            if (player is null)
             {
-                await session.DisconnectAsync("No name given.", ct);
+                await session.DisconnectAsync("Login failed.", ct);
                 return;
             }
 
-            var player = await PlayerLogin.ResolveOrCreateAsync(world, repository, name, startingRoom, ct);
-            var playerBehavior = player.FindBehavior<PlayerBehavior>()!;
-
-            if (playerBehavior.Session is { IsConnected: true })
-            {
-                await session.WriteLineAsync("That character is already logged in.", ct);
-                await session.DisconnectAsync("Already connected.", ct);
-                return;
-            }
-
-            playerBehavior.Session = session;
+            player.FindBehavior<PlayerBehavior>()!.Session = session;
 
             await SessionLoop.RunAsync(world, parser, registry, session, player, repository, ct);
         }
@@ -72,7 +61,7 @@ public static class HostRunner
         {
             // Exception isolation per connection - one bad session must not
             // take down the listener or other connections.
-            Console.Error.WriteLine($"Session error: {ex}");
+            await Console.Error.WriteLineAsync($"Session error: {ex}", ct);
         }
     }
 }

@@ -37,4 +37,7 @@ public sealed class ConsoleSession : ISession
         IsConnected = false;
         return ValueTask.CompletedTask;
     }
+
+    // No-op - local CLI never logs in (SPEC.md), so this is never exercised.
+    public ValueTask SetEchoAsync(bool enabled, CancellationToken ct) => ValueTask.CompletedTask;
 }

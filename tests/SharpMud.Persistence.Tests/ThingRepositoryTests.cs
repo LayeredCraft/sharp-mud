@@ -52,7 +52,7 @@ public sealed class ThingRepositoryTests : IDisposable
     public async Task SaveTreeAsync_ThenLoadTreeAsync_RoundTripsPlayerWithStatsAndCarriedItem()
     {
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
-        player.Behaviors.Add(new PlayerBehavior());
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash" });
         player.Behaviors.Add(new StatsBehavior
         {
             Race = Race.Elf,
@@ -106,34 +106,34 @@ public sealed class ThingRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FindPlayerByNameAsync_ReturnsMatchingPlayer()
+    public async Task FindPlayerByUsernameAsync_ReturnsMatchingPlayer()
     {
         var player = new Thing { Id = ThingId.New(), Name = "Findable" };
-        player.Behaviors.Add(new PlayerBehavior());
+        player.Behaviors.Add(new PlayerBehavior { Username = "Findable", PasswordHash = "test-hash" });
         await _sut.SaveTreeAsync(player, TestContext.Current.CancellationToken);
 
-        var found = await _sut.FindPlayerByNameAsync("Findable", TestContext.Current.CancellationToken);
+        var found = await _sut.FindPlayerByUsernameAsync("Findable", TestContext.Current.CancellationToken);
 
         found.Should().NotBeNull();
         found!.Id.Should().Be(player.Id);
     }
 
     [Fact]
-    public async Task FindPlayerByNameAsync_ReturnsNull_WhenNoMatch()
+    public async Task FindPlayerByUsernameAsync_ReturnsNull_WhenNoMatch()
     {
-        var found = await _sut.FindPlayerByNameAsync("Nobody", TestContext.Current.CancellationToken);
+        var found = await _sut.FindPlayerByUsernameAsync("Nobody", TestContext.Current.CancellationToken);
 
         found.Should().BeNull();
     }
 
     [Fact]
-    public async Task FindPlayerByNameAsync_IgnoresNonPlayerThingsWithMatchingName()
+    public async Task FindPlayerByUsernameAsync_IgnoresNonPlayerThingsWithMatchingName()
     {
         var room = new Thing { Id = ThingId.New(), Name = "SameName" };
         room.Behaviors.Add(new RoomBehavior());
         await _sut.SaveTreeAsync(room, TestContext.Current.CancellationToken);
 
-        var found = await _sut.FindPlayerByNameAsync("SameName", TestContext.Current.CancellationToken);
+        var found = await _sut.FindPlayerByUsernameAsync("SameName", TestContext.Current.CancellationToken);
 
         found.Should().BeNull();
     }

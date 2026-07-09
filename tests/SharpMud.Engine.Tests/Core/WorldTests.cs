@@ -37,7 +37,7 @@ public sealed class WorldTests
     public void AllWithBehavior_ReturnsOnlyMatchingThings()
     {
         var player = new Thing { Id = ThingId.New(), Name = "Player" };
-        player.Behaviors.Add(new PlayerBehavior());
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash" });
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         room.Behaviors.Add(new RoomBehavior());
 

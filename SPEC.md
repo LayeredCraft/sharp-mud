@@ -153,15 +153,15 @@ derivatives separate "instant" commands from round-based combat resolution.
 8. **Moderation/admin tooling**, **procedural frontier generation**,
    **in-game building/scripting**: later phases (see Deferred/Open Items).
 
-## Accounts & Auth
+## Accounts & Auth ✅ implemented
 
 Traditional username/password (revised — was external OAuth; see
 [docs/accounts-auth.md](docs/accounts-auth.md) for the full reversal
-rationale). Classic MUD login prompt, one character per login (no separate
-Account entity, no "alts"). Hashed via `PasswordHasher<TUser>`
-(PBKDF2 + salt). Deferred until networked play needs it — v1 local CLI has
-no login; the current Telnet name-only prompt is a placeholder this
-replaces.
+rationale and current implementation/verification status). Classic MUD
+login prompt, one character per login (no separate Account entity, no
+"alts"). Hashed via `PasswordHasher<TUser>` (PBKDF2 + salt). Telnet's
+placeholder name-only prompt has been replaced by the real thing; local CLI
+still has no login at all, per the original decision.
 
 ## Deployment
 

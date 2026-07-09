@@ -82,6 +82,24 @@ public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
         return ValueTask.CompletedTask;
     }
 
+    // IAC WILL ECHO tells an RFC-1116-compliant client "I (the server) will
+    // handle echoing" - compliant clients stop echoing locally, and since we
+    // never echo it either, typed input (a password) doesn't appear on
+    // screen. IAC WONT ECHO restores normal local echo afterward. Not a
+    // security boundary by itself - a noncompliant/raw client can ignore
+    // this - just suppresses display for normal telnet clients. See
+    // docs/accounts-auth.md Open Items.
+    public async ValueTask SetEchoAsync(bool enabled, CancellationToken ct)
+    {
+        // enabled=true -> normal local echo -> IAC WONT ECHO (server isn't
+        // handling it, client echoes as usual).
+        // enabled=false -> hide input -> IAC WILL ECHO (server takes over
+        // echoing - and since we never actually echo it, nothing is shown).
+        byte willOrWont = enabled ? (byte)252 : (byte)251; // WONT=252, WILL=251
+        byte[] iac = [255, willOrWont, 1]; // IAC, WILL/WONT, ECHO
+        await _stream.WriteAsync(iac, ct);
+    }
+
     public void Dispose()
     {
         _writer.Dispose();

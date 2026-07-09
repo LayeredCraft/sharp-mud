@@ -16,7 +16,7 @@ public sealed class CombatManagerTests
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         player.Behaviors.Add(new StatsBehavior());
         room.Add(player);
 
@@ -47,7 +47,7 @@ public sealed class CombatManagerTests
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         player.Behaviors.Add(new StatsBehavior { Experience = 100, MaxHitPoints = 20 });
         room.Add(player);
 

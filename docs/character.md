@@ -21,7 +21,7 @@ and the chosen Race + Class apply modifiers on top.
 public sealed class Player
 {
     public PlayerId Id { get; init; }
-    public string Username { get; init; } = ""; // see accounts-auth.md (revised from AccountId/OAuth)
+    public string Username { get; init; } = ""; // see accounts-auth.md - implemented
     public string Name { get; set; } = "";
 
     public Race Race { get; set; }
@@ -70,13 +70,13 @@ table (`IReadOnlyDictionary<Race, StatModifiers>`,
 inheritance/subclassing, so new races/classes are data additions, not new
 types.
 
-## Login Identity (revised — was Account Relationship)
+## Login Identity ✅ implemented
 
 No separate `Account` entity, no multi-character "alts" — one character per
 login. `Username` + a hashed password live directly on the player `Thing`
 (via `PlayerBehavior`, see [engine-vs-ruleset.md](engine-vs-ruleset.md)).
-See [accounts-auth.md](accounts-auth.md) for the full login flow and the
-rationale for this simplification.
+See [accounts-auth.md](accounts-auth.md) for the full login flow (implemented
+and verified) and the rationale for this simplification.
 
 ## Character Creation
 

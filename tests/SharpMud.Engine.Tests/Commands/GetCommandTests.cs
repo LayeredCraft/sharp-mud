@@ -17,7 +17,7 @@ public sealed class GetCommandTests
         room.Add(item);
 
         var player = new Thing { Id = ThingId.New(), Name = "Adventurer" };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         room.Add(player);
 
         var world = new World();
@@ -36,7 +36,7 @@ public sealed class GetCommandTests
     {
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Adventurer" };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         room.Add(player);
 
         var world = new World();

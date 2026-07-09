@@ -14,7 +14,7 @@ public sealed class GiveCommandTests
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
 
         var giver = new Thing { Id = ThingId.New(), Name = "Giver" };
-        giver.Behaviors.Add(new PlayerBehavior { Session = session });
+        giver.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         room.Add(giver);
 
         var item = new Thing { Id = ThingId.New(), Name = "gold coin" };
@@ -23,7 +23,7 @@ public sealed class GiveCommandTests
 
         var recipientSession = Substitute.For<ISession>();
         var recipient = new Thing { Id = ThingId.New(), Name = "Receiver" };
-        recipient.Behaviors.Add(new PlayerBehavior { Session = recipientSession });
+        recipient.Behaviors.Add(new PlayerBehavior { Username = "TestUser2", PasswordHash = "test-hash", Session = recipientSession });
         room.Add(recipient);
 
         var world = new World();
@@ -44,7 +44,7 @@ public sealed class GiveCommandTests
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
 
         var giver = new Thing { Id = ThingId.New(), Name = "Giver" };
-        giver.Behaviors.Add(new PlayerBehavior { Session = session });
+        giver.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         room.Add(giver);
 
         var item = new Thing { Id = ThingId.New(), Name = "gold coin" };

@@ -18,7 +18,7 @@ public sealed class MoveCommandTests
     private static Thing MakePlayer(string name, ISession session)
     {
         var player = new Thing { Id = ThingId.New(), Name = name };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         return player;
     }
 

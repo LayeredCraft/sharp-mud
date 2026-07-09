@@ -68,10 +68,10 @@ public static class HubWorldBuilder
         return (world, townSquare);
     }
 
-    public static Thing CreatePlayer(World world, string name, Thing startingRoom)
+    public static Thing CreatePlayer(World world, string username, string passwordHash, Thing startingRoom)
     {
-        var player = new Thing { Id = ThingId.New(), Name = name };
-        player.Behaviors.Add(new PlayerBehavior());
+        var player = new Thing { Id = ThingId.New(), Name = username };
+        player.Behaviors.Add(new PlayerBehavior { Username = username, PasswordHash = passwordHash });
         player.Behaviors.Add(new EquippedBehavior());
 
         // Dice-roll character creation (docs/character.md) isn't implemented

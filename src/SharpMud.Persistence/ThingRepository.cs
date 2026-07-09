@@ -23,11 +23,11 @@ public sealed class ThingRepository(IDbContextFactory<GameDbContext> dbContextFa
         return all.GetValueOrDefault(rootId.Value);
     }
 
-    public async Task<Thing?> FindPlayerByNameAsync(string name, CancellationToken ct)
+    public async Task<Thing?> FindPlayerByUsernameAsync(string username, CancellationToken ct)
     {
         await using var context = await dbContextFactory.CreateDbContextAsync(ct);
         var all = await ReconstructAllAsync(context, ct);
-        return all.Values.FirstOrDefault(t => t.HasBehavior<PlayerBehavior>() && t.Name == name);
+        return all.Values.FirstOrDefault(t => t.FindBehavior<PlayerBehavior>()?.Username == username);
     }
 
     // Deletes and reinserts every row for root + its full live subtree.

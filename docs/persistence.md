@@ -22,7 +22,7 @@ public interface IThingRepository
 {
     Task<Thing?> LoadTreeAsync(ThingId rootId, CancellationToken ct);
     Task SaveTreeAsync(Thing root, CancellationToken ct);
-    Task<Thing?> FindPlayerByNameAsync(string name, CancellationToken ct);
+    Task<Thing?> FindPlayerByUsernameAsync(string username, CancellationToken ct);
 }
 ```
 
@@ -95,6 +95,11 @@ means adding one new configuration class, automatically picked up.
   `LayeredCraft.OptimizedEnums` instances, not plain enums — see
   `docs/character.md`) map via an EF value converter to/from their
   underlying `int` value.
+- **`PlayerBehavior.Username` has a unique index** (`PlayerBehaviorConfiguration`)
+  — enforced at the DB level, not just the login flow's own check-before-create
+  (see [accounts-auth.md](accounts-auth.md)). Correctly scoped even inside the
+  shared TPH `Behaviors` table, since non-`PlayerBehavior` rows just have
+  `NULL` there and unique indexes don't conflict on `NULL`.
 
 ## Rehydration: why loading can't just be "EF Core navigation fixup"
 
@@ -189,7 +194,7 @@ Also: `ThingRepositoryTests` (`SharpMud.Persistence.Tests`) round-trips a
 room+exit pair, a player with `StatsBehavior`/`CombatantBehavior`/a carried
 item (exercises the cross-assembly Ruleset.Classic mapping contributor), a
 locked exit with a required key (nullable `Thing` reference resolution),
-`FindPlayerByNameAsync` (including that it correctly ignores non-player
+`FindPlayerByUsernameAsync` (including that it correctly ignores non-player
 `Thing`s with a matching name), and that a second `SaveTreeAsync` call for
 the same root correctly reflects updated state (validates the delete-and-
 reinsert approach doesn't throw "already tracked" on a second save of live
@@ -223,7 +228,7 @@ in-memory objects, and doesn't leave stale rows behind).
   `EnsureDeletedAsync`), so a genuinely changed C# model against an existing
   `.db` file needs the file deleted by hand during dev, not an automatic wipe.
 - `ThingRepository` reconstructs the entire stored world into memory on every
-  `LoadTreeAsync`/`FindPlayerByNameAsync` call — fine at hand-built-hub scale,
+  `LoadTreeAsync`/`FindPlayerByUsernameAsync` call — fine at hand-built-hub scale,
   not yet a scoped/paginated load suitable for a large world.
 - Concurrent `SaveTreeAsync` calls (e.g. two players disconnecting at once)
   rely on SQLite's own single-writer file locking; not independently

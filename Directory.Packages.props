@@ -10,6 +10,7 @@
     <!-- Pin past the transitive SQLitePCLRaw.lib.e_sqlite3 2.1.11 that
          Microsoft.Data.Sqlite.Core 10.0.9 pulls in - flagged NU1903 high
          severity (GHSA-2m69-gcr7-jv3q). -->
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.9" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
   </ItemGroup>

@@ -11,7 +11,7 @@ public sealed class WearCommandTests
     private static Thing MakePlayer(ISession session)
     {
         var player = new Thing { Id = ThingId.New(), Name = "Adventurer" };
-        player.Behaviors.Add(new PlayerBehavior { Session = session });
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
         player.Behaviors.Add(new EquippedBehavior());
         return player;
     }

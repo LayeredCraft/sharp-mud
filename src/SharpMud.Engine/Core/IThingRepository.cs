@@ -6,5 +6,10 @@ public interface IThingRepository
 {
     Task<Thing?> LoadTreeAsync(ThingId rootId, CancellationToken ct);
     Task SaveTreeAsync(Thing root, CancellationToken ct);
-    Task<Thing?> FindPlayerByNameAsync(string name, CancellationToken ct);
+
+    // Matches PlayerBehavior.Username (the login identity), not Thing.Name
+    // (the display name) - see docs/accounts-auth.md. They're set to the
+    // same value at character creation today, but this is the semantically
+    // correct field to search regardless.
+    Task<Thing?> FindPlayerByUsernameAsync(string username, CancellationToken ct);
 }
