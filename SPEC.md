@@ -58,13 +58,18 @@ out-of-band notifications). Concrete adapters implement this interface:
 Adding a transport is additive (a new adapter class); it never requires changes
 to game logic, command parsing, or world state.
 
-### Persistence
+### Persistence ✅ (implemented — save-on-shutdown/-disconnect, not yet
+save-on-every-mutation; see docs/persistence.md Open Items)
 
-Repository interfaces (`IPlayerRepository`, `IWorldRepository`, etc.) sit between
-game logic and storage. Game logic depends only on these interfaces — never on
-EF Core, a specific provider, or SQL directly.
+A single `IThingRepository` (revised from separate per-concept repositories —
+`Thing` is the one entity type now, see [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md))
+sits between game logic and storage. Game logic depends only on this
+interface — never on EF Core, a specific provider, or SQL directly. Full
+design, including the EF Core TPH mapping for `Behavior` and why loading a
+`Thing` tree can't be plain EF navigation fixup, in
+[docs/persistence.md](docs/persistence.md).
 
-- **EF Core** is the ORM layer implementing the repositories.
+- **EF Core** is the ORM layer implementing the repository.
 - **v1 provider: SQLite** — zero infra, single file, transactional, easy local
   dev and debugging.
 - **Planned providers**: MongoDB (existing EF Core provider) and a **custom

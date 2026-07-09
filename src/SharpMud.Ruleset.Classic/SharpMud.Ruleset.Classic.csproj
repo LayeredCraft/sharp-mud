@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>

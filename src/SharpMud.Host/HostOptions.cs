@@ -1,6 +1,6 @@
 namespace SharpMud.Host;
 
-public sealed record HostOptions(bool UseTelnet, int TelnetPort)
+public sealed record HostOptions(bool UseTelnet, int TelnetPort, string DbPath)
 {
     // CLI args win over env vars, which win over defaults - the usual
     // precedence for containerized apps (Dockerfile ENV sets a baseline,
@@ -16,6 +16,8 @@ public sealed record HostOptions(bool UseTelnet, int TelnetPort)
         else if (int.TryParse(env.GetValueOrDefault("SHARPMUD_TELNET_PORT"), out var parsedEnv))
             port = parsedEnv;
 
-        return new HostOptions(useTelnet, port);
+        var dbPath = env.GetValueOrDefault("SHARPMUD_DB_PATH") ?? "./sharpmud.db";
+
+        return new HostOptions(useTelnet, port, dbPath);
     }
 }

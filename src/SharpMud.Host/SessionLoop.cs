@@ -17,41 +17,64 @@ public static class SessionLoop
         ICommandRegistry registry,
         ISession session,
         Thing player,
-        Thing startingRoom,
+        IThingRepository repository,
         CancellationToken ct)
     {
-        await session.WriteLineAsync("Welcome to SharpMud.", ct);
-        await session.WriteLineAsync(string.Empty, ct);
-
-        await LookCommand.SendRoomDescriptionAsync(player, startingRoom, ct);
-
-        while (session.IsConnected && !ct.IsCancellationRequested)
+        try
         {
-            await session.WriteAsync("> ", ct);
+            await session.WriteLineAsync("Welcome to SharpMud.", ct);
+            await session.WriteLineAsync(string.Empty, ct);
 
-            var input = await session.ReadLineAsync(ct);
-            if (input is null)
-                break;
+            // player.Parent, not a fixed "startingRoom" - a reloaded/
+            // reconnecting player (docs/persistence.md) may not be in the
+            // hub's starting room.
+            if (player.Parent is { } room)
+                await LookCommand.SendRoomDescriptionAsync(player, room, ct);
 
-            var parsed = parser.Parse(input);
-            if (parsed.Verb.Length == 0)
-                continue;
-
-            var currentRoom = player.Parent;
-            if (currentRoom is null)
-                break;
-
-            if (!registry.TryResolve(parsed.Verb, out var command))
+            while (session.IsConnected && !ct.IsCancellationRequested)
             {
-                await session.WriteLineAsync("Huh?", ct);
-                continue;
+                await session.WriteAsync("> ", ct);
+
+                var input = await session.ReadLineAsync(ct);
+                if (input is null)
+                    break;
+
+                var parsed = parser.Parse(input);
+                if (parsed.Verb.Length == 0)
+                    continue;
+
+                var currentRoom = player.Parent;
+                if (currentRoom is null)
+                    break;
+
+                if (!registry.TryResolve(parsed.Verb, out var command))
+                {
+                    await session.WriteLineAsync("Huh?", ct);
+                    continue;
+                }
+
+                var context = new CommandContext(player, currentRoom, parsed.Args, world, session);
+                await command.ExecuteAsync(context, ct);
             }
-
-            var context = new CommandContext(player, currentRoom, parsed.Args, world, session);
-            await command.ExecuteAsync(context, ct);
         }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown mid-read/write - fall through to the
+            // save-on-disconnect below rather than losing this player's
+            // state, which is the whole point of a finally-guaranteed save.
+        }
+        finally
+        {
+            // CancellationToken.None, not ct - a graceful shutdown cancels ct
+            // first and THEN reaches this save; using ct here would abort
+            // the save at exactly the moment it matters most. The try/catch/
+            // finally around the whole method (not just this line)
+            // guarantees this runs even if a read/write above threw due to
+            // cancellation mid-operation.
+            await repository.SaveTreeAsync(player, CancellationToken.None);
 
-        player.Parent?.Remove(player);
-        world.Unregister(player.Id);
+            player.Parent?.Remove(player);
+            world.Unregister(player.Id);
+        }
     }
 }

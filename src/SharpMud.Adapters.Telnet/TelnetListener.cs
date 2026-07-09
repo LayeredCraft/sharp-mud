@@ -15,6 +15,12 @@ public sealed class TelnetListener(int port)
 
     public async IAsyncEnumerable<ISession> AcceptSessionsAsync([EnumeratorCancellation] CancellationToken ct)
     {
+        // Belt-and-suspenders: AcceptTcpClientAsync(ct) is documented to
+        // honor cancellation, but observed in practice (this SDK/preview)
+        // to hang past a cancelled token with no connections pending -
+        // Stop() unblocks it immediately via a thrown exception regardless.
+        await using var registration = ct.Register(() => _listener.Stop());
+
         while (!ct.IsCancellationRequested)
         {
             TcpClient client;
@@ -27,6 +33,10 @@ public sealed class TelnetListener(int port)
                 yield break;
             }
             catch (ObjectDisposedException)
+            {
+                yield break;
+            }
+            catch (SocketException)
             {
                 yield break;
             }

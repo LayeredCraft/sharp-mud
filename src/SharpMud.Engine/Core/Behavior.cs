@@ -5,6 +5,11 @@ namespace SharpMud.Engine.Core;
 // PlayerBehavior, a "room" is a Thing with a RoomBehavior, etc.
 public abstract class Behavior
 {
+    // Surrogate key for the persistence layer only (EF Core TPH needs a
+    // mapped primary key; Behavior has no natural one). Not used by any
+    // game logic - see docs/persistence.md Open Items.
+    public Guid PersistenceKey { get; private set; } = Guid.NewGuid();
+
     public Thing? Parent { get; private set; }
 
     internal void SetParent(Thing? newParent)

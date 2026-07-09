@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Persistence rehydration needs Thing.AttachLoadedChild - see docs/persistence.md -->
+    <InternalsVisibleTo Include="SharpMud.Persistence" />
+  </ItemGroup>
+
 </Project>

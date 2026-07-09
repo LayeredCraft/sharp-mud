@@ -489,3 +489,9 @@ $RECYCLE.BIN/
 # AWS CDK (deployment target per SPEC.md)
 cdk.out
 cdk.context.json
+
+# Local SQLite dev DB (docs/persistence.md default: ./sharpmud.db)
+sharpmud.db
+sharpmud.db-wal
+sharpmud.db-shm
+sharpmud.db-journal

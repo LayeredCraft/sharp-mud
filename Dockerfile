@@ -27,6 +27,14 @@ ENV SHARPMUD_MODE=telnet
 ENV SHARPMUD_TELNET_PORT=4000
 EXPOSE 4000
 
+# /data, not the default ./sharpmud.db in the working directory - the DB
+# must live in a mounted volume (`docker run -v ...:/data`) or every restart
+# only *appears* to persist (survives within a container, but a container
+# rm/replace - the actual redeploy scenario - loses everything, since the
+# writable container layer is discarded with it). See docs/deployment.md.
+ENV SHARPMUD_DB_PATH=/data/sharpmud.db
+VOLUME /data
+
 # The base (non "-extra") alpine runtime image ships without ICU; game text
 # is plain ASCII/English so invariant globalization is fine and avoids
 # needing the larger -extra image just for culture data we don't use.

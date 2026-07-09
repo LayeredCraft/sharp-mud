@@ -34,6 +34,18 @@ public sealed class Thing
             Behaviors.Add(behavior);
     }
 
+    // EF Core materialization only - the params constructor above can't be
+    // bound (its "behaviors" parameter doesn't map to a persisted
+    // property), so EF Core needs a constructor it CAN bind. Not for game
+    // logic; ThingRepository still builds Things via the public constructor
+    // and attaches loaded Behaviors afterward through Behaviors.Add (see
+    // docs/persistence.md Rehydration).
+    private Thing()
+    {
+        Events = new ThingEvents(this);
+        Behaviors = new BehaviorManager(this);
+    }
+
     public T? FindBehavior<T>() where T : Behavior => Behaviors.FindFirst<T>();
 
     public bool HasBehavior<T>() where T : Behavior => FindBehavior<T>() is not null;
@@ -66,6 +78,17 @@ public sealed class Thing
         _children.Remove(thing);
         thing.Parent = null;
         return true;
+    }
+
+    // Direct parent/child wiring with no AddChildEvent publish - for
+    // SharpMud.Persistence reconstructing an already-existing tree on load,
+    // where firing "you enter the room"-style side effects (or letting a
+    // Behavior veto a room's own saved contents) would be wrong. Never call
+    // this from game logic; use Add. See docs/persistence.md Rehydration.
+    internal void AttachLoadedChild(Thing child)
+    {
+        child.Parent = this;
+        _children.Add(child);
     }
 
     internal void AddSecondaryParent(Thing parent)

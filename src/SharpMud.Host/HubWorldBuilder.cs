@@ -11,11 +11,16 @@ namespace SharpMud.Host;
 // to know about a specific ruleset (docs/engine-vs-ruleset.md).
 public static class HubWorldBuilder
 {
+    // Fixed, not ThingId.New() - so a fresh boot can ask the repository
+    // "does this already exist?" (LoadTreeAsync(HubAreaId)) instead of
+    // always rebuilding. See docs/persistence.md.
+    public static readonly ThingId HubAreaId = new(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+
     public static (World World, Thing StartingRoom) Build()
     {
         var world = new World();
 
-        var area = CreateArea(world, "The Town");
+        var area = CreateArea(world, "The Town", HubAreaId);
 
         var townSquare = CreateRoom(world, area, "Town Square",
             "A weathered stone fountain bubbles quietly at the center of a wide square. Cobblestone streets lead off in every direction.");
@@ -102,9 +107,16 @@ public static class HubWorldBuilder
         return player;
     }
 
-    private static Thing CreateArea(World world, string name)
+    // Rooms are found by name after a load (see FindStartingRoom) - simple
+    // and sufficient for the hand-built hub; would not scale to a large
+    // data-driven or procedurally generated world (see docs/persistence.md
+    // Open Items).
+    public static Thing? FindStartingRoom(Thing hubArea) =>
+        hubArea.Children.FirstOrDefault(c => c.HasBehavior<RoomBehavior>() && c.Name == "Town Square");
+
+    private static Thing CreateArea(World world, string name, ThingId id)
     {
-        var area = new Thing { Id = ThingId.New(), Name = name };
+        var area = new Thing { Id = id, Name = name };
         area.Behaviors.Add(new AreaBehavior());
         world.Register(area);
         return area;
