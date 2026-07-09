@@ -61,9 +61,15 @@ public readonly record struct ThingId(Guid Value)
 `ThingId` replaces `RoomId`/`PlayerId`/`NpcId`/`ItemId`/`AreaId` — a single
 `Thing` can play more than one role at once (a player is a container of items,
 a room is a container of players and exits), so per-role ID types stopped
-making sense. `AccountId` (see [accounts-auth.md](accounts-auth.md)) stays
-separate — an account is an auth identity outside the simulated world, not a
-`Thing`.
+making sense.
+
+`AccountId` (`src/SharpMud.Engine/Core/AccountId.cs`) is vestigial — it was
+introduced when accounts/auth was designed around external OAuth with a
+separate `Account` entity owning multiple characters. That design has since
+been reversed to username/password with one character per login (see
+[accounts-auth.md](accounts-auth.md)), so there's no longer an auth identity
+that lives outside the player `Thing`. Remove `AccountId` when accounts/auth
+is actually implemented.
 
 ```csharp
 public sealed class Thing
@@ -169,8 +175,10 @@ exit canceling a move, a full container canceling an item pickup).
 - `LockableBehavior` — `bool IsLocked`, `bool IsClosed`, `Thing? RequiredKey`.
   Optionally attached to an exit `Thing`; subscribes to move requests and
   cancels them when locked.
-- `PlayerBehavior` — identity only: `AccountId AccountId`, `List<string>
-  Aliases`. No stats — those are ruleset-owned (see below).
+- `PlayerBehavior` — identity: `Username`/`PasswordHash` (see
+  [accounts-auth.md](accounts-auth.md) — supersedes the `AccountId` shown in
+  the code today), `List<string> Aliases`. No stats — those are
+  ruleset-owned (see below).
 - `NpcBehavior` — marker only (`bool IsNpc`-equivalent via presence). No
   combat stats.
 - `WearableBehavior` — `EquipSlot Slot`. Presence means "this can be worn."

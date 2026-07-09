@@ -175,9 +175,11 @@ protocol code worth reading directly rather than re-deriving from the RFC when
 we build our own Telnet adapter.
 
 **Adopted (planned, not yet built)**: the `SessionState` shape, for
-`docs/accounts-auth.md`'s OAuth device-code flow and `docs/character.md`'s
-character creation. **Reference, not adopted verbatim**: the Telnet protocol
-code, to consult when `docs/networking.md` phase 2 is built.
+`docs/accounts-auth.md`'s login flow (now username/password, not the OAuth
+device-code flow originally planned when this note was written — see
+accounts-auth.md's revision) and `docs/character.md`'s character creation.
+**Reference, not adopted verbatim**: the Telnet protocol code, to consult
+when `docs/networking.md` phase 2 is built.
 
 ## 5. Event system — propagating `GameEvent`/`CancellableGameEvent`
 

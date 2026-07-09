@@ -62,7 +62,8 @@ command execution, see [architecture.md](architecture.md)).
 
 New Telnet connections are prompted for a name (`"Name: "`) before a player
 `Thing` is created — this is a placeholder for real login (see
-[accounts-auth.md](accounts-auth.md)'s OAuth device-code flow), not auth.
+[accounts-auth.md](accounts-auth.md)'s username/password login prompt),
+not auth.
 
 ## Sequence: Player Disconnects Mid-Fight
 
@@ -76,8 +77,9 @@ role in the sequence:)
 
 ## Reconnect / Session Resumption
 
-Resume-within-grace-window: reconnecting via the same OAuth identity (see
-[accounts-auth.md](accounts-auth.md)) within N minutes of a disconnect
+Resume-within-grace-window: reconnecting and logging back in with the same
+username/password (see [accounts-auth.md](accounts-auth.md)) within N minutes
+of a disconnect
 resumes the same character/session rather than requiring a fresh login. This
 is the mechanism that makes the linkdead-combat grace period in
 [combat.md](combat.md) meaningful — a player who reconnects in time resumes

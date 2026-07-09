@@ -4,6 +4,19 @@ See [README.md](README.md) for how this doc relates to `SPEC.md` and the other
 subsystem docs. See [character.md](character.md) and
 [world-model.md](world-model.md) for the entities being persisted.
 
+**Not yet implemented** — `SharpMud.Persistence` is currently an empty
+project; everything below is still the plan, not built code. All world/
+player state is in-memory only as of this writing (see `World` in
+`SharpMud.Engine.Core`), so state is lost on every restart.
+
+**Partially superseded by [engine-vs-ruleset.md](engine-vs-ruleset.md)**:
+the repository sketch below still shows `Player`/`Room` as dedicated
+classes from before the `Thing`/`Behavior` pivot. The real design question —
+how to save/load a `Thing` with a polymorphic list of attached `Behavior`s,
+across both engine-level and ruleset-level behavior types — hasn't been
+worked out yet; treat the interfaces below as directionally correct (repos
+per top-level concept, EF Core underneath) but not final.
+
 ## Strategy
 
 Repository interfaces live in `SharpMud.Engine`; implementations live in
@@ -12,17 +25,10 @@ split and dependency direction). Game logic depends only on the interfaces —
 never on EF Core, a specific provider, or SQL directly.
 
 ```csharp
-public interface IAccountRepository
-{
-    Task<Account?> GetByIdAsync(AccountId id, CancellationToken ct);
-    Task<Account?> GetByExternalAuthIdAsync(string provider, string externalId, CancellationToken ct);
-    Task SaveAsync(Account account, CancellationToken ct);
-}
-
 public interface IPlayerRepository
 {
     Task<Player?> GetByIdAsync(PlayerId id, CancellationToken ct);
-    Task<IReadOnlyList<Player>> GetByAccountIdAsync(AccountId accountId, CancellationToken ct);
+    Task<Player?> GetByUsernameAsync(string username, CancellationToken ct);
     Task SaveAsync(Player player, CancellationToken ct);
 }
 
@@ -35,9 +41,11 @@ public interface IRoomRepository
 }
 ```
 
-`IAccountRepository.GetByExternalAuthIdAsync` backs the OAuth login flow;
-`IPlayerRepository.GetByAccountIdAsync` backs character-select — see
-[accounts-auth.md](accounts-auth.md) for both.
+`IPlayerRepository.GetByUsernameAsync` backs the username/password login
+flow — see [accounts-auth.md](accounts-auth.md). No `IAccountRepository` —
+that existed for the OAuth design's separate `Account` entity, which has
+been dropped (one character per login now, see accounts-auth.md's revised
+decision).
 
 ## Provider Plan
 

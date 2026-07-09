@@ -1,69 +1,89 @@
 # Accounts & Auth
 
 See [README.md](README.md) for how this doc relates to `SPEC.md` and the other
-subsystem docs. See [character.md](character.md) for the identity fields on
-`Player`, and [persistence.md](persistence.md) for the lookup this flow
-depends on.
+subsystem docs. See [character.md](character.md)/[engine-vs-ruleset.md](engine-vs-ruleset.md)
+for `Player`/`PlayerBehavior`, and [persistence.md](persistence.md) for the
+lookup this flow depends on.
 
-## Decision
+## Decision (revised — supersedes the earlier OAuth design)
 
-External OAuth (Google/GitHub/Discord) rather than engine-managed
-username/password. No password storage/reset burden; less classic-MUD-feeling
-at the login prompt, but appropriate for a modern, publicly-run service.
-Deferred until networked play lands — v1 local CLI has no login at all.
+Traditional username/password, not external OAuth. **No separate `Account`
+entity** — one character per login, username + password hash live directly
+on the player `Thing` (via `PlayerBehavior`, see
+[engine-vs-ruleset.md](engine-vs-ruleset.md)). This drops the OAuth
+device-code flow, the character-select step, and an entire repository —
+simplest model that still has real auth. Classic small-MUD convention (no
+"alts"); revisit if multi-character-per-login is ever actually wanted.
+
+Deferred until networked play needs it — the local CLI stays login-free, per
+`SPEC.md`. Telnet currently has a placeholder name-only prompt (no password
+check); this replaces that placeholder with the real thing.
 
 ## Identity Model
 
-Auth identity lives on a separate `Account` entity, not on `Player` directly
-— an account can own multiple characters (see below).
-
 ```csharp
-public sealed class Account
+public sealed class PlayerBehavior : Behavior
 {
-    public AccountId Id { get; init; }
-    public string ExternalAuthProvider { get; init; } = ""; // "google" | "github" | "discord"
-    public string ExternalAuthId { get; init; } = "";
-    public List<PlayerId> CharacterIds { get; set; } = [];
+    public required string Username { get; init; }
+    public required string PasswordHash { get; set; }
+    public ISession? Session { get; set; }
+    public List<string> Aliases { get; } = [];
 }
 ```
 
-Lookup on login: `IAccountRepository.GetByExternalAuthIdAsync(provider,
-externalId, ct)` (new repository alongside `IPlayerRepository`/
-`IRoomRepository`, see [persistence.md](persistence.md)) — first login for a
-given provider/external-id pair creates a new `Account`; subsequent logins
-resume the existing one and present a character-select step.
+`Username`/`PasswordHash` replace the old `AccountId`/`ExternalAuthProvider`/
+`ExternalAuthId` fields. Password hashing via
+`Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>` — PBKDF2 with a
+random salt, versioned hash format (iteration count can be raised later
+without invalidating existing hashes), no need to hand-roll crypto. Works
+fine referenced outside a full ASP.NET Core host (it's just a class, no
+framework dependency beyond the package itself).
 
-## Multiple Characters Per Account
+Lookup on login: `IPlayerRepository.GetByUsernameAsync(username, ct)` (see
+[persistence.md](persistence.md)) — username is unique, checked at account
+creation time.
 
-An `Account` may own several `Player`s (classic MUD "alts" convention). After
-OAuth resolves to an `Account`, the login flow lists `CharacterIds` (fetched
-via `IPlayerRepository`) and prompts the player to pick one, or create a new
-one (running character creation — see [character.md](character.md)) if under
-whatever per-account character cap is chosen (see Open Items).
+`AccountId` (`src/SharpMud.Engine/Core/AccountId.cs`) is now unused and
+should be removed when this is implemented — nothing needs an auth identity
+separate from the player `Thing` anymore.
 
-## Terminal OAuth Flow (Device-Code)
+## Terminal Login Flow
 
-Telnet/SSH/WebSocket sessions have no browser redirect built in, so login
-uses a device-code flow, the same pattern used by browserless devices
-(smart TVs, CLI tools):
+Classic MUD login prompt, replacing both the OAuth device-code flow and the
+current name-only placeholder:
 
-1. On connect, before any character interaction, the session displays a
-   login URL and a short one-time code.
-2. Player opens the URL on any device (phone, laptop) and authorizes via
-   their chosen provider (Google/GitHub/Discord), entering the code if
-   prompted.
-3. The server polls the provider's device-code endpoint until authorization
-   completes (or the code expires).
-4. On success, `IAccountRepository.GetByExternalAuthIdAsync` resolves/creates
-   the `Account`, and the session proceeds to character-select as above.
+1. On connect, before any character interaction: `"Username: "`, read a
+   line.
+2. If the username doesn't exist yet: prompt to create an account —
+   `"Create a new character? (y/n)"`, then `"Password: "` /
+   `"Confirm password: "` (not echoed — see Open Items on terminal echo
+   suppression), hash and store, then proceed into character creation (see
+   [character.md](character.md)).
+3. If the username exists: `"Password: "` (not echoed), check against
+   `PasswordHash` via `PasswordHasher.VerifyHashedPassword`. Wrong password
+   → generic `"Login incorrect."` (don't reveal whether the username existed
+   — standard practice, also authentic to classic MUD login prompts), allow
+   retry (see Open Items for retry/lockout limits).
+4. On success, the session attaches to that player `Thing` and play begins
+   as today (`SessionLoop.RunAsync`).
 
-This flow applies uniformly across all networked transports (Telnet, SSH,
-WebSocket) — no transport-specific auth special-casing needed. Local CLI
-(v1) has no login step at all, per SPEC.md.
+Applies uniformly across networked transports (Telnet now, SSH/WebSocket
+later) — no transport-specific auth special-casing needed, same as the OAuth
+design's intent.
 
 ## Open Items
 
-- Per-account character cap (unlimited alts vs. a fixed max) not yet chosen.
-- Device-code polling interval and expiry duration not yet specified.
-- Which providers ship in v1 of networked play vs. added later.
-- Character deletion/retirement flow not yet designed.
+- Terminal echo suppression for password entry — `ISession`/`TelnetSession`
+  currently has no concept of "don't echo input back"; needs a mechanism
+  (telnet IAC WILL ECHO negotiation server-side, or client-side convention)
+  before this is genuinely secure over Telnet rather than just
+  password-shaped.
+- Failed-login retry/lockout policy (unlimited retries vs. capped, delay
+  between attempts) not yet chosen.
+- Username validation rules (length, allowed characters, case sensitivity)
+  not yet chosen.
+- Password strength/length requirements not yet chosen.
+- Password reset flow — with no email/OAuth identity backing the account,
+  there's no "forgot password" recovery path; not designed. Likely
+  admin-assisted reset only (ties into deferred moderation tooling, see
+  `SPEC.md`).

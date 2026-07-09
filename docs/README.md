@@ -15,7 +15,7 @@ implementation detail.
 | [combat.md](combat.md) | Round-based combat model, `ICombatResolver`, tick-driven resolution, disconnect-mid-fight handling |
 | [persistence.md](persistence.md) | Repository interfaces, EF Core, provider strategy (SQLite now, Mongo/DynamoDB later) |
 | [networking.md](networking.md) | `ISession` transport abstraction, adapter plan (CLI now, Telnet/SSH/WebSocket later) |
-| [accounts-auth.md](accounts-auth.md) | External OAuth login, identity fields on Player |
+| [accounts-auth.md](accounts-auth.md) | Username/password login, identity fields on Player |
 | [deployment.md](deployment.md) | Dockerfile, container runtime configuration (`HostOptions`), verified-working notes, AWS/CI open items |
 | [research/wheelmud-findings.md](research/wheelmud-findings.md) | WheelMUD codebase review with code citations — the prior art behind engine-vs-ruleset.md |
 

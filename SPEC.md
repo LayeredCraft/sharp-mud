@@ -150,10 +150,13 @@ derivatives separate "instant" commands from round-based combat resolution.
 
 ## Accounts & Auth
 
-External OAuth (Google/GitHub/Discord) rather than engine-managed
-username/password. No password storage/reset burden; less classic-MUD-feeling
-at the login prompt, but appropriate for a modern, publicly-run service.
-Deferred until networked play lands (v1 local CLI has no login).
+Traditional username/password (revised — was external OAuth; see
+[docs/accounts-auth.md](docs/accounts-auth.md) for the full reversal
+rationale). Classic MUD login prompt, one character per login (no separate
+Account entity, no "alts"). Hashed via `PasswordHasher<TUser>`
+(PBKDF2 + salt). Deferred until networked play needs it — v1 local CLI has
+no login; the current Telnet name-only prompt is a placeholder this
+replaces.
 
 ## Deployment
 
