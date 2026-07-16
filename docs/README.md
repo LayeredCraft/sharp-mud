@@ -18,6 +18,7 @@ implementation detail.
 | [accounts-auth.md](accounts-auth.md) | Username/password login, identity fields on Player |
 | [deployment.md](deployment.md) | Dockerfile, container runtime configuration (`HostOptions`), verified-working notes, AWS/CI open items |
 | [research/wheelmud-findings.md](research/wheelmud-findings.md) | WheelMUD codebase review with code citations — the prior art behind engine-vs-ruleset.md |
+| [adr/README.md](adr/README.md) | Architecture Decision Records — the numbered, permanent record of individual design decisions (numbering, status lifecycle, index) |
 
 ## Open items across all docs
 

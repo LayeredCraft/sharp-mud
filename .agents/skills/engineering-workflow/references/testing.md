@@ -17,3 +17,8 @@ covers project-level conventions only:
   rather than reusing another project's.
 - Arrange-Act-Assert with blank-line separation between the three sections,
   no exceptions.
+- For `ILogger<T>` dependencies specifically, use
+  `LayeredCraft.StructuredLogging`'s `TestLogger` (captures entries
+  in-memory, `AssertLogEntry`/`AssertLogCount`/etc.) rather than
+  `NSubstitute.For<ILogger<T>>()` — see `coding-standards.md`'s Logging
+  section for the call-site conventions it's verifying.
