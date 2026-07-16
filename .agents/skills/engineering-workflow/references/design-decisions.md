@@ -30,7 +30,14 @@ Four places, each with a different job — don't blur them together:
 - **`docs/adr/*.md`** — the actual decision record: numbered, permanent,
   immutable once accepted. This is where "what was decided and why, and
   what was rejected" actually lives now — see **Writing an ADR** below and
-  `docs/adr/README.md` for the numbering/status mechanics.
+  `docs/adr/README.md` for the numbering/status mechanics. An ADR is not a
+  plan — it doesn't get a task checklist or a critical-files list; see the
+  next bullet for where that lives.
+- **`docs/plans/*.md`** — the execution tracker for a non-trivial ADR:
+  task checklist, files touched, test/verification strategy, live
+  progress. Unlike an ADR, a plan is a **living document** you keep
+  editing as work proceeds. See **Writing a Plan** below and
+  `docs/plans/README.md` for numbering/status mechanics.
 - **`docs/research/*.md`** — external research (e.g. `wheelmud-findings.md`)
   that feeds into a decision. Its `## Decisions` section points at the ADR
   the research fed into; new research goes here, not mixed into subsystem
@@ -112,7 +119,60 @@ a short one, not a skipped one:
    Decision/Options sections, an accepted ADR is a historical record, not
    a living doc (see `docs/adr/README.md`'s immutability rule).
 
+Keep the ADR itself to decision content — Context, Decision Drivers,
+Considered Options, Decision Outcome, Consequences, Links. Resist the urge
+to also list every file that'll change or write a task checklist inside
+it; once an ADR is `Accepted`, that kind of content goes stale the moment
+implementation starts diverging from the plan in some small way, and
+you're stuck either leaving the ADR wrong or editing a record that's
+supposed to be immutable. That content belongs in a plan instead — see
+below.
+
 A design dive — light or deep — that never produces an ADR hasn't actually
 finished. The brainstorm (for a deep dive) or the quick judgment call (for
 a light one) is only useful if it leaves a trail the next reader can
 follow.
+
+## Writing a Plan
+
+An ADR records *what* was decided and *why*. A plan records *how* it
+actually gets built — and unlike an ADR, a plan is meant to be edited as
+work proceeds. Not every ADR needs one: a light dive whose outcome is
+already an obvious one-file change doesn't need a separate tracking
+document. Write a plan when the implementation is multi-file, spans more
+than one sitting, or has enough real sequencing that a checklist earns its
+keep — see `docs/plans/README.md` for the full rule.
+
+A plan must encompass:
+
+- **Goal** — one or two sentences a reader could use to verify "done"
+  without reading the rest of the plan.
+- **Scope** — what's in this plan and what's explicitly deferred,
+  cross-referencing the ADR's `Decision Outcome` rather than restating it.
+- **Tasks** — a checklist, grouped logically (new files, changes to
+  existing files, tests, docs), checked off as work proceeds. This is the
+  part that actually changes over the life of the plan.
+- **Critical files** — new and modified, so a reviewer (or future you)
+  can see the blast radius at a glance.
+- **Test plan** and **Verification** — what gets automated coverage vs.
+  what needs a real manual check (this repo's established pattern for
+  anything network/session/persistence-facing), matching `testing.md`.
+
+Mechanically:
+
+1. Copy `docs/plans/0000-plan-template.md` to
+   `docs/plans/NNNN-kebab-case-title.md`, where `NNNN` matches the ADR
+   it implements (one ADR gets at most one plan).
+2. Set `Status: Not Started`. A plan can be *drafted* alongside a
+   still-`Proposed` ADR (designing the how often surfaces questions about
+   the what), but don't move it to `In Progress` — i.e., don't start
+   checking off tasks — until the ADR is `Accepted`.
+3. Add a row to the index table in `docs/plans/README.md`.
+4. As work happens, check off tasks and adjust the task list if reality
+   diverges from what was scoped — a plan being wrong about *how* doesn't
+   require superseding anything, unlike an ADR being wrong about
+   *what/why*.
+5. When everything's checked off, set `Status: Done`. The plan doesn't get
+   deleted — it settles into a historical record of how the work actually
+   happened, same spirit as an accepted ADR, just for execution detail
+   instead of decision detail.

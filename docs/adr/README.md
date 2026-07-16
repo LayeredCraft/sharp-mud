@@ -60,4 +60,5 @@ the mechanics: numbering, status, and the index.
 
 | ADR | Title | Status |
 |---|---|---|
-| _(none yet — this repo's first real decision under this system gets_ `0001` _)_ | | |
+| [0001](0001-wheelmud-reconciliation-roadmap.md) | WheelMUD Reconciliation Roadmap | Proposed |
+| [0002](0002-telnet-protocol-negotiation.md) | Telnet Protocol Negotiation (IAC/Q-Method core + NAWS) | Proposed |

@@ -369,3 +369,17 @@ rather than WheelMUD's ~8 duplicated category-specific delegate pairs
 (`CombatEvent`/`CombatRequest`/`MovementEvent`/... on `ThingEventing`) - same
 propagation/cancellation behavior, less boilerplate, and new event categories
 don't require adding new delegate pairs to a growing interface.
+
+3. **`Server/Telnet/`'s IAC/Q-Method negotiation is adopted, its byte-parser
+   class hierarchy is not** - see
+   [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) (status: Proposed)
+   for the full record. The RFC-1143 four-state negotiation tracking is
+   adopted near-verbatim; the 5-class persistent byte-parser state machine is
+   replaced with a single-call parser, since sharp-mud's read loop is already
+   one sequential `await` chain per connection. MCCP/MXP/TermType remain
+   unreviewed beyond the survey in §Networking above.
+
+Going forward, further reconciliation against WheelMUD (moderation/admin
+tooling, session reconnect, world-building commands, and more) is tracked as
+a sequenced roadmap in [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md)
+rather than as ad hoc additions to this findings doc.

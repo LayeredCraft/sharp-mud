@@ -44,7 +44,7 @@ alternatives, naming) lives in the file.
 
 | When you're about to... | Read |
 |---|---|
-| Decide where an architecture/feature decision belongs, run a design dive (light or deep) before writing code, or write/reference an ADR (`docs/adr/`) | `references/design-decisions.md` |
+| Decide where an architecture/feature decision belongs, run a design dive (light or deep) before writing code, write/reference an ADR (`docs/adr/`), or write/track a plan (`docs/plans/`) | `references/design-decisions.md` |
 | Write or review any C# (naming, nullable, async, DI, error handling, file layout) | `references/coding-standards.md` |
 | Add or change tests | `references/testing.md` |
 | Touch EF Core, add a `Behavior`, or change anything under `SharpMud.Persistence` | `references/persistence.md` |

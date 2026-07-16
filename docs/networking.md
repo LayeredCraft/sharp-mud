@@ -104,7 +104,9 @@ connection slot, classic MUD behavior on public servers. Exact minutes TBD.
   open indefinitely until the client disconnects.
 - Concurrent-connection limits and backpressure — not yet specified;
   `TelnetListener` currently accepts without limit.
-- MCCP/MXP/NAWS telnet protocol negotiation — deferred, see Adapter Plan
-  above.
+- MCCP/MXP/NAWS telnet protocol negotiation — IAC negotiation core + NAWS
+  are designed in [ADR-0002](adr/0002-telnet-protocol-negotiation.md)
+  (status: Proposed, not yet implemented); MCCP/MXP/TermType remain
+  deferred beyond that.
 - Real login/auth on connect — currently just a name prompt, no identity
   verification; see [accounts-auth.md](accounts-auth.md).
