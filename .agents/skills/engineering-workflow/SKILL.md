@@ -13,12 +13,16 @@ description: >
   Always consult this skill before proposing an architecture change, before
   writing new C# files, and before adding a new coding pattern not already
   established in the repo — even a request that just looks like "add a
-  quick feature" or "fix this bug" should route through it first. Trigger
-  on: "how should I structure this", "coding standards", "is this secure",
-  "how do we handle X in the database", "where does this belong",
-  "contributing", "code of conduct", or any request to add a feature to
-  SharpMud.Engine / SharpMud.Ruleset.Classic / SharpMud.Persistence /
-  SharpMud.Host / SharpMud.Adapters.*.
+  quick feature" or "fix this bug" should route through it first. Also
+  covers reviewing a PR/diff in this repo and responding to feedback left
+  on one (`tasks/` procedures, not just reference lookup) — see How to use
+  this skill below. Trigger on: "how should I structure this", "coding
+  standards", "is this secure", "how do we handle X in the database",
+  "where does this belong", "contributing", "code of conduct", "review
+  this PR", "review my changes", "address that feedback", "handle the
+  review comments", or any request to add a feature to SharpMud.Engine /
+  SharpMud.Ruleset.Classic / SharpMud.Persistence / SharpMud.Host /
+  SharpMud.Adapters.*.
 ---
 
 # sharp-mud Engineering Workflow
@@ -36,11 +40,33 @@ and `src/SharpMud.Adapters.Cli` (transport). Tests mirror 1:1 under `tests/`.
 
 ## How to use this skill
 
-Each topic below lives in its own file under `references/` so you only load
-what the current task actually needs. Read the file(s) that match the work
-in front of you *before* writing code, docs, or design output — don't guess
-from the section title alone, the detail (specific patterns, rejected
-alternatives, naming) lives in the file.
+Two kinds of file live here, and they don't overlap:
+
+- **`references/`** — topic knowledge. What's true about this repo's
+  standards for a given topic (coding style, testing, persistence,
+  security, docs, decision-making, conduct). No procedures, no step
+  ordering — just the rules and the reasoning, one file per topic, so you
+  only load what the current work actually needs.
+- **`tasks/`** — procedures for a specific *kind of request* ("review this
+  PR"). A task file doesn't restate reference content; it says which
+  references to load for that request and what order to do things in. Add
+  a new task file when a recurring request needs its own procedure, not
+  when it just needs a reference lookup — most requests still route
+  through the reference table below, not a task.
+
+Read the file(s) that match the work in front of you *before* writing
+code, docs, review output, or design output — don't guess from a section
+title alone, the detail (specific patterns, rejected alternatives, naming)
+lives in the file itself.
+
+### Tasks
+
+| When you're asked to... | Run |
+|---|---|
+| Review a PR/diff in this repo | `tasks/pr-review.md` |
+| Address/respond to feedback already posted on a PR | `tasks/respond-to-pr-feedback.md` |
+
+### References
 
 | When you're about to... | Read |
 |---|---|
@@ -52,6 +78,7 @@ alternatives, naming) lives in the file.
 | Write or update `docs/*.md`, `SPEC.md`, code comments, or commit messages | `references/documentation.md` |
 | Review someone's work, or handle a disagreement about direction | `references/code-of-conduct.md` |
 | Onboard a change end-to-end, or you're not sure what's expected of a PR | `references/contributing.md` |
+| Post a comment or verdict on a PR review | `references/review-emoji-legend.md` |
 
 Most non-trivial tasks touch more than one of these — e.g. adding a new
 `Behavior` typically means reading `design-decisions.md` (where does this
