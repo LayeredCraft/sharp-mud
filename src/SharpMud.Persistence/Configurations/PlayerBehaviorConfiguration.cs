@@ -17,5 +17,12 @@ public sealed class PlayerBehaviorConfiguration : IEntityTypeConfiguration<Playe
 
         builder.Ignore(x => x.Session);   // runtime-only
         builder.Ignore(x => x.Aliases);   // not persisted yet - docs/persistence.md Open Items
+
+        // ConnectionState/LinkdeadSinceUtc are runtime-only session-lifecycle
+        // state, same category as Session - a process restart already drops
+        // all live sessions, so there's nothing meaningful to persist here
+        // (ADR-0004).
+        builder.Ignore(x => x.ConnectionState);
+        builder.Ignore(x => x.LinkdeadSinceUtc);
     }
 }

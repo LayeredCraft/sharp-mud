@@ -92,10 +92,12 @@ var random = new RandomSource();
 var combatResolver = new CombatResolver(random);
 var combatManager = new CombatManager(combatResolver, startingRoom);
 var wanderManager = new WanderManager(world, random);
+var linkdeadSweeper = new LinkdeadSweeper(world, repository);
 
 var gameLoop = new GameLoop(new GameLoopOptions());
 gameLoop.Register(combatManager);
 gameLoop.Register(wanderManager);
+gameLoop.Register(linkdeadSweeper);
 
 var registry = new CommandRegistry();
 BuiltinCommands.RegisterAll(registry);

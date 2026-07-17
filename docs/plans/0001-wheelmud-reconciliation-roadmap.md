@@ -4,7 +4,7 @@
 
 **Status:** In Progress
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-07-17
 
 ## Goal
 
@@ -25,8 +25,9 @@ reconciliation effort stands.
 
 - [x] **Slice 1 — Telnet protocol negotiation.** ADR-0002 Accepted,
       PLAN-0002 Done. See [PLAN-0002](0002-telnet-protocol-negotiation.md).
-- [ ] **Slice 2 — Session/connection state machine + reconnect.** Not yet
-      researched against WheelMUD's `ConnectionStates/` in detail.
+- [x] **Slice 2 — Session/connection state machine + reconnect.** ADR-0004
+      Accepted, PLAN-0004 Done. See
+      [PLAN-0004](0004-session-state-machine-and-reconnect.md).
 - [ ] **Slice 3 — Permission/security-role model + moderation commands.**
       Not yet designed.
 - [ ] **Slice 4 — World-building/OLC command surface.** Not yet designed;

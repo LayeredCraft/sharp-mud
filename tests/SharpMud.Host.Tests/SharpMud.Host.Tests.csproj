@@ -20,6 +20,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Using Include="AwesomeAssertions" />
+    <Using Include="NSubstitute" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +29,7 @@
     <PackageReference Include="xunit.v3.mtp-v2" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
   <ItemGroup>

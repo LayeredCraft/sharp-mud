@@ -77,9 +77,14 @@ Implemented in `src/SharpMud.Host/LoginFlow.cs`, called from
    Wrong password → generic `"Login incorrect."` (doesn't reveal whether the
    username existed), retry up to 3 attempts (not a considered final policy
    — see Open Items), then loop back to the username prompt rather than
-   dropping the connection outright. Correct password but the character is
-   already connected under a live session → `"That character is already
-   logged in."`, connection dropped.
+   dropping the connection outright. Correct password, and:
+   - the character is still actively `Playing` with a live, connected
+     session → `"That character is already logged in."`, connection
+     dropped (unchanged by ADR-0004 — see
+     [networking.md](networking.md#reconnect--session-resumption--adr-0004)).
+   - the character is `Linkdead` (disconnected, not `quit`, within
+     `ReconnectPolicy.GraceWindow`) → resumes the same character in place,
+     `"Welcome back."`, per ADR-0004.
 4. **Username doesn't exist**: `"Create a new character? (y/n)"`. `n` (or
    anything but `y`) loops back to the username prompt. `y` → `"Password: "`
    / `"Confirm password: "`, both echo-suppressed; mismatch or empty →

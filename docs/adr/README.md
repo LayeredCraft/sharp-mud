@@ -63,3 +63,4 @@ the mechanics: numbering, status, and the index.
 | [0001](0001-wheelmud-reconciliation-roadmap.md) | WheelMUD Reconciliation Roadmap | Accepted |
 | [0002](0002-telnet-protocol-negotiation.md) | Telnet Protocol Negotiation (IAC/Q-Method core + NAWS) | Accepted |
 | [0003](0003-allow-appsettingsjson-for-non-secret-config.md) | Allow `appsettings.json` for Non-Secret Configuration | Accepted |
+| [0004](0004-session-state-machine-and-reconnect.md) | Session State Machine + Linkdead Reconnect | Accepted |
