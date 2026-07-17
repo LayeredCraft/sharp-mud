@@ -74,12 +74,18 @@ alternatives are even legal:
    the direction (the deep dive's step 3 conversation, or an explicit "yes,
    do that" for a light one), flip it to `Accepted` — that status change
    *is* the record of the decision being made.
-5. **Index and cross-link.** Add a row to `docs/adr/README.md`'s index
-   table. Update the relevant `docs/*.md` subsystem doc(s) to reflect the
-   decision, linking back to the ADR rather than re-explaining the
-   reasoning inline (`documentation.md`). If this ADR supersedes an earlier
-   one, set that ADR's `Status` to `Superseded by ADR-XXXX` — don't edit
-   its Context/Decision/Options, an accepted ADR is a historical record.
+5. **Index and cross-link — without describing unimplemented behavior as
+   current.** Add a row to `docs/adr/README.md`'s index table. Subsystem
+   docs describe *current* state (`documentation.md`), and this task
+   hasn't written any code yet, so don't rewrite a doc's prose to describe
+   the new decision as already true. The only doc touch that belongs here
+   is a forward-reference — an Open Items entry (or equivalent) noting the
+   gap now has a decision, linked to the ADR, e.g. "resolved by ADR-NNNN,
+   not yet implemented — see `tasks/implement.md`." Actually describing the
+   new current state is `tasks/implement.md`'s step 6, once the code
+   backing it exists. If this ADR supersedes an earlier one, set that
+   ADR's `Status` to `Superseded by ADR-XXXX` — don't edit its Context/
+   Decision/Options, an accepted ADR is a historical record.
 6. **Decide whether a plan is warranted.** Per `docs/plans/README.md`: not
    every ADR needs one — a light dive whose outcome is an obvious one-file
    change doesn't. Write one when the implementation is multi-file, spans
