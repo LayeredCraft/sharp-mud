@@ -118,10 +118,17 @@ take `IThingRepository` via their own constructor — the same shape
       `IThingRepository`) — mutates a target's `Roles` via
       `GrantRole`/`RevokeRole` (accumulation/hierarchy-invariant
       enforcement happens inside `PlayerBehavior` itself, not here),
-      online-or-not lookup, saves immediately; validate the role name
-      argument against `SecurityRole`'s named values. `RoleRevokeCommand`
-      catches `RevokeRole`'s rejection (target still holds a higher tier
-      that implies the requested one) and surfaces it as a clear message
+      online-or-not lookup, saves immediately. Validate the role name
+      argument against an **explicit allowlist of individually-grantable
+      roles — not just "is this a real `SecurityRole` name."** Caught in
+      PR review: a plain `Enum.TryParse<SecurityRole>` would also accept
+      `All` (every current *and future* flag — not a real assignable
+      tier, a severe over-grant) and `None` (a meaningless no-op
+      sentinel), since both are literally named enum members. Reject
+      either with a clear message rather than silently persisting them.
+      `RoleRevokeCommand` catches `RevokeRole`'s rejection (target still
+      holds a higher tier that implies the requested one) and surfaces it
+      as a clear message
       naming the blocking tier, not a crash.
 - [ ] Register all 8 via `RegisterWithRole` in a new
       `AdminCommands.RegisterAll(registry, repository)` (mirrors
@@ -212,6 +219,11 @@ Modified:
   command with the given role.
 - Unit: each of the 8 admin commands — happy path (role holder, valid
   target) and the online/offline target-lookup branches.
+- Unit: `RoleGrantCommand`/`RoleRevokeCommand` — `all` and `none` (any
+  casing) are rejected with a clear message and never reach
+  `GrantRole`/`RevokeRole`; every other individually-grantable role name
+  is accepted. The regression test for the `All`/sentinel-value gap
+  caught in PR review.
 - Unit: `LoginFlow` — banned user rejected at password verification with
   the correct message, not silently falling through.
 - Unit: `PlayerBehavior.GrantRole`/`RevokeRole`/`Mute`/`Unmute`/`Ban`/
