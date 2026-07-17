@@ -75,7 +75,22 @@ pass over every comment from phase 1.
    ```
    If `pageInfo.hasNextPage` is `true`, repeat the query passing
    `pageInfo.endCursor` as `-f after=<cursor>` until it's `false`.
-2. **For each unresolved comment/thread**, using the loaded references,
+2. **Skip top-level comments/review bodies already handled by a prior run
+   of this task.** Unlike inline review threads (which have a real
+   `isResolved` state you already filtered on above), top-level issue
+   comments and review bodies have no resolved state on GitHub at all —
+   without an explicit marker, rerunning this task on the same PR would
+   re-triage and re-reply to the same old comments forever instead of
+   converging. The convention (see step 8): every reply this task posts to
+   a top-level comment/review body includes that original comment's
+   permalink (`.../pull/<number>#issuecomment-<id>` or
+   `#pullrequestreview-<id>`). Before classifying a top-level
+   comment/review body, check whether its own permalink already appears in
+   the body of any *later* top-level comment on the PR — if so, it was
+   already handled, skip it entirely (don't re-triage, don't re-reply).
+   Inline review comments don't need this check; `isResolved` already
+   covers them.
+3. **For each remaining comment/thread**, using the loaded references,
    classify it as one of:
    - **Real issue** — a genuine defect, standards deviation, or gap per
      the loaded references; needs a code/doc change.
@@ -87,7 +102,7 @@ pass over every comment from phase 1.
      issue/PR will track it).
    - **No action** — acknowledgment, praise, a bot's boilerplate, or
      something already addressed by a prior commit.
-3. **Display each classified comment to the user one at a time** — the
+4. **Display each classified comment to the user one at a time** — the
    comment text, your classification, and your recommendation (what fix
    you'd make, or why it should be deferred, or why no action is needed).
    Wait for the user's decision on *that* comment before moving to the
@@ -100,23 +115,23 @@ pass over every comment from phase 1.
 
 ### Phase 2 — implement, once, after triage is complete
 
-4. Once every comment has a recorded decision, implement all "fix"
+5. Once every comment has a recorded decision, implement all "fix"
    decisions together (not one commit per comment unless the changes are
    genuinely unrelated) — following `coding-standards.md`, adding
    regression tests per `testing.md`, updating `docs/*.md` per
    `documentation.md` in the same change. For "deferred" decisions, make
    the tracking update now too (the Open Items note, the follow-up
    reference) — deferring shouldn't mean doing nothing.
-5. Build and run the full test suite before committing — don't push
+6. Build and run the full test suite before committing — don't push
    something that doesn't compile or regresses existing coverage.
-6. Commit and push per `git-workflow`'s conventions (or this repo's
+7. Commit and push per `git-workflow`'s conventions (or this repo's
    established commit-message style if `git-workflow` isn't in play) —
    one coherent commit (or a small number of logically-grouped commits)
    covering everything from phase 1's "fix" decisions.
 
 ### Phase 3 — reply and resolve, once the fix is pushed
 
-7. **Reply to every comment/thread from phase 1**, not just the ones that
+8. **Reply to every comment/thread from phase 1**, not just the ones that
    got code changes. GitHub has two different comment types with two
    different reply endpoints — use the one matching what you fetched in
    step 1, not just the review-comment one for everything:
@@ -130,22 +145,28 @@ pass over every comment from phase 1.
      `issues/{pr}/comments` / `pulls/{pr}/reviews` fetch) — these aren't
      inline review comments, so the endpoint above doesn't apply to them
      (it will either 404 or silently reply to the wrong thing). Reply as a
-     new top-level PR comment instead:
+     new top-level PR comment instead, and **always include the original
+     comment's permalink in the reply body** — this is the convergence
+     marker step 2 relies on to skip already-handled comments on a future
+     run, so don't drop it even when the reply feels self-explanatory
+     without it:
      ```
-     gh pr comment <number> --body "<reply text>"
+     gh pr comment <number> --body "Re: <original permalink> — <reply text>"
      ```
      or equivalently `gh api repos/{owner}/{repo}/issues/{pr}/comments -f
-     body="<reply text>"` (pull requests are issues for this endpoint).
+     body="Re: <original permalink> — <reply text>"` (pull requests are
+     issues for this endpoint).
    - Real issue, fixed → reply pointing at the fixing commit SHA and what
      changed. No severity emoji needed (it's a resolution, not a new
      finding) — plain text, or a 👍 if also acknowledging the original
      point was correct.
    - Deferred → reply explaining why, and where it's now tracked (the doc
      section, the follow-up).
-   - No action → a short acknowledgment reply, or skip the reply entirely
-     for pure praise/thank-you comments — resolving the thread is enough
-     (inline only — top-level comments have no "resolve," see step 8).
-8. **Resolve every inline review thread** handled in this pass:
+   - No action → a short acknowledgment reply — still with the permalink
+     marker for top-level comments, so it's still skippable on a future
+     run — or skip the reply entirely for pure praise/thank-you comments
+     if there'd be nothing to skip anyway (nothing else references them).
+9. **Resolve every inline review thread** handled in this pass:
    ```
    gh api graphql -f query='
      mutation($id:ID!) {
@@ -154,7 +175,8 @@ pass over every comment from phase 1.
    ```
    `resolveReviewThread` only applies to inline review-comment threads —
    top-level issue comments and review bodies have no "resolved" state on
-   GitHub at all; the reply in step 7 is the entire deliverable for those.
+   GitHub at all; the permalink-marked reply in step 8 is the entire
+   deliverable for those (see step 2).
 
 ## Output
 
