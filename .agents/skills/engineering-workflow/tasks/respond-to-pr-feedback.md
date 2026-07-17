@@ -40,8 +40,18 @@ pass over every comment from phase 1.
    just the first page — a busy PR can exceed one page on any of these,
    and "fetch every comment" means every comment, not "every comment that
    fit on page one":
-   - Inline review comments: `gh api --paginate
-     repos/{owner}/{repo}/pulls/{pr}/comments`
+   - **Inline review comments — GraphQL only, not the REST list.**
+     `gh api --paginate repos/{owner}/{repo}/pulls/{pr}/comments` returns
+     a flat list mixing root comments *and* their replies (a reply has
+     `in_reply_to_id` set), but GitHub's "create a reply" endpoint requires
+     the *root* comment's ID — replying using a reply's own ID fails and
+     leaves that thread unhandled. The GraphQL query below already groups
+     everything by thread, so use it as the single source for inline
+     comments instead of the REST list: for each thread,
+     `comments.nodes[0]` is always the root comment (the ID step 8's reply
+     call needs), and any later entries in that same array are its
+     replies — you don't need to separately figure out which fetched
+     comment is a root vs. a reply.
    - Top-level issue comments: `gh api --paginate
      repos/{owner}/{repo}/issues/{pr}/comments` (pull requests are issues
      for this endpoint) — **not** `gh pr view --json comments`, which goes
@@ -49,14 +59,16 @@ pass over every comment from phase 1.
      "fetch everything" source on a PR with a lot of discussion.
    - Review bodies: `gh api --paginate
      repos/{owner}/{repo}/pulls/{pr}/reviews`
-   - Resolution state via GraphQL, so you don't re-triage something
-     already resolved — page through both connections this query touches:
-     the outer `reviewThreads` (`endCursor`/`hasNextPage` if a PR has more
-     than 100 threads) and, per thread, the nested `comments` (bumped to
-     `first:100` below — no single thread on this repo's PRs has
-     realistically had more replies than that, but if one ever does,
-     re-query that specific thread's `comments` connection with its own
-     cursor rather than trusting this query's first 100):
+   - Inline threads + resolution state, via GraphQL — note `databaseId` on
+     each comment: that's the numeric REST-style ID step 8's reply call
+     needs (`id` here is a GraphQL node ID, a different value, and won't
+     work against the REST reply endpoint). Page through both connections
+     this query touches: the outer `reviewThreads` (`endCursor`/
+     `hasNextPage` if a PR has more than 100 threads) and, per thread, the
+     nested `comments` (bumped to `first:100` — no single thread on this
+     repo's PRs has realistically had more replies than that, but if one
+     ever does, re-query that specific thread's `comments` connection with
+     its own cursor rather than trusting this query's first 100):
    ```
    gh api graphql -f query='
      query($owner:String!, $repo:String!, $pr:Int!, $after:String) {
@@ -66,7 +78,9 @@ pass over every comment from phase 1.
              pageInfo { hasNextPage endCursor }
              nodes {
                id isResolved
-               comments(first:100) { nodes { id body path line author { login } } }
+               comments(first:100) {
+                 nodes { id databaseId body path line author { login } }
+               }
              }
            }
          }
@@ -135,10 +149,14 @@ pass over every comment from phase 1.
    got code changes. GitHub has two different comment types with two
    different reply endpoints — use the one matching what you fetched in
    step 1, not just the review-comment one for everything:
-   - **Inline review comments** (from the `pulls/{pr}/comments` fetch) —
-     reply on the thread:
+   - **Inline review comments** (from the GraphQL `reviewThreads` fetch) —
+     reply using the thread's root comment's `databaseId` (i.e.
+     `comments.nodes[0].databaseId` — **not** `id`, which is a GraphQL node
+     ID the REST endpoint doesn't accept, and **not** any later entry in
+     `comments.nodes`, which are replies, not valid reply targets
+     themselves):
      ```
-     gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
+     gh api repos/{owner}/{repo}/pulls/{pr}/comments/{root_database_id}/replies \
        -f body="<reply text>"
      ```
    - **Top-level issue comments and review bodies** (from the
