@@ -69,4 +69,60 @@ public sealed class CombatManagerTests
         player.Parent.Should().Be(hubRoom);
         sut.IsInCombat(player.Id).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task OnTickAsync_FreezesEncounter_WhenAttackerLinkdeadWithinGraceWindow()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var session = Substitute.For<ISession>();
+        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
+
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session };
+        playerBehavior.EnterLinkdead(DateTimeOffset.UtcNow);
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        npc.Behaviors.Add(new NpcBehavior());
+        npc.Behaviors.Add(new CombatantBehavior { ExperienceReward = 10, CurrentHitPoints = 6 });
+        room.Add(npc);
+
+        var sut = new CombatManager(resolver, hubRoom);
+        sut.StartEncounter(player, npc);
+
+        await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
+
+        sut.IsInCombat(player.Id).Should().BeTrue();
+        resolver.DidNotReceiveWithAnyArgs().ResolveRound(default!, default!);
+        await session.DidNotReceiveWithAnyArgs().WriteLineAsync(default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task OnTickAsync_AbandonsEncounter_WhenAttackerLinkdeadPastGraceWindow()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var session = Substitute.For<ISession>();
+        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
+
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session };
+        playerBehavior.EnterLinkdead(DateTimeOffset.UtcNow - ReconnectPolicy.GraceWindow - TimeSpan.FromSeconds(1));
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        npc.Behaviors.Add(new NpcBehavior());
+        npc.Behaviors.Add(new CombatantBehavior { ExperienceReward = 10, CurrentHitPoints = 6 });
+        room.Add(npc);
+
+        var sut = new CombatManager(resolver, hubRoom);
+        sut.StartEncounter(player, npc);
+
+        await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
+
+        sut.IsInCombat(player.Id).Should().BeFalse();
+    }
 }

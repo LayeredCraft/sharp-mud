@@ -20,6 +20,13 @@ public static class SessionLoop
         IThingRepository repository,
         CancellationToken ct)
     {
+        // "quit" disconnects intentionally (QuitCommand) - that path skips
+        // the Linkdead grace period entirely and removes the player
+        // immediately below, same as every disconnect used to behave before
+        // ADR-0004. Any other way the loop ends (dropped connection, server
+        // shutdown) goes Linkdead instead, so LoginFlow can reconnect it.
+        var explicitQuit = false;
+
         try
         {
             await session.WriteLineAsync("Welcome to SharpMud.", ct);
@@ -53,6 +60,9 @@ public static class SessionLoop
                     continue;
                 }
 
+                if (parsed.Verb.Equals("quit", StringComparison.OrdinalIgnoreCase))
+                    explicitQuit = true;
+
                 var context = new CommandContext(player, currentRoom, parsed.Args, world, session);
                 await command.ExecuteAsync(context, ct);
             }
@@ -73,8 +83,20 @@ public static class SessionLoop
             // cancellation mid-operation.
             await repository.SaveTreeAsync(player, CancellationToken.None);
 
-            player.Parent?.Remove(player);
-            world.Unregister(player.Id);
+            if (explicitQuit)
+            {
+                player.Parent?.Remove(player);
+                world.Unregister(player.Id);
+            }
+            else
+            {
+                // Linkdead, not an immediate world removal (ADR-0004) - the
+                // Thing stays live in its room so LoginFlow can reconnect a
+                // new session to it within ReconnectPolicy.GraceWindow.
+                // LinkdeadSweeper finishes the removal once that window
+                // elapses without a reconnect.
+                player.FindBehavior<PlayerBehavior>()?.EnterLinkdead(DateTimeOffset.UtcNow);
+            }
         }
     }
 }

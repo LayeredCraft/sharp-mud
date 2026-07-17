@@ -32,15 +32,21 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
             if (!_encounters.TryGetValue(thingId, out var encounter))
                 continue;
 
-            var session = encounter.Attacker.FindBehavior<PlayerBehavior>()?.Session;
-            if (session is null)
+            var attackerBehavior = encounter.Attacker.FindBehavior<PlayerBehavior>()!;
+            if (attackerBehavior.ConnectionState == ConnectionState.Linkdead)
             {
-                // Attacker disconnected mid-fight. Real linkdead handling (a
-                // grace period before the encounter is force-abandoned - see
-                // docs/combat.md) isn't wired up yet; the encounter just ends.
-                _encounters.Remove(thingId);
+                // Attacker disconnected mid-fight (ADR-0004). Freeze the
+                // encounter rather than ending it immediately - it resumes
+                // automatically once LoginFlow reconnects them (ConnectionState
+                // flips back to Playing). Only actually abandon it once the
+                // same grace window LoginFlow/LinkdeadSweeper use has elapsed.
+                if (ctx.Timestamp - attackerBehavior.LinkdeadSinceUtc!.Value >= ReconnectPolicy.GraceWindow)
+                    _encounters.Remove(thingId);
+
                 continue;
             }
+
+            var session = attackerBehavior.Session!;
 
             var attackResult = resolver.ResolveRound(encounter.Attacker, encounter.Defender);
             await session.WriteLineAsync(

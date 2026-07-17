@@ -109,16 +109,30 @@ round: hit check → damage → apply → check death" description.
    tick — repeats without further player input until death or `flee`
    (disconnect handling is a stub for now, see below).
 
-## Disconnect Mid-Fight (stub)
+## Disconnect Mid-Fight ✅ (ADR-0004)
 
-The full design — `CombatState.Linkdead`, a grace period before the
-encounter is force-abandoned, resuming on reconnect — is **not implemented**.
-Currently, if `IWorld.GetSession(playerId)` returns `null` on a tick (no
-session registered for that player), `CombatManager` just removes the
-encounter immediately. This is an intentional stub, not a design change —
-implementing the real grace-period behavior needs session
-reconnect/resumption (see [networking.md](networking.md)), which doesn't
-exist yet since there's only one local transport.
+Each tick, `CombatManager` checks the attacker's `PlayerBehavior
+.ConnectionState` (see [networking.md](networking.md)'s Reconnect / Session
+Resumption for the full `Linkdead` mechanism):
+
+- `Linkdead` and still within `ReconnectPolicy.GraceWindow` of
+  `LinkdeadSinceUtc` — the encounter **freezes**: no round resolves, no
+  session writes happen, nothing is removed. It resumes automatically once
+  `LoginFlow` reconnects the player (`ConnectionState` flips back to
+  `Playing`) — no combat-specific reconnect logic needed, `CombatManager`
+  just sees a `Playing` attacker again on the next tick.
+- `Linkdead` and past `ReconnectPolicy.GraceWindow` — the encounter is
+  abandoned (`EndEncounter`), same outcome as the old stub, just delayed
+  until the grace window genuinely expires instead of ending the instant
+  the connection dropped.
+
+Verified live over real Telnet as part of ADR-0004/PLAN-0004 (see
+[networking.md](networking.md)) that a disconnect mid-session leaves the
+character (and by extension any encounter) resumable; the encounter-freeze
+path itself is covered by `CombatManagerTests`
+(`OnTickAsync_FreezesEncounter_WhenAttackerLinkdeadWithinGraceWindow`,
+`OnTickAsync_AbandonsEncounter_WhenAttackerLinkdeadPastGraceWindow`), not a
+separate live combat-specific manual test.
 
 ## Death & Respawn
 
@@ -153,9 +167,8 @@ to differential against yet. On success, a random exit is chosen
 
 - Exact to-hit modifier scaling (how level/skill translate into a d20 bonus)
   — not implemented at all yet (currently an unmodified roll).
-- Real linkdead/reconnect handling — currently a stub that just ends the
-  encounter; needs session resumption (see [networking.md](networking.md))
-  to implement properly.
+- ~~Real linkdead/reconnect handling~~ — resolved by ADR-0004, see
+  Disconnect Mid-Fight above.
 - Flee success-chance formula (exact DEX-differential-to-probability curve)
   — currently a flat 60%; would also need Dexterity added to `ICombatant` or
   a separate lookup.

@@ -79,19 +79,51 @@ role in the sequence:)
 2. `Host`'s session-loop catches this, fires a `PlayerDisconnectedEvent`
    consumed by Engine's disconnect handler.
 
-## Reconnect / Session Resumption
+## Reconnect / Session Resumption ✅ (ADR-0004)
 
-Resume-within-grace-window: reconnecting and logging back in with the same
-username/password (see [accounts-auth.md](accounts-auth.md)) within N minutes
-of a disconnect
-resumes the same character/session rather than requiring a fresh login. This
-is the mechanism that makes the linkdead-combat grace period in
-[combat.md](combat.md) meaningful — a player who reconnects in time resumes
-their `CombatEncounter` in progress. After the window expires, it's a fresh
-login and any abandoned encounter has already force-ended. Exact grace-window
-duration TBD — likely the same constant as (or close to) the combat linkdead
-grace period, but not necessarily identical (session resumption may
-reasonably outlast combat's grace period).
+Implemented via a `ConnectionState` `OptimizedEnum` (`Playing`/`Linkdead`,
+`src/SharpMud.Engine/Sessions/ConnectionState.cs`) on `PlayerBehavior`, not a
+WheelMUD-style polymorphic per-state class hierarchy — see
+[ADR-0004](adr/0004-session-state-machine-and-reconnect.md) for why that
+lighter shape was chosen.
+
+- A dropped connection (not an explicit `quit`) transitions the player to
+  `Linkdead` (`SessionLoop`'s `finally`) instead of immediately removing
+  their `Thing` from the world — they stay visibly present (`look`/`who`)
+  until either a reconnect or the grace window expires.
+- Reconnecting with the same username/password (see
+  [accounts-auth.md](accounts-auth.md)) while `Linkdead` transitions back to
+  `Playing` and resumes the same `Thing` in place (`LoginFlow
+  .LoginExistingAsync`), printing `"Welcome back."` — this is the mechanism
+  that makes the linkdead-combat grace period in [combat.md](combat.md)
+  meaningful, a player who reconnects in time resumes their `CombatEncounter`
+  in progress.
+- If the window elapses without a reconnect, `LinkdeadSweeper`
+  (`src/SharpMud.Engine/Sessions/LinkdeadSweeper.cs`, an `ITickable`
+  registered with `IGameLoop` the same way as `CombatManager`/
+  `WanderManager`) saves and force-removes the player — the same cleanup
+  `SessionLoop` used to do immediately pre-ADR-0004.
+- `ReconnectPolicy.GraceWindow` (`src/SharpMud.Engine/Sessions
+  /ReconnectPolicy.cs`, currently 3 minutes) is the single constant shared by
+  the sweeper and `CombatManager`'s linkdead handling — resolves this doc's
+  former open question of whether the two grace windows are the same
+  constant: they now literally are. Not a tuned final value (same caveat as
+  `LoginFlow.MaxPasswordAttempts`).
+- An explicit `quit` still bypasses `Linkdead` entirely and removes the
+  player immediately, matching pre-ADR-0004 behavior — the grace period
+  only applies to a connection that was lost, not one the player ended on
+  purpose.
+- Unchanged: if the character is still actively `Playing` with a live,
+  connected session, a second login attempt is still rejected
+  (`"That character is already logged in."`) rather than stealing the
+  session — WheelMUD's "freshest login wins" behavior was deliberately not
+  adopted here (see ADR-0004's Scope).
+
+Verified live over real Telnet: a player mid-session, disconnected without
+`quit`, remains visible to other players (`look`/`who`) until reconnected;
+reconnecting with the same username/password resumes the same character in
+place and prints `"Welcome back."`; `quit` still removes the character
+immediately with no linkdead window.
 
 ## Idle Timeout
 
@@ -100,10 +132,9 @@ connection slot, classic MUD behavior on public servers. Exact minutes TBD.
 
 ## Open Items
 
-- Exact reconnect grace-window duration, and whether it's the same constant
-  as the combat linkdead grace period or configured separately. Not
-  implemented — a fresh Telnet connection always creates a new player
-  `Thing`, there's no reconnect-to-existing-character path yet.
+- ~~Exact reconnect grace-window duration~~ — resolved by ADR-0004:
+  `ReconnectPolicy.GraceWindow`, 3 minutes, shared with combat's linkdead
+  handling. Still a placeholder value, not tuned from real playtesting.
 - Exact idle-timeout duration. Not implemented — a Telnet connection stays
   open indefinitely until the client disconnects.
 - Concurrent-connection limits and backpressure — not yet specified;

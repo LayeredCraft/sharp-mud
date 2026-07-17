@@ -58,3 +58,4 @@ isn't settled yet — don't do that.
 |---|---|---|
 | [0001](0001-wheelmud-reconciliation-roadmap.md) | [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md) | In Progress |
 | [0002](0002-telnet-protocol-negotiation.md) | [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) | Done |
+| [0004](0004-session-state-machine-and-reconnect.md) | [ADR-0004](../adr/0004-session-state-machine-and-reconnect.md) | Done |

@@ -86,10 +86,22 @@ public static class LoginFlow
                 continue;
             }
 
-            if (playerBehavior.Session is { IsConnected: true })
+            // Unchanged from before ADR-0004: still actively Playing with a
+            // live session means someone else is using this character right
+            // now - reject, don't steal the session.
+            if (playerBehavior.ConnectionState == ConnectionState.Playing && playerBehavior.Session is { IsConnected: true })
             {
                 await session.WriteLineAsync("That character is already logged in.", ct);
                 return null;
+            }
+
+            // Linkdead means this character disconnected (not "quit") within
+            // ReconnectPolicy.GraceWindow and is still live in its room -
+            // resume it instead of treating this as a fresh login (ADR-0004).
+            if (playerBehavior.ConnectionState == ConnectionState.Linkdead)
+            {
+                playerBehavior.Reconnect();
+                await session.WriteLineAsync("Welcome back.", ct);
             }
 
             return existing;

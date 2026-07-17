@@ -11,4 +11,11 @@
     <InternalsVisibleTo Include="SharpMud.Persistence" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ConnectionState is a small OptimizedEnum state machine (ADR-0004),
+         same pattern already used for Race/CharacterClass in
+         SharpMud.Ruleset.Classic. -->
+    <PackageReference Include="LayeredCraft.OptimizedEnums" />
+  </ItemGroup>
+
 </Project>
