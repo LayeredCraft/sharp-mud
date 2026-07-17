@@ -42,13 +42,21 @@ pass over every comment from phase 1.
    fit on page one":
    - Inline review comments: `gh api --paginate
      repos/{owner}/{repo}/pulls/{pr}/comments`
-   - Top-level issue comments: `gh pr view <number> --json comments` (this
-     one already returns the full list, not paginated REST)
+   - Top-level issue comments: `gh api --paginate
+     repos/{owner}/{repo}/issues/{pr}/comments` (pull requests are issues
+     for this endpoint) — **not** `gh pr view --json comments`, which goes
+     through GitHub's own single-page GraphQL binding and isn't a reliable
+     "fetch everything" source on a PR with a lot of discussion.
    - Review bodies: `gh api --paginate
      repos/{owner}/{repo}/pulls/{pr}/reviews`
    - Resolution state via GraphQL, so you don't re-triage something
-     already resolved — page through with `endCursor`/`hasNextPage` if a
-     PR has more than 100 threads:
+     already resolved — page through both connections this query touches:
+     the outer `reviewThreads` (`endCursor`/`hasNextPage` if a PR has more
+     than 100 threads) and, per thread, the nested `comments` (bumped to
+     `first:100` below — no single thread on this repo's PRs has
+     realistically had more replies than that, but if one ever does,
+     re-query that specific thread's `comments` connection with its own
+     cursor rather than trusting this query's first 100):
    ```
    gh api graphql -f query='
      query($owner:String!, $repo:String!, $pr:Int!, $after:String) {
@@ -58,7 +66,7 @@ pass over every comment from phase 1.
              pageInfo { hasNextPage endCursor }
              nodes {
                id isResolved
-               comments(first:10) { nodes { id body path line author { login } } }
+               comments(first:100) { nodes { id body path line author { login } } }
              }
            }
          }
@@ -118,11 +126,11 @@ pass over every comment from phase 1.
      gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
        -f body="<reply text>"
      ```
-   - **Top-level issue comments and review bodies** (from `gh pr view
-     --json comments` / `pulls/{pr}/reviews`) — these aren't inline review
-     comments, so the endpoint above doesn't apply to them (it will either
-     404 or silently reply to the wrong thing). Reply as a new top-level
-     PR comment instead:
+   - **Top-level issue comments and review bodies** (from the
+     `issues/{pr}/comments` / `pulls/{pr}/reviews` fetch) — these aren't
+     inline review comments, so the endpoint above doesn't apply to them
+     (it will either 404 or silently reply to the wrong thing). Reply as a
+     new top-level PR comment instead:
      ```
      gh pr comment <number> --body "<reply text>"
      ```
