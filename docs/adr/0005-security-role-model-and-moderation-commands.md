@@ -145,7 +145,15 @@ just another wrapper of the same shape) without DecoWeaver's registration
   `MinorAdmin` are independent bits with no inherent relationship. Caught
   during PR review (the bootstrap admin would otherwise be unable to run
   day-to-day moderation commands) — see `SHARPMUD_INITIAL_ADMIN` below,
-  which relies on this same accumulation.
+  which relies on this same accumulation. The same invariant has to hold
+  on the way out, not just the way in — also caught during PR review:
+  `PlayerBehavior.RevokeRole(SecurityRole role)` rejects (rather than
+  silently applying) a revoke of a tier still implied by a higher one the
+  target currently holds — e.g. revoking `MinorAdmin` from someone who
+  still has `FullAdmin` would otherwise leave `FullAdmin` set with
+  `MinorAdmin` cleared, breaking "`FullAdmin` implies `MinorAdmin`" for
+  that user going forward. The rejection names the blocking higher tier
+  so the admin knows to revoke that one first (or instead).
 - `RoleGuardedCommand` checks `(actor.Roles & requiredRole) !=
   SecurityRole.None` (any-of semantics, matching WheelMUD's own bitwise
   check) before delegating to the inner command. The same Decorator shape

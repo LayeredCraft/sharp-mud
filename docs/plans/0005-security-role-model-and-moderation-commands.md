@@ -62,11 +62,30 @@ an open item below.
       IsBanned { get; private set; }`, plus mutation methods
       (`GrantRole`/`RevokeRole`, `Mute`/`Unmute`, `Ban`/`Unban`) rather than
       public setters, matching `ConnectionState`'s existing
-      transition-method style. `GrantRole` accumulates implied lower tiers
-      (`FullAdmin` → also `MinorAdmin` + `Player`; `FullBuilder` → also
-      `MinorBuilder`) per ADR-0005's accumulation rule — a plain
-      `Roles |= role` is not enough on its own, `RevokeRole` only clears
-      the exact bit(s) passed in (no cascading revoke of implied tiers).
+      transition-method style.
+      - [ ] `GrantRole(SecurityRole role)`: ORs in `role` *and* every tier
+            it implies (`FullAdmin` → also `MinorAdmin` + `Player`;
+            `FullBuilder` → also `MinorBuilder`) per ADR-0005's
+            accumulation rule — a plain `Roles |= role` is not enough on
+            its own.
+      - [ ] A static `SecurityRole.Implies(SecurityRole role)` (or
+            equivalent lookup) expressing the same hierarchy
+            (`FullAdmin`→`MinorAdmin`→`Player`, `FullBuilder`→
+            `MinorBuilder`) — used by both `GrantRole` (to accumulate
+            downward) and `RevokeRole` (to check upward, see next) so the
+            hierarchy is defined once, not duplicated between the two
+            directions.
+      - [ ] `RevokeRole(SecurityRole role)`: **enforces the same
+            invariant symmetrically** (caught in PR review — clearing
+            only the exact bit passed in can leave a higher tier set with
+            a lower tier it implies cleared, e.g. `FullAdmin` present but
+            `MinorAdmin` cleared after revoking just `MinorAdmin`). Before
+            clearing, check whether any *other* currently-held role
+            implies `role`; if so, throw/reject (surfaced by
+            `RoleRevokeCommand` as a message naming the blocking higher
+            tier — "still has FullAdmin, which includes MinorAdmin —
+            revoke FullAdmin instead") rather than silently applying an
+            inconsistent state.
 - [ ] `PlayerBehaviorConfiguration.cs`: map `Roles` with the plain-enum
       default EF conversion (matching `WearableBehaviorConfiguration`'s
       `Slot` precedent — no custom value converter needed); map `IsMuted`/
@@ -97,9 +116,13 @@ take `IThingRepository` via their own constructor — the same shape
       sets/clears `IsBanned`, online-or-not lookup, saves immediately.
 - [ ] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`,
       `IThingRepository`) — mutates a target's `Roles` via
-      `GrantRole`/`RevokeRole` (accumulation happens inside `GrantRole`
-      itself, not here), online-or-not lookup, saves immediately; validate
-      the role name argument against `SecurityRole`'s named values.
+      `GrantRole`/`RevokeRole` (accumulation/hierarchy-invariant
+      enforcement happens inside `PlayerBehavior` itself, not here),
+      online-or-not lookup, saves immediately; validate the role name
+      argument against `SecurityRole`'s named values. `RoleRevokeCommand`
+      catches `RevokeRole`'s rejection (target still holds a higher tier
+      that implies the requested one) and surfaces it as a clear message
+      naming the blocking tier, not a crash.
 - [ ] Register all 8 via `RegisterWithRole` in a new
       `AdminCommands.RegisterAll(registry, repository)` (mirrors
       `BuiltinCommands`/`ClassicCommands`'s shape — `ClassicCommands
@@ -195,11 +218,17 @@ Modified:
   `Unban` — state mutates as expected. Specifically cover accumulation:
   `GrantRole(FullAdmin)` results in `Roles` containing `FullAdmin`,
   `MinorAdmin`, *and* `Player`; `GrantRole(FullBuilder)` results in
-  `FullBuilder` + `MinorBuilder`; `RevokeRole` only clears the exact bit
-  passed, not implied lower tiers.
+  `FullBuilder` + `MinorBuilder`.
 - Unit: a `FullAdmin`-only actor (post-accumulation) successfully passes a
   `MinorAdmin`-gated `RoleGuardedCommand` — the regression test for the
   bootstrap-admin-can't-moderate gap caught in PR review.
+- Unit: `RevokeRole(MinorAdmin)` on an actor who also holds `FullAdmin`
+  is rejected (`Roles` unchanged, exception/rejection surfaced) — the
+  regression test for the revoke-side hierarchy gap caught in PR review.
+  `RevokeRole(FullAdmin)` on that same actor succeeds and leaves
+  `MinorAdmin`/`Player` intact (demotion, not a full reset — revoking the
+  top tier doesn't cascade-clear what it implied). `RevokeRole(MinorAdmin)`
+  on an actor who does *not* also hold `FullAdmin` succeeds normally.
 - Unit: `HostOptions.Parse` — `SHARPMUD_INITIAL_ADMIN` parses correctly,
   absent env var leaves it null.
 - Unit: bootstrap grants `FullAdmin` via both paths independently — the
