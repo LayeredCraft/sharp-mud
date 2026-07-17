@@ -62,13 +62,10 @@ pass over every comment from phase 1.
    - Inline threads + resolution state, via GraphQL — note `databaseId` on
      each comment: that's the numeric REST-style ID step 8's reply call
      needs (`id` here is a GraphQL node ID, a different value, and won't
-     work against the REST reply endpoint). Page through both connections
-     this query touches: the outer `reviewThreads` (`endCursor`/
-     `hasNextPage` if a PR has more than 100 threads) and, per thread, the
-     nested `comments` (bumped to `first:100` — no single thread on this
-     repo's PRs has realistically had more replies than that, but if one
-     ever does, re-query that specific thread's `comments` connection with
-     its own cursor rather than trusting this query's first 100):
+     work against the REST reply endpoint). This query has **two**
+     paginated connections, and both need checking, not just the outer
+     one — GraphQL connections cap at 100 per page regardless of which
+     connection it is:
    ```
    gh api graphql -f query='
      query($owner:String!, $repo:String!, $pr:Int!, $after:String) {
@@ -79,6 +76,7 @@ pass over every comment from phase 1.
              nodes {
                id isResolved
                comments(first:100) {
+                 pageInfo { hasNextPage endCursor }
                  nodes { id databaseId body path line author { login } }
                }
              }
@@ -87,8 +85,30 @@ pass over every comment from phase 1.
        }
      }' -f owner=<owner> -f repo=<repo> -F pr=<number>
    ```
-   If `pageInfo.hasNextPage` is `true`, repeat the query passing
-   `pageInfo.endCursor` as `-f after=<cursor>` until it's `false`.
+   - **Outer `reviewThreads`**: if `pageInfo.hasNextPage` is `true`,
+     repeat the whole query passing `pageInfo.endCursor` as `-f
+     after=<cursor>` until it's `false`.
+   - **Nested `comments` on any individual thread**: if that thread's
+     `comments.pageInfo.hasNextPage` is `true`, its replies were
+     truncated — before triaging or resolving that specific thread,
+     re-query just its `comments` connection with its own cursor:
+     ```
+     gh api graphql -f query='
+       query($id:ID!, $after:String) {
+         node(id:$id) {
+           ... on PullRequestReviewThread {
+             comments(first:100, after:$after) {
+               pageInfo { hasNextPage endCursor }
+               nodes { id databaseId body path line author { login } }
+             }
+           }
+         }
+       }' -f id=<thread id> -f after=<cursor>
+     ```
+     Repeat until that thread's `hasNextPage` is `false` too. Don't skip
+     this even though it's rare — a thread actually hitting 100+ replies
+     is unlikely on this repo's PRs, but the check costs nothing and
+     "unlikely" isn't "impossible."
 2. **Skip everything already handled, before classifying anything** — a
    rerun of this task on the same PR must converge, not re-triage forever.
    Three separate skip rules, all applied before step 3:
