@@ -58,6 +58,20 @@ image → data still there test.
 ASCII/English, so invariant globalization mode avoids needing the larger
 `-extra` image variant for culture data nothing uses.
 
+## Continuous Integration
+
+`.github/workflows/pr-build.yaml` runs on every PR against `main`
+(`workflow_dispatch` also available for a manual run) — restores, builds,
+and runs the full test suite (`SharpMud.slnx`, `hasTests: true`,
+`useMtpRunner: true` to match this repo's xUnit v3 + Microsoft Testing
+Platform setup, per `testing.md`). It's a thin caller into
+[`LayeredCraft/devops-templates`](https://github.com/LayeredCraft/devops-templates)'s
+reusable `pr-build.yaml`, the same pattern other LayeredCraft repos use —
+not a bespoke pipeline. `runCdk: false` since this repo deploys as a plain
+Docker image (see Container above), not AWS CDK/Lambda; the reusable
+workflow's CDK/Lambda-function inputs and secrets are simply unused here.
+No image build/publish step yet — see Open Items.
+
 ## Verified
 
 Built and run locally via Docker: image builds clean (no warnings), the
@@ -88,8 +102,10 @@ wouldn't stop cleanly before the fix.
   check yet beyond "process is running."
 - Multi-arch image builds (arm64 + amd64) — currently only built for the
   local dev machine's architecture.
-- CI-driven image builds/publishing — no pipeline exists yet; images are
-  built manually.
+- ~~CI-driven build/test~~ — resolved, see Continuous Integration above.
+  Still open: CI-driven **image** builds/publishing — the PR workflow only
+  builds/tests the .NET solution, it doesn't build or push the Docker
+  image; that's still done manually.
 - No documentation/tooling yet for backing up the `/data` volume itself —
   the volume mount solves "survives a redeploy," not "survives host disk
   loss."
