@@ -179,9 +179,13 @@ configuration and open items.
 
 Explicitly out of scope for v1, to revisit later:
 
-- **Moderation/admin tooling**: permission levels (player/builder/admin),
-  mute/kick/ban, admin commands, audit logging. Known future need, not
-  designed yet.
+- **Moderation/admin tooling**: permission levels, mute/kick/ban, admin
+  commands — designed, see
+  [ADR-0005](docs/adr/0005-security-role-model-and-moderation-commands.md)
+  and
+  [PLAN-0005](docs/plans/0005-security-role-model-and-moderation-commands.md);
+  not yet implemented. Audit logging remains undesigned, tracked as an
+  open item in PLAN-0005.
 - **Soft-code/scripting engine**: revisit once data/config-driven NPC and room
   behavior proves insufficient.
 - **Procedural frontier generation algorithm**: choice of generation approach

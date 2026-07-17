@@ -147,8 +147,15 @@ silently skipped).
   "non-empty" is enforced.
 - Password reset flow — with no email/OAuth identity backing the account,
   there's no "forgot password" recovery path; not designed. Likely
-  admin-assisted reset only (ties into deferred moderation tooling, see
-  `SPEC.md`).
+  admin-assisted reset only (ties into the moderation tooling designed in
+  [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md), not
+  yet implemented).
+- Ban enforcement — designed in
+  [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md)/
+  [PLAN-0005](plans/0005-security-role-model-and-moderation-commands.md)
+  (a banned `PlayerBehavior.IsBanned` rejects login at password
+  verification), not yet implemented — today, login has no concept of a
+  banned user at all.
 - The password itself travels in cleartext over Telnet (only the on-screen
   *display* is suppressed) — no transport encryption exists yet; SSH (see
   [networking.md](networking.md)) would be the natural place this gets
