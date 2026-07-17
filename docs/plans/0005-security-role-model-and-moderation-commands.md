@@ -62,7 +62,11 @@ an open item below.
       IsBanned { get; private set; }`, plus mutation methods
       (`GrantRole`/`RevokeRole`, `Mute`/`Unmute`, `Ban`/`Unban`) rather than
       public setters, matching `ConnectionState`'s existing
-      transition-method style.
+      transition-method style. `GrantRole` accumulates implied lower tiers
+      (`FullAdmin` → also `MinorAdmin` + `Player`; `FullBuilder` → also
+      `MinorBuilder`) per ADR-0005's accumulation rule — a plain
+      `Roles |= role` is not enough on its own, `RevokeRole` only clears
+      the exact bit(s) passed in (no cascading revoke of implied tiers).
 - [ ] `PlayerBehaviorConfiguration.cs`: map `Roles` with the plain-enum
       default EF conversion (matching `WearableBehaviorConfiguration`'s
       `Slot` precedent — no custom value converter needed); map `IsMuted`/
@@ -71,22 +75,37 @@ an open item below.
 
 ### Moderation commands (`src/SharpMud.Engine/Commands/Builtin/Admin/`)
 
-- [ ] `BootCommand` (`MinorAdmin`) — disconnects a currently-online target
-      by username; "not online" message if not found live.
-- [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`) — sets/clears
-      `IsMuted` on a target (online-or-not, mirrors `LoginFlow`'s
-      live-then-repository lookup), saves immediately.
-- [ ] `AnnounceCommand` (`MinorAdmin`) — broadcasts to every session in
-      `world.AllWithBehavior<PlayerBehavior>()` with a live session
-      (`WhoCommand`'s iteration pattern).
-- [ ] `BanCommand`/`UnbanCommand` (`FullAdmin`) — sets/clears `IsBanned`,
-      online-or-not lookup, saves immediately.
-- [ ] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`) — mutates a
-      target's `Roles`, online-or-not lookup, saves immediately; validate
+`Mute`/`Unmute`/`Ban`/`Unban`/`RoleGrant`/`RoleRevoke` need `IThingRepository`
+for offline target lookup + immediate saves — `CommandContext` only carries
+`World`/`Session`, not the repository, and today the repository is only
+available inside `SessionLoop`. Rather than extending `CommandContext`
+(bigger blast radius, touches every command's context), these six commands
+take `IThingRepository` via their own constructor — the same shape
+`ClassicCommands.RegisterAll` already uses for `combatManager`/`random`.
+`Boot`/`Announce` don't need it (online-only / broadcast-only).
+
+- [ ] `BootCommand` (`MinorAdmin`, no repository dependency) — disconnects
+      a currently-online target by username; "not online" message if not
+      found live.
+- [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
+      sets/clears `IsMuted` on a target (online-or-not, mirrors
+      `LoginFlow`'s live-then-repository lookup), saves immediately.
+- [ ] `AnnounceCommand` (`MinorAdmin`, no repository dependency) —
+      broadcasts to every session in `world.AllWithBehavior<PlayerBehavior>()`
+      with a live session (`WhoCommand`'s iteration pattern).
+- [ ] `BanCommand`/`UnbanCommand` (`FullAdmin`, `IThingRepository`) —
+      sets/clears `IsBanned`, online-or-not lookup, saves immediately.
+- [ ] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`,
+      `IThingRepository`) — mutates a target's `Roles` via
+      `GrantRole`/`RevokeRole` (accumulation happens inside `GrantRole`
+      itself, not here), online-or-not lookup, saves immediately; validate
       the role name argument against `SecurityRole`'s named values.
 - [ ] Register all 8 via `RegisterWithRole` in a new
-      `AdminCommands.RegisterAll(registry)` (mirrors `BuiltinCommands`/
-      `ClassicCommands`'s shape), called from `Program.cs`. Wrap `say`/
+      `AdminCommands.RegisterAll(registry, repository)` (mirrors
+      `BuiltinCommands`/`ClassicCommands`'s shape — `ClassicCommands
+      .RegisterAll` already takes extra constructed dependencies the same
+      way), called from `Program.cs` alongside the existing `RegisterAll`
+      calls, passing the already-constructed `repository`. Wrap `say`/
       `emote`'s existing registrations in `MuteGuardedCommand` at the same
       call site.
 
@@ -97,10 +116,21 @@ an open item below.
       the `ConnectionState` branch.
 - [ ] `HostOptions.cs`: add `string? InitialAdminUsername`, parsed from
       `SHARPMUD_INITIAL_ADMIN`.
-- [ ] `Program.cs`: after world load/build, if `InitialAdminUsername` is
-      set and that username's character exists (live or via repository),
-      idempotently ensure it has `FullAdmin` (grant + save if not already
-      present).
+- [ ] Bootstrap the grant in **two** places, not just one — a boot-time-only
+      check is a no-op on a genuinely fresh server, since the target
+      character doesn't exist yet at boot and only gets created later
+      through the normal login flow (caught in PR review):
+      - [ ] `Program.cs`: after world load/build, if `InitialAdminUsername`
+            is set and that username's character already exists (live or
+            via repository — the "restart of an existing world" case),
+            idempotently `GrantRole(FullAdmin)` + save if not already
+            present.
+      - [ ] `LoginFlow.MaybeCreateAsync`: after a new character is created
+            and saved, if its username matches `InitialAdminUsername`,
+            `GrantRole(FullAdmin)` + save again (the fresh-server case).
+      Both paths call the same `PlayerBehavior.GrantRole(SecurityRole
+      .FullAdmin)`, so both get the accumulation behavior (also granting
+      `MinorAdmin`/`Player`) for free.
 
 ### Docs
 
@@ -162,33 +192,51 @@ Modified:
 - Unit: `LoginFlow` — banned user rejected at password verification with
   the correct message, not silently falling through.
 - Unit: `PlayerBehavior.GrantRole`/`RevokeRole`/`Mute`/`Unmute`/`Ban`/
-  `Unban` — state mutates as expected.
+  `Unban` — state mutates as expected. Specifically cover accumulation:
+  `GrantRole(FullAdmin)` results in `Roles` containing `FullAdmin`,
+  `MinorAdmin`, *and* `Player`; `GrantRole(FullBuilder)` results in
+  `FullBuilder` + `MinorBuilder`; `RevokeRole` only clears the exact bit
+  passed, not implied lower tiers.
+- Unit: a `FullAdmin`-only actor (post-accumulation) successfully passes a
+  `MinorAdmin`-gated `RoleGuardedCommand` — the regression test for the
+  bootstrap-admin-can't-moderate gap caught in PR review.
 - Unit: `HostOptions.Parse` — `SHARPMUD_INITIAL_ADMIN` parses correctly,
   absent env var leaves it null.
+- Unit: bootstrap grants `FullAdmin` via both paths independently — the
+  `Program.cs` existing-character path, and `LoginFlow.MaybeCreateAsync`'s
+  newly-created-character path — since a boot-time-only check was the
+  fresh-server gap caught in PR review.
 
 ## Verification
 
 Real manual check over Telnet (this repo's established pattern for
 session/persistence-facing changes):
 
-1. Boot with `SHARPMUD_INITIAL_ADMIN=<username>` set, create that
-   character, confirm `Roles` includes `FullAdmin` (e.g. via a debug
-   `roles` self-check, or by successfully running a `FullAdmin`-gated
-   command).
-2. As that admin, `rolegrant <other-username> minoradmin` on a second
+1. **Fresh-server case** (the gap caught in PR review): boot a brand-new
+   world with `SHARPMUD_INITIAL_ADMIN=<username>` set, and only *then*
+   create that character over Telnet — confirm the grant happens at
+   creation time, not just at boot. Confirm the resulting admin can run
+   *both* a `FullAdmin`-gated command (e.g. `ban`) *and* a
+   `MinorAdmin`-gated one (e.g. `boot`) without a separate grant —
+   validates the accumulation fix.
+2. **Restart case**: restart the server (same world, same
+   `SHARPMUD_INITIAL_ADMIN`); confirm the existing admin's roles are
+   unaffected (idempotent, no duplicate grants/errors).
+3. As the admin, `rolegrant <other-username> minoradmin` on a second
    character; confirm the second character can now run `boot`/`mute`/
    `announce` but not `ban`/`rolegrant`.
-3. `mute <player>`; confirm that player's `say`/`emote` are blocked with a
+4. `mute <player>`; confirm that player's `say`/`emote` are blocked with a
    clear message, `unmute` restores them.
-4. `ban <player>`; confirm that player can no longer log in (distinct
+5. `ban <player>`; confirm that player can no longer log in (distinct
    message, not the generic "incorrect" one); `unban` restores login.
-5. `boot <player>`; confirm their session is disconnected immediately.
-6. `announce <message>`; confirm every currently-connected session
+6. `boot <player>`; confirm their session is disconnected immediately.
+7. `announce <message>`; confirm every currently-connected session
    receives it.
-7. Confirm a non-admin attempting any of the above gets a clear rejection,
+8. Confirm a non-admin attempting any of the above gets a clear rejection,
    not a crash or a silent no-op.
-8. Restart the server; confirm `Roles`/`IsMuted`/`IsBanned` all survived
-   (unlike `ConnectionState`, which is intentionally runtime-only).
+9. Restart the server again; confirm `Roles`/`IsMuted`/`IsBanned` all
+   survived (unlike `ConnectionState`, which is intentionally
+   runtime-only).
 
 ## Open questions / blockers
 

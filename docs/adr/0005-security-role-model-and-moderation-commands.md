@@ -127,13 +127,29 @@ just another wrapper of the same shape) without DecoWeaver's registration
   it's useless; default `Player` for new characters), plus `bool IsMuted`
   and `bool IsBanned` (also persisted; separate from `Roles` — a
   restriction, not a capability).
+- **Roles accumulate at grant time, matching WheelMUD's own behavior**
+  (confirmed during research: WheelMUD's `UserControlledBehavior
+  .SecurityRoles` is a bitwise-OR accumulation, e.g. "a promoted builder
+  keeps `player | minorBuilder | fullBuilder`," not just the newest tier's
+  bit alone). `PlayerBehavior.GrantRole(SecurityRole role)` ORs in the
+  requested role *and* every tier it implies: `FullAdmin` implies
+  `MinorAdmin` implies `Player`; `FullBuilder` implies `MinorBuilder`.
+  This matters because `RoleGuardedCommand`'s check stays a simple
+  bitwise AND with no hierarchy logic of its own — without accumulation,
+  a user granted only `FullAdmin` would fail every `MinorAdmin`-gated
+  command (`boot`/`mute`/`unmute`/`announce`), since `FullAdmin` and
+  `MinorAdmin` are independent bits with no inherent relationship. Caught
+  during PR review (the bootstrap admin would otherwise be unable to run
+  day-to-day moderation commands) — see `SHARPMUD_INITIAL_ADMIN` below,
+  which relies on this same accumulation.
 - `RoleGuardedCommand` checks `(actor.Roles & requiredRole) !=
   SecurityRole.None` (any-of semantics, matching WheelMUD's own bitwise
   check) before delegating to the inner command. The same Decorator shape
   is reused for mute enforcement (`MuteGuardedCommand`, wrapping `say`/
-  `emote`, checking the *target*'s `IsMuted` rather than the actor's role)
-  — validating the pattern's reusability for a cross-cutting concern that
-  isn't role-based at all.
+  `emote`, checking the *actor's own* `IsMuted` — it's the speaker being
+  blocked from speaking, not anything about a target) — validating the
+  pattern's reusability for a cross-cutting concern that isn't role-based
+  at all.
 - `ICommandRegistry.Register(ICommand)` is removed from the public
   interface; `RegisterOpen(ICommand)` and `RegisterWithRole(ICommand,
   SecurityRole)` are the only ways in. Every existing command's
@@ -168,11 +184,22 @@ login).
 
 **Bootstrap**: `HostOptions` gains `SHARPMUD_INITIAL_ADMIN` (env var,
 matching the existing `SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`/
-`SHARPMUD_DB_PATH` precedent). On boot, if a character with that username
-exists, the host ensures it has `FullAdmin` — idempotent, safe to leave
-set permanently or unset after first use. Solves "how does the first
-admin ever get `FullAdmin`" without an in-game path that would otherwise
-be a chicken-and-egg dead end.
+`SHARPMUD_DB_PATH` precedent). The grant is checked in **two** places, not
+just one — caught during PR review that checking only once at boot is a
+no-op on a genuinely fresh server, since the target character doesn't
+exist yet at boot time and only gets created later through the normal
+login flow:
+1. At boot (after world load), if a character with that username already
+   exists (a restart of an existing world) — the original case.
+2. At the moment a character with that username is actually created
+   (`LoginFlow.MaybeCreateAsync`), covering the fresh-server case.
+
+Both paths are idempotent and go through the same `GrantRole(FullAdmin)`
+call (which accumulates `MinorAdmin`/`Player` too, per the accumulation
+rule above) — safe to leave `SHARPMUD_INITIAL_ADMIN` set permanently, or
+unset after first use. Solves "how does the first admin ever get
+`FullAdmin`" without an in-game path that would otherwise be a
+chicken-and-egg dead end.
 
 ### Positive Consequences
 
