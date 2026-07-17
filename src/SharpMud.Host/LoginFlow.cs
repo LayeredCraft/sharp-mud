@@ -98,8 +98,20 @@ public static class LoginFlow
             // Linkdead means this character disconnected (not "quit") within
             // ReconnectPolicy.GraceWindow and is still live in its room -
             // resume it instead of treating this as a fresh login (ADR-0004).
+            // Re-check the grace window here (not just ConnectionState) -
+            // password entry takes real wall-clock time, so the window can
+            // expire (or LinkdeadSweeper can already have removed this Thing
+            // from the world, leaving it parentless) between the earlier
+            // lookup and this point (PR #1 review).
             if (playerBehavior.ConnectionState == ConnectionState.Linkdead)
             {
+                var linkdeadFor = DateTimeOffset.UtcNow - playerBehavior.LinkdeadSinceUtc!.Value;
+                if (linkdeadFor >= ReconnectPolicy.GraceWindow || existing.Parent is null)
+                {
+                    await session.WriteLineAsync("That session has expired. Please log in again.", ct);
+                    return null;
+                }
+
                 playerBehavior.Reconnect();
                 await session.WriteLineAsync("Welcome back.", ct);
             }
