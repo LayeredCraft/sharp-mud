@@ -14,13 +14,16 @@ description: >
   writing new C# files, and before adding a new coding pattern not already
   established in the repo — even a request that just looks like "add a
   quick feature" or "fix this bug" should route through it first. Also
-  covers reviewing a PR/diff in this repo and responding to feedback left
-  on one (`tasks/` procedures, not just reference lookup) — see How to use
-  this skill below. Trigger on: "how should I structure this", "coding
-  standards", "is this secure", "how do we handle X in the database",
-  "where does this belong", "contributing", "code of conduct", "review
-  this PR", "review my changes", "address that feedback", "handle the
-  review comments", or any request to add a feature to SharpMud.Engine /
+  covers designing a feature/architecture decision end-to-end (ADR + plan),
+  implementing against an already-`Accepted` ADR, reviewing a PR/diff in
+  this repo, and responding to feedback left on one (`tasks/` procedures,
+  not just reference lookup) — see How to use this skill below. Trigger
+  on: "how should I structure this", "coding standards", "is this
+  secure", "how do we handle X in the database", "where does this
+  belong", "contributing", "code of conduct", "design this feature",
+  "let's build/implement this", "review this PR", "review my changes",
+  "address that feedback", "handle the review comments", "what's next on
+  the roadmap", or any request to add a feature to SharpMud.Engine /
   SharpMud.Ruleset.Classic / SharpMud.Persistence / SharpMud.Host /
   SharpMud.Adapters.*.
 ---
@@ -63,8 +66,16 @@ lives in the file itself.
 
 | When you're asked to... | Run |
 |---|---|
+| Design a feature/architecture decision (light or deep dive → ADR → plan) | `tasks/design.md` |
+| Implement code against an already-`Accepted` ADR/plan | `tasks/implement.md` |
 | Review a PR/diff in this repo | `tasks/pr-review.md` |
 | Address/respond to feedback already posted on a PR | `tasks/respond-to-pr-feedback.md` |
+
+`design.md` → `implement.md` → `pr-review.md` → `respond-to-pr-feedback.md`
+is the full lifecycle of a non-trivial change in this repo, in order —
+most requests only need one or two of these (e.g. a light-dive design
+folded straight into implementation), but a genuinely new feature or
+roadmap slice touches all four in sequence.
 
 ### References
 
