@@ -84,24 +84,17 @@ public static class SessionLoop
             // playerBehavior.Session == session check additionally backs off
             // entirely if a newer session already took over this same Thing
             // by the time we get here, so this disconnect can't clobber an
-            // already-active reconnect.
-            if (playerBehavior?.Session == session)
+            // already-active reconnect. explicitQuit's removal deliberately
+            // does NOT happen here (see below) - only the Linkdead
+            // transition needs to race ahead of the save.
+            if (!explicitQuit && playerBehavior?.Session == session)
             {
-                if (explicitQuit)
-                {
-                    player.Parent?.Remove(player);
-                    world.Unregister(player.Id);
-                }
-                else
-                {
-                    // Linkdead, not an immediate world removal (ADR-0004) -
-                    // the Thing stays live in its room so LoginFlow can
-                    // reconnect a new session to it within
-                    // ReconnectPolicy.GraceWindow. LinkdeadSweeper finishes
-                    // the removal once that window elapses without a
-                    // reconnect.
-                    playerBehavior.EnterLinkdead(DateTimeOffset.UtcNow);
-                }
+                // Linkdead, not an immediate world removal (ADR-0004) - the
+                // Thing stays live in its room so LoginFlow can reconnect a
+                // new session to it within ReconnectPolicy.GraceWindow.
+                // LinkdeadSweeper finishes the removal once that window
+                // elapses without a reconnect.
+                playerBehavior.EnterLinkdead(DateTimeOffset.UtcNow);
             }
 
             // CancellationToken.None, not ct - a graceful shutdown cancels ct
@@ -111,6 +104,17 @@ public static class SessionLoop
             // guarantees this runs even if a read/write above threw due to
             // cancellation mid-operation.
             await repository.SaveTreeAsync(player, CancellationToken.None);
+
+            // explicitQuit's removal happens AFTER the save, not before
+            // (PR #1 review) - ThingRepository.SaveTreeAsync persists
+            // ParentId from thing.Parent at save time, so removing first
+            // would save ParentId=null and lose the room a player quit
+            // from. Same session-identity guard as above, for consistency.
+            if (explicitQuit && playerBehavior?.Session == session)
+            {
+                player.Parent?.Remove(player);
+                world.Unregister(player.Id);
+            }
         }
     }
 }

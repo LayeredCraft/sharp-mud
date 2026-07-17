@@ -32,6 +32,8 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
             if (!_encounters.TryGetValue(thingId, out var encounter))
                 continue;
 
+            // Only AttackCommand calls StartEncounter, and only with a player
+            // Thing as the attacker - encounter.Attacker always has a PlayerBehavior.
             var attackerBehavior = encounter.Attacker.FindBehavior<PlayerBehavior>()!;
             if (attackerBehavior.ConnectionState == ConnectionState.Linkdead)
             {
@@ -40,12 +42,14 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
                 // automatically once LoginFlow reconnects them (ConnectionState
                 // flips back to Playing). Only actually abandon it once the
                 // same grace window LoginFlow/LinkdeadSweeper use has elapsed.
+                // Linkdead always sets LinkdeadSinceUtc (PlayerBehavior.EnterLinkdead).
                 if (ctx.Timestamp - attackerBehavior.LinkdeadSinceUtc!.Value >= ReconnectPolicy.GraceWindow)
                     _encounters.Remove(thingId);
 
                 continue;
             }
 
+            // Not Linkdead (checked above), so Session is the live, connected session.
             var session = attackerBehavior.Session!;
 
             var attackResult = resolver.ResolveRound(encounter.Attacker, encounter.Defender);

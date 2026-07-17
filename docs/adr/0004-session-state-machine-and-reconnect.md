@@ -192,6 +192,19 @@ The full execution breakdown lives in
   since nothing in the current roadmap calls for that, and `design
   -decisions.md` says not to design for hypothetical future requirements.
 
+## Implementation Note (post-acceptance correction)
+
+This ADR is `Accepted` and therefore immutable — see `docs/adr/README.md` —
+so this note is appended rather than editing the Decision Outcome prose
+above in place. The Decision Outcome text describes `EnterLinkdead
+(DateTimeOffset)`/`Reconnect(DateTimeOffset)` as the pair of transition
+methods on `PlayerBehavior`. As shipped, `Reconnect()` is parameterless —
+it only needs to clear `LinkdeadSinceUtc` back to `null`, not record a
+timestamp, so the `DateTimeOffset` parameter wasn't needed. `EnterLinkdead
+(DateTimeOffset)` shipped exactly as described. This is a signature-level
+implementation detail, not a change to the decision itself — no other part
+of this ADR is affected.
+
 ## Links
 
 - [ADR-0001](0001-wheelmud-reconciliation-roadmap.md) — WheelMUD

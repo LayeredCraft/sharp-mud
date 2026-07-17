@@ -93,6 +93,38 @@ public sealed class SessionLoopTests
         playerBehavior.ConnectionState.Should().Be(ConnectionState.Playing);
     }
 
+    [Fact]
+    public async Task RunAsync_SavesWithParentStillSet_WhenPlayerQuits()
+    {
+        // PR #1 review: quit's removal must happen AFTER the save, not
+        // before - ThingRepository.SaveTreeAsync persists ParentId from
+        // thing.Parent at save time, so removing first would silently save
+        // ParentId=null and lose the room the player quit from.
+        var (world, room, player, playerBehavior) = MakePlayerInRoom();
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true, false);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("quit");
+        playerBehavior.Session = session;
+
+        var parser = new CommandParser();
+        var registry = Substitute.For<ICommandRegistry>();
+        registry.TryResolve("quit", out Arg.Any<ICommand?>()).Returns(x =>
+        {
+            x[1] = new StubQuitCommand();
+            return true;
+        });
+
+        Thing? parentAtSaveTime = null;
+        var repository = Substitute.For<IThingRepository>();
+        repository.SaveTreeAsync(Arg.Any<Thing>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask)
+            .AndDoes(x => parentAtSaveTime = ((Thing)x[0]).Parent);
+
+        await SessionLoop.RunAsync(world, parser, registry, session, player, repository, TestContext.Current.CancellationToken);
+
+        parentAtSaveTime.Should().Be(room);
+    }
+
     private sealed class StubQuitCommand : ICommand
     {
         public string Verb => "quit";
