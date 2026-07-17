@@ -1,6 +1,6 @@
 # [ADR-0001] WheelMUD Reconciliation Roadmap
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-07-16
 

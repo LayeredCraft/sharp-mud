@@ -1,6 +1,6 @@
 # [ADR-0002] Telnet Protocol Negotiation (IAC/Q-Method core + NAWS)
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-07-16
 

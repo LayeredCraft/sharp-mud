@@ -56,5 +56,5 @@ isn't settled yet — don't do that.
 
 | Plan | Implements | Status |
 |---|---|---|
-| [0001](0001-wheelmud-reconciliation-roadmap.md) | [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md) | Not Started |
-| [0002](0002-telnet-protocol-negotiation.md) | [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) | Not Started |
+| [0001](0001-wheelmud-reconciliation-roadmap.md) | [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md) | In Progress |
+| [0002](0002-telnet-protocol-negotiation.md) | [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) | Done |

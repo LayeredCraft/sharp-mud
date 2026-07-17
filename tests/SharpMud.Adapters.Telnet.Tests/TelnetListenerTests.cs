@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace SharpMud.Adapters.Telnet.Tests;
 
 public sealed class TelnetListenerTests
@@ -11,7 +13,7 @@ public sealed class TelnetListenerTests
     [Fact]
     public async Task AcceptSessionsAsync_StopsPromptly_WhenCancelledWithNoConnectionsPending()
     {
-        var listener = new TelnetListener(0); // port 0 = OS picks a free port
+        var listener = new TelnetListener(0, Substitute.For<ILogger<TelnetSession>>()); // port 0 = OS picks a free port
         listener.Start();
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);

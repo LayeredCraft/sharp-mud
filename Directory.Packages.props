@@ -13,6 +13,20 @@
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.9" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <!-- Logging: Serilog + LayeredCraft.StructuredLogging call-site extensions,
+         per .agents/skills/engineering-workflow/references/coding-standards.md.
+         Console sink only - this repo runs in Docker (docs/deployment.md),
+         stdout is the sink Docker already captures. -->
+    <PackageVersion Include="Serilog" Version="4.4.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
+    <PackageVersion Include="LayeredCraft.StructuredLogging" Version="1.2.3" />
+    <!-- Configuration: appsettings.json + env vars feeding Serilog.Settings.Configuration
+         and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
+    <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test Framework: xUnit v3 on Microsoft.Testing.Platform v2 (MTP v2), per docs/architecture.md.

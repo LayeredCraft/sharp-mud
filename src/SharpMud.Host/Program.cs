@@ -1,7 +1,12 @@
 using System.Runtime.InteropServices;
+using LayeredCraft.StructuredLogging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Serilog;
 using SharpMud.Adapters.Cli;
+using SharpMud.Adapters.Telnet;
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
@@ -20,13 +25,35 @@ var env = new Dictionary<string, string?>
 };
 var hostOptions = HostOptions.Parse(args, env);
 
+// Non-secret configuration (Serilog levels/sinks) lives in appsettings.json,
+// with environment variables able to override it - see ADR-0003
+// (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). Secrets
+// still never go in appsettings.json; only env vars (HostOptions.Parse
+// above) carry those.
+var configuration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false)
+    .AddEnvironmentVariables()
+    .Build();
+
+// Console sink only - this repo runs in Docker (docs/deployment.md), stdout
+// is the sink Docker already captures. See ADR-0002
+// (docs/adr/0002-telnet-protocol-negotiation.md) for why Serilog was
+// introduced. The EF Core "log every SQL command at Information" override
+// lives in appsettings.json's Serilog:MinimumLevel:Override section.
+var serilogLogger = new LoggerConfiguration()
+    .ReadFrom.Configuration(configuration)
+    .CreateLogger();
+
 var services = new ServiceCollection();
+services.AddLogging(builder => builder.AddSerilog(serilogLogger, dispose: true));
 services.AddDbContextFactory<GameDbContext>(options => options.UseSqlite($"Data Source={hostOptions.DbPath}"));
 services.AddSingleton<IBehaviorMappingContributor, ClassicBehaviorMappingContributor>();
 services.AddSingleton<IThingRepository, ThingRepository>();
 services.AddSingleton<ICommandParser, CommandParser>();
 
 await using var provider = services.BuildServiceProvider();
+
+var logger = provider.GetRequiredService<ILogger<Program>>();
 
 // EnsureCreated only, never EnsureDeleted, at boot - creates the schema if
 // missing but never wipes existing data. See docs/persistence.md Schema/
@@ -51,14 +78,14 @@ if (loadedArea is not null)
     hubArea = loadedArea;
     startingRoom = HubWorldBuilder.FindStartingRoom(hubArea)
         ?? hubArea.Children.First(c => c.HasBehavior<RoomBehavior>());
-    Console.WriteLine("Loaded persisted world.");
+    logger.Information("Loaded persisted world");
 }
 else
 {
     (world, startingRoom) = HubWorldBuilder.Build();
     hubArea = world.GetThing(HubWorldBuilder.HubAreaId)!;
     await repository.SaveTreeAsync(hubArea, CancellationToken.None);
-    Console.WriteLine("No persisted world found - built and saved a fresh one.");
+    logger.Information("No persisted world found - built and saved a fresh one");
 }
 
 var random = new RandomSource();
@@ -97,7 +124,10 @@ var gameLoopTask = gameLoop.RunAsync(cts.Token);
 
 if (hostOptions.UseTelnet)
 {
-    await HostRunner.RunTelnetAsync(world, parser, registry, repository, startingRoom, hostOptions.TelnetPort, cts.Token);
+    var telnetSessionLogger = provider.GetRequiredService<ILogger<TelnetSession>>();
+    var telnetHostContext = new TelnetHostContext(
+        world, parser, registry, repository, startingRoom, hostOptions.TelnetPort, telnetSessionLogger);
+    await HostRunner.RunTelnetAsync(telnetHostContext, cts.Token);
 }
 else
 {

@@ -5,6 +5,22 @@ public interface ISession
     string SessionId { get; }
     bool IsConnected { get; }
 
+    /// <summary>
+    /// The client's negotiated terminal width in columns, or a sensible
+    /// default (80) if the transport doesn't negotiate this or the client
+    /// hasn't responded yet. Telnet negotiates this asynchronously via NAWS
+    /// (RFC 1073, see docs/networking.md) - callers must tolerate the
+    /// default value changing after session start, not just at construction.
+    /// </summary>
+    int TerminalWidth { get; }
+
+    /// <summary>
+    /// The client's negotiated terminal height in rows, or a sensible
+    /// default (20) - see <see cref="TerminalWidth"/> remarks for
+    /// negotiation timing.
+    /// </summary>
+    int TerminalHeight { get; }
+
     ValueTask<string?> ReadLineAsync(CancellationToken ct);
     ValueTask WriteLineAsync(string text, CancellationToken ct);
     ValueTask WriteAsync(string text, CancellationToken ct);

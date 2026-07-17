@@ -1,20 +1,39 @@
 using System.Net.Sockets;
 using System.Text;
+using Microsoft.Extensions.Logging;
+using SharpMud.Adapters.Telnet.Negotiation;
 using SharpMud.Engine.Sessions;
 
 namespace SharpMud.Adapters.Telnet;
 
-// Minimal telnet transport: raw TCP + line-based I/O with IAC (0xFF) byte
-// sequences stripped from input. Deliberately does not negotiate MCCP/MXP/
-// NAWS (docs/networking.md defers full protocol handling; WheelMUD's
-// Server/Telnet/ is the reference to consult when that's actually needed).
-public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
+// Telnet transport: raw TCP + line-based I/O, with real IAC option
+// negotiation (RFC 1143 "Q-Method" core + NAWS) via TelnetOptionNegotiator -
+// see ADR-0002 (docs/adr/0002-telnet-protocol-negotiation.md). MCCP/MXP/
+// TermType remain deferred - docs/networking.md Open Items.
+public sealed class TelnetSession : ISession, IDisposable, ITelnetByteSink
 {
-    private readonly NetworkStream _stream = client.GetStream();
-    private readonly StreamWriter _writer = new(client.GetStream(), Encoding.ASCII) { AutoFlush = true };
+    private readonly TcpClient _client;
+    private readonly NetworkStream _stream;
+    private readonly StreamWriter _writer;
+    private readonly TelnetOptionNegotiator _negotiator;
+    private readonly NawsOptionHandler _naws;
 
     public string SessionId { get; } = Guid.NewGuid().ToString();
-    public bool IsConnected => client.Connected;
+    public bool IsConnected => _client.Connected;
+    public int TerminalWidth => _naws.Width;
+    public int TerminalHeight => _naws.Height;
+
+    public TelnetSession(TcpClient client, ILogger<TelnetSession> logger)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        _client = client;
+        _stream = client.GetStream();
+        _writer = new StreamWriter(_stream, Encoding.ASCII) { AutoFlush = true };
+        _naws = new NawsOptionHandler(SessionId, logger);
+        _negotiator = new TelnetOptionNegotiator(this, [new EchoOptionHandler(), _naws], logger);
+    }
 
     public async ValueTask<string?> ReadLineAsync(CancellationToken ct)
     {
@@ -42,9 +61,9 @@ public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
 
             var b = buffer[0];
 
-            if (b == 0xFF) // IAC - consume this command sequence, don't forward it as text
+            if (b == 0xFF) // IAC - hand off to option negotiation, don't forward it as text
             {
-                await SkipTelnetCommandAsync(ct);
+                await _negotiator.HandleIacAsync(_stream, ct);
                 continue;
             }
 
@@ -58,27 +77,13 @@ public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
         return Encoding.ASCII.GetString(line.ToArray());
     }
 
-    // IAC is always followed by at least one more byte (the command); WILL/
-    // WONT/DO/DONT commands carry a further option byte. Anything else is
-    // read and discarded without attempting full option negotiation.
-    private async Task SkipTelnetCommandAsync(CancellationToken ct)
-    {
-        var buffer = new byte[1];
-        if (await _stream.ReadAsync(buffer, ct) == 0)
-            return;
-
-        var command = buffer[0];
-        if (command is >= 251 and <= 254) // WILL, WONT, DO, DONT
-            _ = await _stream.ReadAsync(buffer, ct);
-    }
-
     public async ValueTask WriteLineAsync(string text, CancellationToken ct) => await _writer.WriteLineAsync(text);
 
     public async ValueTask WriteAsync(string text, CancellationToken ct) => await _writer.WriteAsync(text);
 
     public ValueTask DisconnectAsync(string? reason, CancellationToken ct)
     {
-        client.Close();
+        _client.Close();
         return ValueTask.CompletedTask;
     }
 
@@ -89,21 +94,27 @@ public sealed class TelnetSession(TcpClient client) : ISession, IDisposable
     // security boundary by itself - a noncompliant/raw client can ignore
     // this - just suppresses display for normal telnet clients. See
     // docs/accounts-auth.md Open Items.
-    public async ValueTask SetEchoAsync(bool enabled, CancellationToken ct)
-    {
-        // enabled=true -> normal local echo -> IAC WONT ECHO (server isn't
-        // handling it, client echoes as usual).
-        // enabled=false -> hide input -> IAC WILL ECHO (server takes over
-        // echoing - and since we never actually echo it, nothing is shown).
-        byte willOrWont = enabled ? (byte)252 : (byte)251; // WONT=252, WILL=251
-        byte[] iac = [255, willOrWont, 1]; // IAC, WILL/WONT, ECHO
-        await _stream.WriteAsync(iac, ct);
-    }
+    //
+    // enabled=true means normal (client-side) echo, which is the ECHO
+    // *option* being off from our side (WONT); enabled=false means we take
+    // over echoing (the option is on, WILL) - the boolean is inverted
+    // relative to RequestLocalAsync's "enable this option" meaning.
+    public ValueTask SetEchoAsync(bool enabled, CancellationToken ct) =>
+        _negotiator.RequestLocalAsync(TelnetOptionCode.Echo, enable: !enabled, ct);
 
     public void Dispose()
     {
         _writer.Dispose();
         _stream.Dispose();
-        client.Dispose();
+        _client.Dispose();
     }
+
+    // Kicks off NAWS negotiation - fire-and-forget, matching WheelMUD's own
+    // negotiation timing (see ADR-0002): the client's response arrives
+    // asynchronously via the normal ReadLineAsync loop and updates
+    // TerminalWidth/TerminalHeight in place whenever it does.
+    internal ValueTask StartNegotiationAsync(CancellationToken ct) =>
+        _negotiator.RequestRemoteAsync(TelnetOptionCode.Naws, enable: true, ct);
+
+    ValueTask ITelnetByteSink.WriteAsync(byte[] bytes, CancellationToken ct) => _stream.WriteAsync(bytes, ct);
 }

@@ -4,6 +4,18 @@
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="LayeredCraft.StructuredLogging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SharpMud.Adapters.Telnet.Tests" />
+    <!-- NSubstitute proxies internal interfaces via Castle DynamicProxy,
+         which needs this grant on any assembly whose internal types it
+         mocks - not a real consumer, just how NSubstitute works. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

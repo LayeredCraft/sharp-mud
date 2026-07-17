@@ -1,17 +1,32 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
 using SharpMud.Engine.Sessions;
 
 namespace SharpMud.Adapters.Telnet;
 
-public sealed class TelnetListener(int port)
+public sealed class TelnetListener
 {
-    private readonly TcpListener _listener = new(IPAddress.Any, port);
+    private readonly TcpListener _listener;
+    private readonly ILogger<TelnetSession> _sessionLogger;
+
+    public TelnetListener(int port, ILogger<TelnetSession> sessionLogger)
+    {
+        ArgumentNullException.ThrowIfNull(sessionLogger);
+
+        _listener = new TcpListener(IPAddress.Any, port);
+        _sessionLogger = sessionLogger;
+    }
 
     public void Start() => _listener.Start();
 
     public void Stop() => _listener.Stop();
+
+    // The actual bound port - only meaningful after Start(), and needed
+    // when constructed with port 0 (OS picks a free port), e.g. in tests
+    // that connect a real client.
+    internal int LocalPort => ((IPEndPoint)_listener.LocalEndpoint).Port;
 
     public async IAsyncEnumerable<ISession> AcceptSessionsAsync([EnumeratorCancellation] CancellationToken ct)
     {
@@ -41,7 +56,9 @@ public sealed class TelnetListener(int port)
                 yield break;
             }
 
-            yield return new TelnetSession(client);
+            var session = new TelnetSession(client, _sessionLogger);
+            await session.StartNegotiationAsync(ct);
+            yield return session;
         }
     }
 }

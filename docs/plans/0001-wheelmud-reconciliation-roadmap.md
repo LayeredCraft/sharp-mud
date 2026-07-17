@@ -2,7 +2,7 @@
 
 **Implements:** [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md)
 
-**Status:** Not Started
+**Status:** In Progress
 
 **Last updated:** 2026-07-16
 
@@ -23,8 +23,8 @@ reconciliation effort stands.
 
 ## Tasks
 
-- [ ] **Slice 1 — Telnet protocol negotiation.** ADR-0002 written
-      (`Proposed`). See [PLAN-0002](0002-telnet-protocol-negotiation.md).
+- [x] **Slice 1 — Telnet protocol negotiation.** ADR-0002 Accepted,
+      PLAN-0002 Done. See [PLAN-0002](0002-telnet-protocol-negotiation.md).
 - [ ] **Slice 2 — Session/connection state machine + reconnect.** Not yet
       researched against WheelMUD's `ConnectionStates/` in detail.
 - [ ] **Slice 3 — Permission/security-role model + moderation commands.**

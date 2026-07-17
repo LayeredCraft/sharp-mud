@@ -10,10 +10,12 @@ and [combat.md](combat.md) for disconnect-during-combat handling.
 public interface ISession
 {
     string SessionId { get; }
+    bool IsConnected { get; }
+    int TerminalWidth { get; }  // negotiated async via NAWS on Telnet; defaults to 80
+    int TerminalHeight { get; } // defaults to 20
     ValueTask<string?> ReadLineAsync(CancellationToken ct);
     ValueTask WriteLineAsync(string text, CancellationToken ct);
     ValueTask WriteAsync(string text, CancellationToken ct); // no trailing newline
-    bool IsConnected { get; }
     ValueTask DisconnectAsync(string? reason, CancellationToken ct);
 }
 ```
@@ -30,12 +32,14 @@ terminal or just a queued line on stdout for v1.
    `Console.In`/`Console.Out`. Single process, single local player, fast
    iteration. `Host` uses this when run with no arguments.
 2. **`SharpMud.Adapters.Telnet`** ✅ — `TelnetSession` (raw TCP via
-   `TcpClient`/`NetworkStream`, line-based I/O with IAC (0xFF) byte sequences
-   stripped from input) + `TelnetListener` (accepts connections, yields one
-   `ISession` per client via `IAsyncEnumerable`). **Does not negotiate MCCP/
-   MXP/NAWS** — that's still deferred, see Open Items; WheelMUD's
+   `TcpClient`/`NetworkStream`, line-based I/O) + `TelnetListener` (accepts
+   connections, yields one `ISession` per client via `IAsyncEnumerable`).
+   Real IAC option negotiation (RFC 1143 "Q-Method" core, Echo, NAWS) via
+   `TelnetOptionNegotiator` — see
+   [ADR-0002](adr/0002-telnet-protocol-negotiation.md). **MCCP/MXP/TermType
+   still not negotiated** — deferred, see Open Items; WheelMUD's
    `Server/Telnet/` (docs/research/wheelmud-findings.md) is the reference to
-   consult when it's actually needed. `Host` uses this when run with
+   consult when those are actually needed. `Host` uses this when run with
    `--telnet [port]` (default 4000).
 3. **`SharpMud.Adapters.Ssh`** (later) — secure terminal access.
 4. **`SharpMud.Adapters.WebSocket`** (later) — browser play via xterm.js.
@@ -104,9 +108,10 @@ connection slot, classic MUD behavior on public servers. Exact minutes TBD.
   open indefinitely until the client disconnects.
 - Concurrent-connection limits and backpressure — not yet specified;
   `TelnetListener` currently accepts without limit.
-- MCCP/MXP/NAWS telnet protocol negotiation — IAC negotiation core + NAWS
-  are designed in [ADR-0002](adr/0002-telnet-protocol-negotiation.md)
-  (status: Proposed, not yet implemented); MCCP/MXP/TermType remain
-  deferred beyond that.
+- MCCP/MXP/TermType telnet protocol negotiation — still deferred (see
+  [ADR-0002](adr/0002-telnet-protocol-negotiation.md), which covers IAC
+  negotiation core + Echo + NAWS only; those three are implemented,
+  verified via unit tests and a live smoke test — see
+  [PLAN-0002](plans/0002-telnet-protocol-negotiation.md)).
 - Real login/auth on connect — currently just a name prompt, no identity
   verification; see [accounts-auth.md](accounts-auth.md).
