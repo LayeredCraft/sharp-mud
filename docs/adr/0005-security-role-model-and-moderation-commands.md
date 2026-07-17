@@ -59,12 +59,16 @@ high-tier roles — no separate mechanism from any other command.
   toward something structurally harder to forget than "paste a guard call
   at the top of `ExecuteAsync`."
 - `docs/persistence.md`/`WearableBehaviorConfiguration.cs`'s existing
-  precedent: a genuine bitmask (`Slot`) is a **plain** `[Flags] enum` with
-  EF Core's default int mapping, not a `LayeredCraft.OptimizedEnums`
-  instance — `OptimizedEnum` in this repo is for small non-combinable
-  state machines (`Race`, `CharacterClass`, `ConnectionState`), not
-  bitwise-combinable flag sets. `SecurityRole` follows the plain-enum
-  precedent.
+  precedent: `WearableBehavior.Slot` (backed by `EquipSlot`) is a **plain**
+  C# enum with EF Core's default int mapping, not a
+  `LayeredCraft.OptimizedEnums` instance — confirmed, `OptimizedEnum` in
+  this repo is for small non-combinable state machines (`Race`,
+  `CharacterClass`, `ConnectionState`). Corrected during PR review:
+  `EquipSlot` is **not** itself `[Flags]` (it's an ordinary enum, not a
+  bitmask), and there is no existing `[Flags]` enum anywhere in this repo
+  today — `SecurityRole` follows `Slot`'s "plain enum over `OptimizedEnum`"
+  precedent, but is the first genuinely bitwise-combinable `[Flags]` enum
+  in the codebase, not a second instance of an existing pattern.
 - Bootstrap problem, surfaced during the dive: if granting a role itself
   requires `FullAdmin`, and every new character defaults to `Player`,
   nothing in-game can ever produce the first admin.
@@ -303,8 +307,9 @@ chicken-and-egg dead end.
 - `docs/commands.md` — command pipeline (`ICommand`/`ICommandRegistry`)
   this ADR extends.
 - `docs/persistence.md` / `WearableBehaviorConfiguration.cs` — the
-  existing plain-`[Flags]`-enum-with-default-EF-mapping precedent
-  `SecurityRole` follows (as opposed to `LayeredCraft.OptimizedEnums`).
+  existing plain-enum-with-default-EF-mapping precedent `SecurityRole`
+  follows for "plain enum, not `OptimizedEnum`" (`EquipSlot` itself is not
+  `[Flags]` — corrected during PR review).
 - `WheelMUD/src/Core/Attributes/ActionSecurityAttribute.cs`,
   `WheelMUD/src/Core/ManagerSystems/CommandManager.cs`,
   `WheelMUD/src/Core/CommandSystem/CommandGuard.cs`,
