@@ -325,6 +325,10 @@ chicken-and-egg dead end.
   `LoginFlow`.
 - `docs/commands.md` — command pipeline (`ICommand`/`ICommandRegistry`)
   this ADR extends.
+- `docs/deployment.md` — Runtime Configuration table `SHARPMUD_INITIAL_ADMIN`
+  joins (caught in PR review — it's the only bootstrap path to a
+  `FullAdmin` in a fresh deployment, and this table is the documented
+  list of every `HostOptions` env var).
 - `docs/persistence.md` / `WearableBehaviorConfiguration.cs` — the
   existing plain-enum-with-default-EF-mapping precedent `SecurityRole`
   follows for "plain enum, not `OptimizedEnum`" (`EquipSlot` itself is not

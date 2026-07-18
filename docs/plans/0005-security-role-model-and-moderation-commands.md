@@ -189,6 +189,12 @@ take `IThingRepository` via their own constructor — the same shape
 - [ ] `docs/accounts-auth.md`: describe ban enforcement in the login flow
       as current state, update the existing "deferred moderation tooling"
       forward-reference to point at ADR-0005/this plan.
+- [ ] `docs/deployment.md`: add `SHARPMUD_INITIAL_ADMIN` to the Runtime
+      Configuration table (caught in PR review — this table is the
+      documented list of every `HostOptions` env var, and
+      `SHARPMUD_INITIAL_ADMIN` is the *only* bootstrap path to a
+      `FullAdmin` in a fresh deployment; omitting it here means deploying
+      a container with no discoverable way to administer it).
 - [ ] `SPEC.md`: update the "Moderation/admin tooling" Deferred/Open Item
       to reflect what's actually implemented vs. still deferred (Find/
       GoTo/Control/Clone/Spawn/Jail/Buff/Relinquish, audit logging).
@@ -222,8 +228,8 @@ Modified:
 - `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`
 - `src/SharpMud.Persistence/Configurations/PlayerBehaviorConfiguration.cs`
 - `src/SharpMud.Host/LoginFlow.cs`, `HostOptions.cs`, `Program.cs`
-- `docs/commands.md`, `docs/accounts-auth.md`, `SPEC.md`,
-  `docs/adr/README.md`, `docs/plans/README.md`,
+- `docs/commands.md`, `docs/accounts-auth.md`, `docs/deployment.md`,
+  `SPEC.md`, `docs/adr/README.md`, `docs/plans/README.md`,
   `docs/plans/0001-wheelmud-reconciliation-roadmap.md`
 
 ## Test plan
