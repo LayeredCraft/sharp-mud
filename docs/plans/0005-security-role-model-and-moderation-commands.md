@@ -36,9 +36,20 @@ an open item below.
 ### `SecurityRole` + registry
 
 - [ ] New `src/SharpMud.Engine/Commands/SecurityRole.cs` — plain
-      `[Flags] enum SecurityRole : uint` (`None`, `Mobile`, `Item`, `Room`,
-      `TutorialPlayer`, `Player`, `Helper`, `Married`, `MinorBuilder`,
-      `FullBuilder`, `MinorAdmin`, `FullAdmin`, `All`), XML doc comments
+      `[Flags] enum SecurityRole : uint` with **explicit power-of-two
+      values on every member** (`None = 0`, `Mobile = 1 << 0`, `Item = 1
+      << 1`, `Room = 1 << 2`, `TutorialPlayer = 1 << 3`, `Player = 1 <<
+      4`, `Helper = 1 << 5`, `Married = 1 << 6`, `MinorBuilder = 1 << 7`,
+      `FullBuilder = 1 << 8`, `MinorAdmin = 1 << 9`, `FullAdmin = 1 <<
+      10`, `All = Mobile | Item | Room | TutorialPlayer | Player | Helper
+      | Married | MinorBuilder | FullBuilder | MinorAdmin | FullAdmin`).
+      **Do not rely on C#'s default sequential auto-numbering** — caught
+      in PR review: unnumbered members would auto-assign `0, 1, 2, 3...`,
+      which are not distinct bits (e.g. `Room` would silently equal
+      `Mobile | Item` combined), breaking `RoleGuardedCommand`'s bitwise
+      -AND check into granting unrelated permissions on overlapping bits.
+      `All` is a union expression, not a separate hardcoded value, so it
+      can't drift out of sync if a flag is added later. XML doc comments
       per `documentation.md`'s new-public-member rule.
 - [ ] New `src/SharpMud.Engine/Commands/RoleGuardedCommand.cs` — wraps an
       inner `ICommand`, checks `(actor.Roles & requiredRole) !=
@@ -208,6 +219,13 @@ Modified:
 
 ## Test plan
 
+- Unit: `SecurityRole` — every named member (excluding `None`/`All`) is a
+  distinct power of two, and no two members share a bit
+  (`Enum.GetValues<SecurityRole>()` pairwise-AND'd should all be `None`
+  except `All`/self-comparisons). `All` equals the OR of every individual
+  flag. The regression test for the undefined-values gap caught in PR
+  review — this is the one test that would have caught it immediately if
+  the enum were ever implemented with auto-numbered members.
 - Unit: `RoleGuardedCommand` — actor with the required role reaches the
   inner command; actor without it doesn't, gets the rejection message.
   Cover the any-of/bitwise semantics (actor has one of several required

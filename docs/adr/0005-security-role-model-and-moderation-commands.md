@@ -117,11 +117,22 @@ just another wrapper of the same shape) without DecoWeaver's registration
 
 **Mechanism**, in full:
 - `SecurityRole` (`SharpMud.Engine.Commands`): a plain `[Flags] enum`,
-  full WheelMUD 12-value set ported (PascalCase: `None`, `Mobile`, `Item`,
-  `Room`, `TutorialPlayer`, `Player`, `Helper`, `Married`, `MinorBuilder`,
-  `FullBuilder`, `MinorAdmin`, `FullAdmin`, `All`) — adopted in full even
-  though several values (`Mobile`/`Item`/`Room`: sharp-mud has no
-  non-player command issuer today; `Married`: no marriage system;
+  full WheelMUD 12-value set ported (PascalCase: `None = 0`, `Mobile = 1
+  << 0`, `Item = 1 << 1`, `Room = 1 << 2`, `TutorialPlayer = 1 << 3`,
+  `Player = 1 << 4`, `Helper = 1 << 5`, `Married = 1 << 6`, `MinorBuilder
+  = 1 << 7`, `FullBuilder = 1 << 8`, `MinorAdmin = 1 << 9`, `FullAdmin =
+  1 << 10`, `All = Mobile | Item | Room | TutorialPlayer | Player |
+  Helper | Married | MinorBuilder | FullBuilder | MinorAdmin |
+  FullAdmin`). **Explicit values are load-bearing, not stylistic** —
+  caught in PR review: without them, C# auto-numbers enum members
+  sequentially (`0, 1, 2, 3...`), which are *not* distinct bits (`Room`
+  would auto-number to `3`, silently equal to `Mobile | Item` combined,
+  and the `RoleGuardedCommand` bitwise-AND check would grant unrelated
+  permissions on overlapping bits). `All` is defined as the union of the
+  individual flags, not a separate hardcoded value (e.g. `uint.MaxValue`)
+  — so it can't drift out of sync if a flag is ever added later. Adopted
+  in full even though several values (`Mobile`/`Item`/`Room`: sharp-mud
+  has no non-player command issuer today; `Married`: no marriage system;
   `TutorialPlayer`/builder tiers: not yet used) are inert now, so future
   slices (world-building/OLC is Slice 4, explicitly bundled with this one
   in ADR-0001) already have a role to reach for instead of extending the
