@@ -92,11 +92,21 @@ an open item below.
             a lower tier it implies cleared, e.g. `FullAdmin` present but
             `MinorAdmin` cleared after revoking just `MinorAdmin`). Before
             clearing, check whether any *other* currently-held role
-            implies `role`; if so, throw/reject (surfaced by
-            `RoleRevokeCommand` as a message naming the blocking higher
-            tier — "still has FullAdmin, which includes MinorAdmin —
-            revoke FullAdmin instead") rather than silently applying an
-            inconsistent state.
+            implies `role`; if so, **return a failure, don't throw** —
+            per `coding-standards.md`'s Error Handling section, this is a
+            normal, directly-user-triggerable business-rule outcome (an
+            admin typed a `rolerevoke` that doesn't make sense given the
+            target's current roles), not a bug or an invariant violation,
+            so it must be a return value the caller checks (caught in PR
+            review — the original wording said "throw/reject," which
+            contradicts the standard). Signature:
+            `string? RevokeRole(SecurityRole role)` — `null` on success,
+            a message naming the blocking higher tier on failure ("still
+            has FullAdmin, which includes MinorAdmin — revoke FullAdmin
+            instead"), mirroring the existing `MoveRequest.CancelReason`
+            nullable-reason idiom rather than inventing a new pattern.
+            `RoleRevokeCommand` relays a non-null return straight to the
+            admin; never wraps this call in a try/catch.
 - [ ] `PlayerBehaviorConfiguration.cs`: map `Roles` with the plain-enum
       default EF conversion (matching `WearableBehaviorConfiguration`'s
       `Slot` precedent — no custom value converter needed); map `IsMuted`/
@@ -137,10 +147,9 @@ take `IThingRepository` via their own constructor — the same shape
       tier, a severe over-grant) and `None` (a meaningless no-op
       sentinel), since both are literally named enum members. Reject
       either with a clear message rather than silently persisting them.
-      `RoleRevokeCommand` catches `RevokeRole`'s rejection (target still
-      holds a higher tier that implies the requested one) and surfaces it
-      as a clear message
-      naming the blocking tier, not a crash.
+      `RoleRevokeCommand` checks `RevokeRole`'s `string?` return (not a
+      caught exception — see the `PlayerBehavior` task above) and relays
+      a non-null failure straight to the admin as the rejection message.
 - [ ] Register all 8 via `RegisterWithRole` in a new
       `AdminCommands.RegisterAll(registry, repository)` (mirrors
       `BuiltinCommands`/`ClassicCommands`'s shape — `ClassicCommands
@@ -253,12 +262,15 @@ Modified:
   `MinorAdmin`-gated `RoleGuardedCommand` — the regression test for the
   bootstrap-admin-can't-moderate gap caught in PR review.
 - Unit: `RevokeRole(MinorAdmin)` on an actor who also holds `FullAdmin`
-  is rejected (`Roles` unchanged, exception/rejection surfaced) — the
-  regression test for the revoke-side hierarchy gap caught in PR review.
-  `RevokeRole(FullAdmin)` on that same actor succeeds and leaves
-  `MinorAdmin`/`Player` intact (demotion, not a full reset — revoking the
-  top tier doesn't cascade-clear what it implied). `RevokeRole(MinorAdmin)`
-  on an actor who does *not* also hold `FullAdmin` succeeds normally.
+  returns a non-null failure message and leaves `Roles` unchanged — the
+  regression test for the revoke-side hierarchy gap caught in PR review
+  (and, separately, that the failure is a return value, not a thrown
+  exception, per `coding-standards.md`'s Error Handling section).
+  `RevokeRole(FullAdmin)` on that same actor returns `null` (success) and
+  leaves `MinorAdmin`/`Player` intact (demotion, not a full reset —
+  revoking the top tier doesn't cascade-clear what it implied).
+  `RevokeRole(MinorAdmin)` on an actor who does *not* also hold
+  `FullAdmin` returns `null` (success) normally.
 - Unit: `HostOptions.Parse` — `SHARPMUD_INITIAL_ADMIN` parses correctly,
   absent env var leaves it null.
 - Unit: bootstrap grants `FullAdmin` via both paths independently — the
