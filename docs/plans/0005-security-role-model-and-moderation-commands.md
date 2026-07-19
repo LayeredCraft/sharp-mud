@@ -54,6 +54,8 @@ an open item below.
 - [ ] New `src/SharpMud.Engine/Commands/RoleGuardedCommand.cs` — wraps an
       inner `ICommand`, checks `(actor.Roles & requiredRole) !=
       SecurityRole.None` before delegating; generic rejection message.
+      Exposes `public SecurityRole RequiredRole { get; }` — needed by
+      `HelpCommand`'s filtering below, not just internally.
 - [ ] New `src/SharpMud.Engine/Commands/MuteGuardedCommand.cs` — wraps an
       inner `ICommand`, checks the *actor's own* `IsMuted` (not a target's
       — this gates the muted player's own `say`/`emote`, not something
@@ -65,6 +67,15 @@ an open item below.
 - [ ] Update every existing registration call site (`BuiltinCommands
       .RegisterAll`, `ClassicCommands.RegisterAll`) from `Register` to
       `RegisterOpen` — mechanical, no behavior change.
+- [ ] `HelpCommand.cs`: filter `registry.Commands` by the actor's roles
+      before listing them — caught in self-review. `RoleGuardedCommand`
+      passes `Verb`/`Aliases` straight through from the wrapped command, so
+      without this, `help` lists every admin command (`ban`, `boot`,
+      `rolegrant`, ...) to every player. Not an exploit (the gate still
+      blocks execution) but a real, unpolished info leak — skip a command
+      in the listing if it's a `RoleGuardedCommand` and `(ctx.Actor`'s
+      `Roles & command.RequiredRole) == SecurityRole.None`; anything not
+      role-guarded still lists unconditionally.
 
 ### `PlayerBehavior` + persistence
 
@@ -103,8 +114,16 @@ an open item below.
             `string? RevokeRole(SecurityRole role)` — `null` on success,
             a message naming the blocking higher tier on failure ("still
             has FullAdmin, which includes MinorAdmin — revoke FullAdmin
-            instead"), mirroring the existing `MoveRequest.CancelReason`
-            nullable-reason idiom rather than inventing a new pattern.
+            instead"). Corrected during self-review: earlier wording cited
+            this as mirroring "`MoveRequest.CancelReason`," but no
+            `MoveRequest` type exists — the actual precedent
+            (`UseExitEvent.CancelReason`, `src/SharpMud.Engine/Core
+            /Events.cs`) is a *property* set via `.Cancel(reason)` on a
+            published cancellable event, a different shape (pub/sub
+            event-object mutation, not a direct method return). A plain
+            nullable-string return is simpler and doesn't need that
+            machinery here — it just needs to be a return value, per
+            `coding-standards.md`, not a citation to a nonexistent type.
             `RoleRevokeCommand` relays a non-null return straight to the
             admin; never wraps this call in a try/catch.
 - [ ] `PlayerBehaviorConfiguration.cs`: map `Roles` with the plain-enum
@@ -124,17 +143,42 @@ take `IThingRepository` via their own constructor — the same shape
 `ClassicCommands.RegisterAll` already uses for `combatManager`/`random`.
 `Boot`/`Announce` don't need it (online-only / broadcast-only).
 
+**"Online" means `ConnectionState == Playing`, not just "registered in
+`World`"** — caught in self-review. `WhoCommand`'s iteration
+(`world.AllWithBehavior<PlayerBehavior>()`, no further filter) was
+originally cited here as the pattern to copy, but `WhoCommand` itself has
+no liveness filter at all, and since ADR-0004 that call also returns
+**`Linkdead`** players (disconnected but not yet swept) — `WhoCommand`
+mislabeling those as "online" is a separate, pre-existing gap, out of
+scope for this slice to fix. `BootCommand`/`AnnounceCommand` must *not*
+copy that omission: both need an explicit `ConnectionState == Playing`
+check (equivalently, `Session is { IsConnected: true }`) on top of the
+`AllWithBehavior<PlayerBehavior>()` scan — without it, `Boot` would call
+`DisconnectAsync` on an already-dead session for a `Linkdead` target
+(harmless but wrong "not online" reporting), and `Announce` risks writing
+to a stale/disconnected session outright.
+
 - [ ] `BootCommand` (`MinorAdmin`, no repository dependency) — disconnects
-      a currently-online target by username; "not online" message if not
-      found live.
+      a currently-online (`ConnectionState == Playing`) target by
+      username; "not online" message if not found live or found only
+      `Linkdead`.
 - [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
       sets/clears `IsMuted` on a target (online-or-not, mirrors
       `LoginFlow`'s live-then-repository lookup), saves immediately.
 - [ ] `AnnounceCommand` (`MinorAdmin`, no repository dependency) —
-      broadcasts to every session in `world.AllWithBehavior<PlayerBehavior>()`
-      with a live session (`WhoCommand`'s iteration pattern).
-- [ ] `BanCommand`/`UnbanCommand` (`FullAdmin`, `IThingRepository`) —
-      sets/clears `IsBanned`, online-or-not lookup, saves immediately.
+      broadcasts to every `world.AllWithBehavior<PlayerBehavior>()` entry
+      whose `ConnectionState == Playing` — explicitly **not** every entry
+      `WhoCommand`-style, since that would include stale `Linkdead`
+      sessions.
+- [ ] `BanCommand` (`FullAdmin`, `IThingRepository`) — sets `IsBanned`,
+      online-or-not lookup, saves immediately. **Rejects self-targeting**
+      (caught in self-review: `Ban` has no in-game recovery —
+      `SHARPMUD_INITIAL_ADMIN` only re-grants roles, it doesn't clear
+      `IsBanned` — so an admin banning themselves is locked out short of a
+      manual DB edit; `boot`/`mute` self-targeting is left alone, both are
+      harmless and trivially reversible by the same admin). `UnbanCommand`
+      needs no such guard (undoing your own ban isn't reachable — you
+      can't be logged in while banned).
 - [ ] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`,
       `IThingRepository`) — mutates a target's `Roles` via
       `GrantRole`/`RevokeRole` (accumulation/hierarchy-invariant
@@ -147,7 +191,13 @@ take `IThingRepository` via their own constructor — the same shape
       tier, a severe over-grant) and `None` (a meaningless no-op
       sentinel), since both are literally named enum members. Reject
       either with a clear message rather than silently persisting them.
-      `RoleRevokeCommand` checks `RevokeRole`'s `string?` return (not a
+      **`RoleRevokeCommand` rejects revoking your own `FullAdmin`** (caught
+      in self-review — same class of lockout risk as self-`Ban`: a sole
+      `FullAdmin` revoking their own tier has no in-game path back without
+      another `FullAdmin` already present to re-grant it). Revoking any
+      other role from yourself, or revoking `FullAdmin` from someone
+      *else*, is unaffected. `RoleRevokeCommand` checks `RevokeRole`'s
+      `string?` return (not a
       caught exception — see the `PlayerBehavior` task above) and relays
       a non-null failure straight to the admin as the rejection message.
 - [ ] Register all 8 via `RegisterWithRole` in a new
@@ -222,7 +272,7 @@ New:
 
 Modified:
 - `src/SharpMud.Engine/Commands/ICommandRegistry.cs`,
-  `CommandRegistry.cs`
+  `CommandRegistry.cs`, `Builtin/HelpCommand.cs`
 - `src/SharpMud.Engine/Commands/BuiltinCommands.cs` (or wherever
   `RegisterAll` lives), `src/SharpMud.Ruleset.Classic/ClassicCommands.cs`
 - `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`
@@ -252,6 +302,21 @@ Modified:
   command with the given role.
 - Unit: each of the 8 admin commands — happy path (role holder, valid
   target) and the online/offline target-lookup branches.
+- Unit: `BootCommand`/`AnnounceCommand` — a `Linkdead` player is treated as
+  not-online (`Boot` reports "not online," `Announce` doesn't attempt a
+  write to their stale session), only `ConnectionState == Playing`
+  targets/recipients count. The regression test for the online/live
+  ambiguity caught in self-review.
+- Unit: `HelpCommand` — a role-gated command is omitted from the listing
+  for an actor without the required role, and included for one with it;
+  non-gated commands always list regardless of role. The regression test
+  for the admin-command-visibility gap caught in self-review.
+- Unit: `BanCommand` — self-targeting is rejected with a clear message,
+  `IsBanned` unchanged; targeting another player still works normally.
+- Unit: `RoleRevokeCommand` — revoking your own `FullAdmin` is rejected;
+  revoking a different role from yourself, or `FullAdmin` from someone
+  else, still works normally. Both are the regression test for the
+  self-lockout risk caught in self-review.
 - Unit: `RoleGrantCommand`/`RoleRevokeCommand` — `all` and `none` (any
   casing) are rejected with a clear message and never reach
   `GrantRole`/`RevokeRole`; every other individually-grantable role name
