@@ -216,6 +216,15 @@ to a stale/disconnected session outright.
       the `ConnectionState` branch.
 - [ ] `HostOptions.cs`: add `string? InitialAdminUsername`, parsed from
       `SHARPMUD_INITIAL_ADMIN`.
+- [ ] `Program.cs`: add `["SHARPMUD_INITIAL_ADMIN"] =
+      Environment.GetEnvironmentVariable("SHARPMUD_INITIAL_ADMIN")` to the
+      `env` dictionary built before `HostOptions.Parse(args, env)` — caught
+      in PR review. `Program.cs` builds a **fixed** dictionary of only the
+      three existing env vars (`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`/
+      `SHARPMUD_DB_PATH`), not a full environment pass-through, so adding
+      the parse logic to `HostOptions.cs` alone isn't enough —
+      `SHARPMUD_INITIAL_ADMIN` needs its own entry here or the real host
+      never sees it, even with the env var actually set in production.
 - [ ] Bootstrap the grant in **two** places, not just one — a boot-time-only
       check is a no-op on a genuinely fresh server, since the target
       character doesn't exist yet at boot and only gets created later
