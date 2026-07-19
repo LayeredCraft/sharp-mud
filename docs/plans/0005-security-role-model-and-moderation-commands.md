@@ -143,33 +143,47 @@ take `IThingRepository` via their own constructor — the same shape
 `ClassicCommands.RegisterAll` already uses for `combatManager`/`random`.
 `Boot`/`Announce` don't need it (online-only / broadcast-only).
 
-**"Online" means `ConnectionState == Playing`, not just "registered in
-`World`"** — caught in self-review. `WhoCommand`'s iteration
+**"Online" means `ConnectionState == Playing` *and* `Session is {
+IsConnected: true }` — both, not either alone.** `WhoCommand`'s iteration
 (`world.AllWithBehavior<PlayerBehavior>()`, no further filter) was
 originally cited here as the pattern to copy, but `WhoCommand` itself has
 no liveness filter at all, and since ADR-0004 that call also returns
 **`Linkdead`** players (disconnected but not yet swept) — `WhoCommand`
 mislabeling those as "online" is a separate, pre-existing gap, out of
 scope for this slice to fix. `BootCommand`/`AnnounceCommand` must *not*
-copy that omission: both need an explicit `ConnectionState == Playing`
-check (equivalently, `Session is { IsConnected: true }`) on top of the
-`AllWithBehavior<PlayerBehavior>()` scan — without it, `Boot` would call
-`DisconnectAsync` on an already-dead session for a `Linkdead` target
-(harmless but wrong "not online" reporting), and `Announce` risks writing
-to a stale/disconnected session outright.
+copy that omission.
+
+An earlier version of this note said `ConnectionState == Playing` alone
+was sufficient — **wrong, caught in PR review**: `ConnectionState` is
+`Ignore`d by `PlayerBehaviorConfiguration` (runtime-only, not persisted),
+so it defaults back to `Playing` on any freshly-constructed
+`PlayerBehavior` — including a player just reloaded from the repository
+with no live session at all. This isn't hypothetical:
+`LoginFlow.FindAndAttachExistingAsync` already registers a
+repository-loaded player into `World` *before password verification even
+runs* — during that window (and after a server restart, before that
+player reconnects) the Thing sits in `World` with `ConnectionState
+.Playing` and `Session == null`. Checking `ConnectionState` alone would
+make `Boot`/`Announce` treat that player as online and attempt a
+null-session disconnect/write. The fix: use the exact same combined check
+`LoginFlow.LoginExistingAsync` already established for this
+(`playerBehavior.ConnectionState == ConnectionState.Playing &&
+playerBehavior.Session is { IsConnected: true }`) — don't invent a
+narrower one.
 
 - [ ] `BootCommand` (`MinorAdmin`, no repository dependency) — disconnects
-      a currently-online (`ConnectionState == Playing`) target by
-      username; "not online" message if not found live or found only
-      `Linkdead`.
+      a currently-online (`ConnectionState == Playing && Session is {
+      IsConnected: true }`) target by username; "not online" message
+      otherwise (not found at all, found only `Linkdead`, or found but
+      with a null/disconnected `Session`).
 - [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
       sets/clears `IsMuted` on a target (online-or-not, mirrors
       `LoginFlow`'s live-then-repository lookup), saves immediately.
 - [ ] `AnnounceCommand` (`MinorAdmin`, no repository dependency) —
       broadcasts to every `world.AllWithBehavior<PlayerBehavior>()` entry
-      whose `ConnectionState == Playing` — explicitly **not** every entry
-      `WhoCommand`-style, since that would include stale `Linkdead`
-      sessions.
+      whose `ConnectionState == Playing && Session is { IsConnected: true
+      }` — explicitly **not** every entry `WhoCommand`-style, and
+      explicitly **not** `ConnectionState` alone (see above).
 - [ ] `BanCommand` (`FullAdmin`, `IThingRepository`) — sets `IsBanned`,
       online-or-not lookup, saves immediately. **Rejects self-targeting**
       (caught in self-review: `Ban` has no in-game recovery —
@@ -237,6 +251,28 @@ to a stale/disconnected session outright.
       - [ ] `LoginFlow.MaybeCreateAsync`: after a new character is created
             and saved, if its username matches `InitialAdminUsername`,
             `GrantRole(FullAdmin)` + save again (the fresh-server case).
+            **This needs `InitialAdminUsername` threaded all the way down
+            to `MaybeCreateAsync` — not hidden global state** (caught in
+            PR review): the actual Telnet call chain is
+            `HostRunner.RunTelnetAsync` → `HandleConnectionAsync` →
+            `LoginFlow.RunAsync(session, context.World, context.Repository,
+            context.StartingRoom, ct)` → `MaybeCreateAsync`, and neither
+            `TelnetHostContext` nor `LoginFlow.RunAsync`'s signature
+            carries `HostOptions`/`InitialAdminUsername` today. Concretely:
+            - [ ] `TelnetHostContext` (`src/SharpMud.Host
+                  /TelnetHostContext.cs`) gains a `string?
+                  InitialAdminUsername` field.
+            - [ ] `LoginFlow.RunAsync`/`MaybeCreateAsync` gain an
+                  `InitialAdminUsername` parameter (already at/near the
+                  4-param limit — a small parameter object may be
+                  warranted here too, matching `TelnetHostContext`'s own
+                  precedent per `coding-standards.md`'s 4-param rule,
+                  rather than pushing a 5th positional parameter through).
+            - [ ] `HostRunner.HandleConnectionAsync` passes
+                  `context.InitialAdminUsername` through to
+                  `LoginFlow.RunAsync`.
+            - [ ] `Program.cs`'s `TelnetHostContext` construction passes
+                  `hostOptions.InitialAdminUsername`.
       Both paths call the same `PlayerBehavior.GrantRole(SecurityRole
       .FullAdmin)`, so both get the accumulation behavior (also granting
       `MinorAdmin`/`Player`) for free.
@@ -286,7 +322,8 @@ Modified:
   `RegisterAll` lives), `src/SharpMud.Ruleset.Classic/ClassicCommands.cs`
 - `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`
 - `src/SharpMud.Persistence/Configurations/PlayerBehaviorConfiguration.cs`
-- `src/SharpMud.Host/LoginFlow.cs`, `HostOptions.cs`, `Program.cs`
+- `src/SharpMud.Host/LoginFlow.cs`, `HostOptions.cs`, `Program.cs`,
+  `HostRunner.cs`, `TelnetHostContext.cs`
 - `docs/commands.md`, `docs/accounts-auth.md`, `docs/deployment.md`,
   `SPEC.md`, `docs/adr/README.md`, `docs/plans/README.md`,
   `docs/plans/0001-wheelmud-reconciliation-roadmap.md`
@@ -313,9 +350,13 @@ Modified:
   target) and the online/offline target-lookup branches.
 - Unit: `BootCommand`/`AnnounceCommand` — a `Linkdead` player is treated as
   not-online (`Boot` reports "not online," `Announce` doesn't attempt a
-  write to their stale session), only `ConnectionState == Playing`
-  targets/recipients count. The regression test for the online/live
-  ambiguity caught in self-review.
+  write to their stale session); only `ConnectionState == Playing &&
+  Session is { IsConnected: true }` targets/recipients count. Specifically
+  cover a `Playing`-but-`Session == null` player (the repository-reload
+  case — `ConnectionState` defaults to `Playing` because it isn't
+  persisted) being correctly treated as *not* online — the regression test
+  for both the online/live ambiguity caught in self-review and the
+  reload-defaults-to-Playing gap caught in PR review.
 - Unit: `HelpCommand` — a role-gated command is omitted from the listing
   for an actor without the required role, and included for one with it;
   non-gated commands always list regardless of role. The regression test
@@ -357,6 +398,13 @@ Modified:
   `Program.cs` existing-character path, and `LoginFlow.MaybeCreateAsync`'s
   newly-created-character path — since a boot-time-only check was the
   fresh-server gap caught in PR review.
+- Unit: `LoginFlow.MaybeCreateAsync` (or its `RunAsync` entry point)
+  actually receives and uses `InitialAdminUsername` — a character created
+  with a username matching it gets `FullAdmin`; a character created with a
+  non-matching (or null/absent) `InitialAdminUsername` does not. The
+  regression test for the parameter-threading gap caught in PR review
+  (`TelnetHostContext`/`LoginFlow.RunAsync` never carried this value
+  before).
 
 ## Verification
 
