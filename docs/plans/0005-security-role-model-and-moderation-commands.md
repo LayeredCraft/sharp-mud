@@ -77,7 +77,7 @@ an open item below.
       `Roles & command.RequiredRole) == SecurityRole.None`; anything not
       role-guarded still lists unconditionally.
 
-### `PlayerBehavior` + persistence
+### `PlayerBehavior` + persistence + `SessionLoop`
 
 - [ ] `PlayerBehavior.cs`: add `SecurityRole Roles { get; private set; } =
       SecurityRole.Player`, `bool IsMuted { get; private set; }`, `bool
@@ -85,6 +85,30 @@ an open item below.
       (`GrantRole`/`RevokeRole`, `Mute`/`Unmute`, `Ban`/`Unban`) rather than
       public setters, matching `ConnectionState`'s existing
       transition-method style.
+      - [ ] Also add `bool WasBooted { get; private set; }` (transient,
+            like `Session`/`ConnectionState` — `Ignore`d in
+            `PlayerBehaviorConfiguration`) and a `MarkBooted()` method.
+            **Real gap caught in PR review**: `BootCommand` runs inside
+            the *admin's* `SessionLoop`, calling `DisconnectAsync` on the
+            *target's* session — but `SessionLoop`'s `explicitQuit` flag
+            is a local variable scoped to each connection's own
+            `RunAsync` call. The target's own loop never sees an
+            admin-triggered disconnect as a "quit," so today it would
+            take the `Linkdead` branch (per ADR-0004) — the booted player
+            could just reconnect within the grace window and resume
+            exactly where they were, making `boot` a no-op as a
+            moderation tool. `WasBooted` is the signal that crosses that
+            boundary: `BootCommand` sets it on the target's
+            `PlayerBehavior` *before* calling `DisconnectAsync`; the
+            target's own `SessionLoop.RunAsync` (a completely separate
+            call stack) checks it in its `finally` block.
+      - [ ] `SessionLoop.cs`: in the `finally` block, treat `WasBooted`
+            exactly like `explicitQuit` — both mean "this disconnect was
+            intentional, skip `Linkdead` and remove immediately" (same
+            save-then-remove ordering `explicitQuit` already uses, not
+            `EnterLinkdead`'s mutate-before-save ordering). Concretely:
+            replace the bare `explicitQuit` checks in both branches with
+            `explicitQuit || (playerBehavior?.WasBooted ?? false)`.
       - [ ] `GrantRole(SecurityRole role)`: ORs in `role` *and* every tier
             it implies (`FullAdmin` → also `MinorAdmin` + `Player`;
             `FullBuilder` → also `MinorBuilder`) per ADR-0005's
@@ -130,7 +154,9 @@ an open item below.
       default EF conversion (matching `WearableBehaviorConfiguration`'s
       `Slot` precedent — no custom value converter needed); map `IsMuted`/
       `IsBanned` as plain persisted columns (NOT `Ignore`d — unlike
-      `ConnectionState`, these must survive a restart).
+      `ConnectionState`, these must survive a restart). `Ignore(x =>
+      x.WasBooted)` alongside `Session`/`ConnectionState` — transient,
+      same category, never meaningful across a restart.
 
 ### Moderation commands (`src/SharpMud.Engine/Commands/Builtin/Admin/`)
 
@@ -175,7 +201,14 @@ narrower one.
       a currently-online (`ConnectionState == Playing && Session is {
       IsConnected: true }`) target by username; "not online" message
       otherwise (not found at all, found only `Linkdead`, or found but
-      with a null/disconnected `Session`).
+      with a null/disconnected `Session`). **Calls
+      `target.FindBehavior<PlayerBehavior>()!.MarkBooted()` before**
+      `target's session.DisconnectAsync(...)` — without this the boot is
+      cosmetic (caught in PR review; see the `PlayerBehavior`/
+      `SessionLoop` task above for why). Writes a message to the target's
+      session first (mirrors `QuitCommand`'s "Goodbye!" before
+      disconnecting), e.g. "You have been disconnected by an
+      administrator."
 - [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
       sets/clears `IsMuted` on a target (online-or-not, mirrors
       `LoginFlow`'s live-then-repository lookup), saves immediately.
@@ -323,7 +356,7 @@ Modified:
 - `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`
 - `src/SharpMud.Persistence/Configurations/PlayerBehaviorConfiguration.cs`
 - `src/SharpMud.Host/LoginFlow.cs`, `HostOptions.cs`, `Program.cs`,
-  `HostRunner.cs`, `TelnetHostContext.cs`
+  `HostRunner.cs`, `TelnetHostContext.cs`, `SessionLoop.cs`
 - `docs/commands.md`, `docs/accounts-auth.md`, `docs/deployment.md`,
   `SPEC.md`, `docs/adr/README.md`, `docs/plans/README.md`,
   `docs/plans/0001-wheelmud-reconciliation-roadmap.md`
@@ -357,6 +390,12 @@ Modified:
   persisted) being correctly treated as *not* online — the regression test
   for both the online/live ambiguity caught in self-review and the
   reload-defaults-to-Playing gap caught in PR review.
+- Unit: `SessionLoop` — a session ending with `WasBooted` set (but not
+  `explicitQuit`) takes the same immediate-removal path `explicitQuit`
+  takes, not `EnterLinkdead`. The regression test for the
+  boot-is-cosmetic gap caught in PR review: without this, a booted player
+  would just resume via the `Linkdead` reconnect path, making `boot` a
+  no-op as a moderation tool.
 - Unit: `HelpCommand` — a role-gated command is omitted from the listing
   for an actor without the required role, and included for one with it;
   non-gated commands always list regardless of role. The regression test
@@ -428,7 +467,13 @@ session/persistence-facing changes):
    clear message, `unmute` restores them.
 5. `ban <player>`; confirm that player can no longer log in (distinct
    message, not the generic "incorrect" one); `unban` restores login.
-6. `boot <player>`; confirm their session is disconnected immediately.
+6. `boot <player>`; confirm their session is disconnected immediately, then
+   **immediately reconnect as that player** (within the `Linkdead` grace
+   window) and confirm login goes through the normal username/password
+   prompt from scratch, not a "Welcome back" resume — the regression check
+   for `WasBooted` actually crossing the `SessionLoop` boundary (PR review
+   gap: without it, `boot` would be a no-op since the target could just
+   reconnect and resume where they were).
 7. `announce <message>`; confirm every currently-connected session
    receives it.
 8. Confirm a non-admin attempting any of the above gets a clear rejection,
