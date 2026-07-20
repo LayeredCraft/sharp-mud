@@ -1,5 +1,4 @@
 using LayeredCraft.StructuredLogging;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,8 +18,9 @@ var builder = SharpMudApplication.CreateBuilder(args);
 // with environment variables able to override it - see ADR-0003
 // (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). Secrets
 // still never go in appsettings.json; only env vars (SharpMudHostOptions.Parse
-// below) carry those.
-builder.Configuration.AddJsonFile("appsettings.json", optional: false);
+// below) carry those. The generic host's default builder already loads
+// appsettings.json (+ env vars, + command line) - no explicit AddJsonFile
+// call needed here.
 
 // Console sink only - this repo runs in Docker (docs/deployment.md), stdout
 // is the sink Docker already captures. See ADR-0002

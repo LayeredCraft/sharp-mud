@@ -33,7 +33,11 @@ using SharpMud.Hosting;
 
 public sealed class MyWorldBuilder : IWorldBuilder
 {
-    public static readonly ThingId RootRoomId = ThingId.New();
+    // Fixed, not ThingId.New() - a fresh boot needs to ask the repository
+    // "does this root already exist?" (LoadTreeAsync(RootRoomId)) using the
+    // same id every time, or a persisted world can never be found again on
+    // the next run.
+    public static readonly ThingId RootRoomId = new(Guid.Parse("00000000-0000-0000-0000-000000000001"));
 
     public ThingId RootId => RootRoomId;
 

@@ -12,7 +12,7 @@ references — Engine, Hosting, Persistence + Persistence.Sqlite, both
 adapters), then the published output is copied into a much smaller
 `mcr.microsoft.com/dotnet/runtime` Alpine image. Both stages are pinned to the
 exact SDK/runtime version in
-`global.json` (`11.0.100-preview.5`) — confirmed to exist on MCR as of this
+`global.json` (`11.0.100-preview.6`) — confirmed to exist on MCR as of this
 writing; see [architecture.md](architecture.md) Open Items for the .NET 10
 LTS fallback plan if that ever stops being true.
 

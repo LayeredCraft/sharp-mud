@@ -1,7 +1,7 @@
 # Multi-stage build. Pinned to the same .NET 11 preview SDK/runtime version
 # as global.json - see docs/architecture.md Open Items for the fallback-to-
 # .NET-10-LTS plan if preview tooling support lags.
-FROM mcr.microsoft.com/dotnet/sdk:11.0.100-preview.5 AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100-preview.6 AS build
 WORKDIR /src
 
 COPY Directory.Build.props Directory.Packages.props global.json ./
@@ -18,7 +18,7 @@ COPY src/ src/
 COPY samples/ samples/
 RUN dotnet publish samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj -c Release -o /app --no-restore
 
-FROM mcr.microsoft.com/dotnet/runtime:11.0.0-preview.5-alpine3.24 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:11.0.0-preview.6-alpine3.24 AS runtime
 WORKDIR /app
 COPY --from=build /app .
 
