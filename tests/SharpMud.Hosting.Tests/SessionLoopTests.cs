@@ -126,7 +126,7 @@ public sealed class SessionLoopTests
         var repository = Substitute.For<IThingRepository>();
         repository.SaveTreeAsync(Arg.Any<Thing>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask)
-            .AndDoes(x => parentAtSaveTime = ((Thing)x[0]).Parent);
+            .AndDoes(x => parentAtSaveTime = x.ArgAt<Thing>(0).Parent);
         var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
 
         await sessionLoop.RunAsync(session, player, TestContext.Current.CancellationToken);

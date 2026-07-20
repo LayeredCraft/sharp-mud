@@ -75,11 +75,15 @@
     <PackageVersion Include="AutoFixture" Version="4.18.1" />
     <PackageVersion Include="AutoFixture.Xunit3" Version="4.19.0" />
     <PackageVersion Include="AutoFixture.AutoNSubstitute" Version="4.18.1" />
-    <!-- Mocking. Pinned below NSubstitute 6.0.0 - AutoFixture.AutoNSubstitute
-         4.18.1 (the latest stable release) requires NSubstitute < 6.0.0;
-         only unreleased AutoFixture.AutoNSubstitute previews support
-         NSubstitute 6.x so far. Revisit once a stable release does. -->
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <!-- Mocking. NSubstitute 6.0.0 is outside AutoFixture.AutoNSubstitute
+         4.18.1's stated <6.0.0 range (NU1608) - only unreleased
+         AutoFixture.AutoNSubstitute previews declare support for 6.x so
+         far. Suppressed narrowly for test projects in Directory.Build.props
+         rather than staying on 5.3.0, since the integration has been
+         validated against 6.0.0 by this repo's own test suite. Revisit
+         (and drop the suppression) once AutoFixture.AutoNSubstitute
+         publishes a stable release supporting NSubstitute 6.x. -->
+    <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <!-- Assertions -->
     <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
   </ItemGroup>
