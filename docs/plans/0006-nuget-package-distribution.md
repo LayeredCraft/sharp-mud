@@ -107,6 +107,23 @@ bundled into this plan's "done").
       plus `AddSharpMudSqlitePersistence(string dbPath)` extension
       wrapping today's `UseSqlite(...)` call site (moved out of
       `Program.cs`)
+- [ ] **Verify before building `SharpMud.Persistence.DynamoDb`**: does
+      `EntityFrameworkCore.DynamoDb` actually accept the shared
+      `Configurations/` classes as-is? `ThingConfiguration`/
+      `BehaviorConfiguration`'s `ToTable(...)` and single-property
+      `HasKey(...)` calls are confirmed supported per the provider's own
+      table-and-key-mapping docs, but `BehaviorConfiguration`'s
+      `HasDiscriminator<string>("BehaviorType")` (TPH inheritance mapping)
+      is *not* yet confirmed either way — check the provider's modeling
+      docs for inheritance/discriminator support specifically. If
+      unsupported, `SharpMud.Persistence`'s "one shared config tree, thin
+      provider packages on top" premise (ADR-0006) doesn't hold as-is —
+      the fallback is provider-specific configuration (a Dynamo-specific
+      partial config or a different inheritance strategy for that
+      provider only), not silently shipping a `.DynamoDb` package that
+      fails at model-validation time. This is a real go/no-go check, not a
+      formality — do it before writing `SharpMud.Persistence.DynamoDb`'s
+      other tasks below.
 - [ ] New `src/SharpMud.Persistence.DynamoDb/` — references
       `EntityFrameworkCore.DynamoDb 10.0.0` (the current stable release,
       confirmed against NuGet directly — see ADR-0006's package table),
@@ -179,7 +196,7 @@ bundled into this plan's "done").
 
 ### Docs / standards corrections
 
-- [ ] `coding-standards.md`'s DI/composition section: replace the "no
+- [x] `coding-standards.md`'s DI/composition section: replace the "no
       `AddSharpMudX()` extension-method sprawl... without discussing it
       first" line — it described the codebase's state at the time, not a
       standing prohibition. Correct it to document `SharpMud.Hosting`'s
@@ -188,14 +205,18 @@ bundled into this plan's "done").
       existing "`Program.cs` wires everything inline, no `AddSharpMudX()`
       sprawl" guidance for *application-level* (non-package) DI wiring —
       these are different concerns and the corrected text needs to say so,
-      not just delete the old line
-- [ ] `docs/adr/README.md` — index row for ADR-0006
-- [ ] `docs/plans/README.md` — index row for this plan
-- [ ] `docs/engine-vs-ruleset.md` — Open Items: forward-reference to
+      not just delete the old line. **Done in the design PR** (#8), not
+      implementation — a design decision's own record-keeping, not code.
+- [x] `docs/adr/README.md` — index row for ADR-0006. **Done in the design
+      PR** (#8).
+- [x] `docs/plans/README.md` — index row for this plan. **Done in the
+      design PR** (#8).
+- [x] `docs/engine-vs-ruleset.md` — Open Items: forward-reference to
       ADR-0006 ("Host's role as the only ruleset-aware project is now
       fulfilled by each consumer's own project, not this repo's `Host` —
       see ADR-0006"), without rewriting the doc's current-state prose to
-      describe unimplemented behavior as current (per `design-decisions.md`)
+      describe unimplemented behavior as current (per `design-decisions.md`).
+      **Done in the design PR** (#8).
 - [ ] `README.md` (root) — update to describe the package-based consumption
       story once implemented, not before
 
@@ -252,6 +273,14 @@ Modified:
 
 ## Open questions / blockers
 
+- Whether `EntityFrameworkCore.DynamoDb` supports EF Core's TPH
+  `HasDiscriminator<string>(...)` (used by `BehaviorConfiguration` for the
+  `Behavior` subtype hierarchy) is unconfirmed — flagged in PR review.
+  `ToTable(...)` and single-property `HasKey(...)` are confirmed supported
+  per the provider's own docs, but the discriminator/inheritance question
+  is open. Resolve via the explicit verification task in the
+  `SharpMud.Persistence` split section above before assuming the shared
+  `Configurations/` tree works unmodified against DynamoDB.
 - Exact shape of the world-builder registration point on
   `SharpMudOptions`/the builder (how a consumer plugs in their own
   `HubWorldBuilder`-equivalent) isn't fully designed — implementation will
