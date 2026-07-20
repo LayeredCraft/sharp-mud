@@ -138,10 +138,21 @@ If a configuration class is bound via `IOptions<T>` (as opposed to the
   than waiting for the whole set to materialize.
 
 **DI / composition**
-- Register services inline in `Program.cs` via `ServiceCollection` — no
-  `AddSharpMudX()` extension-method sprawl has been introduced, and no new
-  registration pattern should be either without discussing it first, since
-  it'd be the first of its kind in the repo.
+- **Application-level wiring** (a consumer's own `Program.cs` — including
+  `samples/`): register services inline via `ServiceCollection`, no
+  `AddSharpMudX()` extension-method sprawl. This is about keeping a single
+  app's composition root readable, not a prohibition on the pattern below.
+- **Package-level composition roots** (a `SharpMud.*` package's own public
+  entry point, e.g. `SharpMud.Hosting`'s `SharpMudApplicationBuilder`/
+  `AddSharpMudRuleset(...)`): a DI-extension/builder pattern is the
+  sanctioned shape — see [ADR-0006](../../../../docs/adr/0006-nuget-package-distribution.md).
+  A published package's entry point is a different concern from an
+  application's internal wiring: consumers need a stable, documented way to
+  opt into what the package provides, the same reason `AddControllers`/
+  `AddAuthentication`-style extension methods exist in the wider .NET
+  ecosystem. Introducing a *new* pattern here still needs the same
+  discussion-first treatment ADR-0006 got; this note isn't a blanket
+  license to add extension-method sprawl anywhere else without one.
 - No static singletons, ever. If something feels like it wants to be a
   singleton, register it `AddSingleton` in DI instead.
 - All dependencies are injected via the constructor into `private readonly`
