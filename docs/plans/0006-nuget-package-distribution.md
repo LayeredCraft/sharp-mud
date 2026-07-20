@@ -42,29 +42,50 @@ bundled into this plan's "done").
 
 - [ ] `git mv src/SharpMud.Ruleset.Classic samples/SharpMud.Samples.Classic`
       (preserve history — this becomes the single consolidated project)
-- [ ] `git mv src/SharpMud.Host/Program.cs samples/SharpMud.Samples.Classic/Program.cs`
-      (and any other `Host` files worth keeping — `HostOptions.cs`, etc.),
-      then delete the now-empty `src/SharpMud.Host` project and remove it
-      from `SharpMud.slnx`. The old `Ruleset.Classic` → `Host` project
-      *reference* disappears entirely — there's only one project now, not
-      two referencing each other.
+- [ ] **Split `src/SharpMud.Host`'s files by whether they're
+      ruleset-specific or genuinely generic — don't move all of it to
+      `samples/` as one block** (caught in PR review: an earlier version of
+      this task sent everything to `samples/`, which would strand
+      `SharpMud.Hosting` without any actual session/login handling and
+      leave every consumer copying sample code to accept logins at all):
+      - `git mv src/SharpMud.Host/Program.cs samples/SharpMud.Samples.Classic/Program.cs`
+        — genuinely sample-specific (it's the composition root being
+        rewritten against `SharpMud.Hosting`'s builder anyway).
+      - `git mv src/SharpMud.Host/SessionLoop.cs src/SharpMud.Host/LoginFlow.cs
+        src/SharpMud.Host/PasswordHashing.cs src/SharpMud.Host/HostOptions.cs
+        src/SharpMud.Hosting/` — all four only import `SharpMud.Engine.*`
+        (verified: zero references to `Ruleset.Classic` in any of them),
+        and `SessionLoop` specifically is documented as *"shared by every
+        transport"* (`SPEC.md`, `docs/networking.md`) — this is exactly the
+        generic plumbing `SharpMud.Hosting` exists to package, not sample
+        content. See the `SharpMud.Hosting` task section below for how
+        these integrate with the builder.
+      - Delete the now-empty `src/SharpMud.Host` project and remove it from
+        `SharpMud.slnx`. The old `Ruleset.Classic` → `Host` project
+        *reference* disappears entirely — there's only one project now
+        referencing `SharpMud.Hosting`, not two referencing each other.
 - [ ] Move `HubWorldBuilder` (and any other hand-built hub content) into
       the consolidated project — it's sample content per ADR-0006, not
       engine
-- [ ] **Consolidate the test projects the same way, preserving every
-      existing test** — `tests/SharpMud.Ruleset.Classic.Tests`
-      (`CombatManagerTests`, `CombatResolverTests`) and
-      `tests/SharpMud.Host.Tests` (`SessionLoopTests`, `LoginFlowTests`,
-      `HostOptionsTests`, `PasswordHashingTests`) both cover real,
-      non-trivial behavior — combat resolution, login/session-loop
-      handling, password hashing, `HostOptions` env-var parsing — and none
-      of it stops mattering just because the code they test moved into
-      `samples/`. `git mv` both into one consolidated
-      `tests/SharpMud.Samples.Classic.Tests` project, mirroring the
-      `src/` → `samples/` consolidation 1:1 per this repo's established
-      tests-mirror-source convention. This is regression coverage, not new
-      testing — every existing test keeps passing under its new home, none
-      get deleted or downgraded to "sample, so untested."
+- [ ] **Move each test project to follow its production code, not as one
+      block** — mirrors the split above, not the "everything to `samples/`"
+      version this task previously described:
+      - `git mv tests/SharpMud.Ruleset.Classic.Tests
+        tests/SharpMud.Samples.Classic.Tests` (`CombatManagerTests`,
+        `CombatResolverTests`) — follows `Ruleset.Classic`'s move into the
+        sample.
+      - `git mv tests/SharpMud.Host.Tests/SessionLoopTests.cs
+        tests/SharpMud.Host.Tests/LoginFlowTests.cs
+        tests/SharpMud.Host.Tests/HostOptionsTests.cs
+        tests/SharpMud.Host.Tests/PasswordHashingTests.cs
+        tests/SharpMud.Hosting.Tests/` (new project) — follows
+        `SessionLoop`/`LoginFlow`/`HostOptions`/`PasswordHashing` into
+        `SharpMud.Hosting`, then delete the now-empty
+        `tests/SharpMud.Host.Tests`.
+      This is regression coverage either way, not new testing — every
+      existing test keeps passing under its new home, none get deleted or
+      downgraded to "sample, so untested" (the error an earlier version of
+      this plan made, caught in PR review).
 - [ ] Rewrite `samples/SharpMud.Samples.Classic/Program.cs` against
       `SharpMud.Hosting`'s builder — this is the concrete proof that the
       ~130 lines of generic plumbing identified in ADR-0006's Context
@@ -89,15 +110,28 @@ bundled into this plan's "done").
       deliberately not needed here)
 - [ ] `SharpMudOptions` — `IOptions<T>`-shaped (`TransportMode`
       enum: `Cli`/`Telnet`, `TelnetPort`, `DbPath`) per
-      `coding-standards.md`'s `IOptions<T>` convention; kept separate from
-      `HostOptions.Parse`'s env-var/secrets path, not a replacement for it
+      `coding-standards.md`'s `IOptions<T>` convention; kept as a distinct
+      concern from `HostOptions.Parse`'s env-var/secrets path even though
+      both now live in this same project — `SharpMudOptions` is code-
+      configured wiring, `HostOptions` stays the env-var/CLI-arg parsing
+      path per `security.md`'s reasoning for keeping that one manual, not
+      a second `IOptions<T>` binding for the same thing.
+- [ ] `SessionLoop.cs`/`LoginFlow.cs`/`PasswordHashing.cs`/`HostOptions.cs`
+      — moved in from `src/SharpMud.Host` per the Repository reorganization
+      task above, namespace updated to `SharpMud.Hosting`, otherwise
+      unchanged (all three already only depend on `SharpMud.Engine.*`).
+      This is what actually makes a consumer's login/session handling work
+      out of the package instead of requiring copied sample code — the
+      concrete gap caught in PR review.
 - [ ] `GameLoop` registered as a `BackgroundService` (or a thin
       `BackgroundService` wrapper around it, if `GameLoop` itself shouldn't
       take a direct `Microsoft.Extensions.Hosting` dependency — decide
       during implementation which project should own that coupling)
 - [ ] Telnet listener registered as a `BackgroundService`, gated on
-      `SharpMudOptions.Transport`; CLI path wired the equivalent way for
-      `TransportMode.Cli`
+      `SharpMudOptions.Transport`, driving `SessionLoop.RunAsync` per
+      accepted connection (through `LoginFlow` first, matching today's
+      `HostRunner.HandleConnectionAsync` shape); CLI path wired the
+      equivalent way for `TransportMode.Cli`
 - [ ] `AddSharpMudRuleset(Action<ICommandRegistry> register)` (or
       equivalent) extension point for the consumer's ruleset registration
       callback, and a world-builder registration point (name/shape TBD
@@ -165,8 +199,15 @@ bundled into this plan's "done").
       above; confirm `samples/` projects are `IsPackable=false` explicitly
       so a solution-wide `dotnet pack` never emits sample packages
 - [ ] New `src/SharpMud/SharpMud.csproj` — the meta-package: no code,
-      `PackageReference`s to every other `SharpMud.*` package at the
-      lockstep version
+      **`ProjectReference`s (not `PackageReference`s) to every other
+      `SharpMud.*` project** — verified experimentally: `dotnet pack`
+      automatically translates a `ProjectReference` to a packable project
+      into a `<dependency>` entry in the resulting `.nuspec`, at that
+      project's own version, with no requirement that the referenced
+      package already exist on any feed. A literal `PackageReference`
+      instead would fail restore on the very first `dotnet pack
+      SharpMud.slnx` — none of the sibling packages exist on any feed
+      until *after* that first pack/publish — caught in PR review.
 - [ ] `.github/workflows/publish-preview.yaml` — push to `main` →
       `devops-templates`' `publish-preview.yml@v10.1` +
       `LayeredCraft/devops-templates/.github/actions/nuget-push@v10.1` (the
@@ -239,7 +280,10 @@ bundled into this plan's "done").
 New:
 - `docs/adr/0006-nuget-package-distribution.md`
 - `docs/plans/0006-nuget-package-distribution.md`
-- `src/SharpMud.Hosting/*`
+- `src/SharpMud.Hosting/*` — new `SharpMudApplicationBuilder`/
+  `SharpMudApplication`/`SharpMudOptions`, plus `SessionLoop.cs`/
+  `LoginFlow.cs`/`PasswordHashing.cs`/`HostOptions.cs` moved in from
+  `src/SharpMud.Host`
 - `src/SharpMud.Persistence.Sqlite/*`
 - `src/SharpMud.Persistence.DynamoDb/*`
 - `src/SharpMud/SharpMud.csproj` (meta-package)
@@ -248,9 +292,13 @@ New:
 - `.github/workflows/docs.yaml`, `docsite/*` (`pyproject.toml`, `uv.lock`,
   `zensical.toml`, skeleton content)
 - `samples/SharpMud.Samples.Classic/*` (moved + consolidated from
-  `src/SharpMud.Ruleset.Classic` and `src/SharpMud.Host`)
-- `tests/SharpMud.Samples.Classic.Tests/*` (moved + consolidated from
-  `tests/SharpMud.Ruleset.Classic.Tests` and `tests/SharpMud.Host.Tests`)
+  `src/SharpMud.Ruleset.Classic` and only `Program.cs` from
+  `src/SharpMud.Host` — not the rest, see Repository reorganization)
+- `tests/SharpMud.Samples.Classic.Tests/*` (moved from
+  `tests/SharpMud.Ruleset.Classic.Tests`)
+- `tests/SharpMud.Hosting.Tests/*` (new project, plus `SessionLoopTests.cs`/
+  `LoginFlowTests.cs`/`HostOptionsTests.cs`/`PasswordHashingTests.cs`
+  moved in from `tests/SharpMud.Host.Tests`)
 
 Modified:
 - `src/SharpMud.Persistence/SharpMud.Persistence.csproj` (drop SQLite refs)
@@ -260,22 +308,26 @@ Modified:
 
 ## Test plan
 
-- Unit tests for `SharpMud.Hosting` (`SharpMudApplicationBuilder`/
-  `SharpMudApplication` wiring, `SharpMudOptions` binding) — new coverage,
-  matching `testing.md`'s conventions.
+- Unit tests for `SharpMud.Hosting`'s new surface
+  (`SharpMudApplicationBuilder`/`SharpMudApplication` wiring,
+  `SharpMudOptions` binding) — new coverage, matching `testing.md`'s
+  conventions.
 - Existing `SharpMud.Persistence.Tests` split/adjusted to match the
   core/`Sqlite`/`DynamoDb` project split — regression coverage, not new
   behavior.
-- `tests/SharpMud.Samples.Classic.Tests` (consolidated from
-  `SharpMud.Ruleset.Classic.Tests` + `SharpMud.Host.Tests`, per the
-  Repository reorganization task above) — every existing test carries
-  forward unmodified: `CombatManagerTests`, `CombatResolverTests`,
-  `SessionLoopTests`, `LoginFlowTests`, `HostOptionsTests`,
-  `PasswordHashingTests`. This was previously (incorrectly) described in
-  this plan as "not unit-tested... matching `SharpMud.Host`'s current
-  untested status" — `SharpMud.Host` is not untested today, that was a
-  factual error, not a real gap being introduced; regression coverage, not
-  new behavior.
+- `tests/SharpMud.Hosting.Tests` (`SessionLoopTests`, `LoginFlowTests`,
+  `HostOptionsTests`, `PasswordHashingTests`, moved from
+  `SharpMud.Host.Tests` per the Repository reorganization task) —
+  regression coverage, carried forward unmodified.
+- `tests/SharpMud.Samples.Classic.Tests` (`CombatManagerTests`,
+  `CombatResolverTests`, moved from `SharpMud.Ruleset.Classic.Tests`) —
+  regression coverage, carried forward unmodified. This section previously
+  (incorrectly) described the consolidated sample as "not unit-tested...
+  matching `SharpMud.Host`'s current untested status" — `SharpMud.Host` is
+  not untested today, that was a factual error, not a real gap being
+  introduced, and it's now further corrected: the moved tests split across
+  two projects (`Hosting.Tests`/`Samples.Classic.Tests`) following their
+  production code, not one combined project.
 - On top of that existing coverage, a successful build + a real manual run
   of `samples/SharpMud.Samples.Classic` is the actual verification that the
   new `SharpMud.Hosting`-based `Program.cs` itself works end-to-end

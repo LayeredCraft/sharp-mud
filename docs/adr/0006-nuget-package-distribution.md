@@ -128,8 +128,8 @@ of one — this exact claim has now been wrong twice from what look like two
 different stale/misread sources.
 | `SharpMud.Adapters.Telnet` | unchanged | none |
 | `SharpMud.Adapters.Cli` | unchanged | none |
-| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions` | none beyond `Microsoft.Extensions.Hosting` |
-| `SharpMud` | **new**, meta-package — no code, `PackageReference`s to everything above | — |
+| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions`, plus `SessionLoop`/`LoginFlow`/`PasswordHashing`/`HostOptions` moved in from today's `src/SharpMud.Host` (all four are ruleset-agnostic — see Repository reorganization below for why they belong here, not in `samples/`) | none beyond `Microsoft.Extensions.Hosting` |
+| `SharpMud` | **new**, meta-package — no code, `ProjectReference`s (not `PackageReference`s — see the meta-package note below) to everything above | — |
 
 Not built speculatively: Postgres/SqlServer/etc. adapters. A consumer can
 already point core `GameDbContext` at any relational provider themselves
@@ -158,6 +158,21 @@ missing, the fallback is splitting provider-specific configuration
 (a Dynamo-specific partial config, or a different inheritance-mapping
 strategy for that provider) rather than assuming one shared config tree
 works unmodified everywhere.
+
+**Meta-package mechanics, flagged in PR review:** the `SharpMud` package's
+dependency list on the other `SharpMud.*` packages must be expressed as
+`ProjectReference` in `src/SharpMud/SharpMud.csproj`, not a literal
+`PackageReference`. Verified experimentally (a throwaway two-project repro):
+`dotnet pack` automatically translates a `ProjectReference` to a packable
+project into a `<dependency>` entry in the resulting `.nuspec`, at that
+project's own version — with no requirement that the referenced package
+already exists on any feed. A literal `PackageReference` would instead fail
+restore on the very first `dotnet pack SharpMud.slnx`, since none of the
+sibling packages exist on any feed until *after* that first pack/publish —
+exactly the chicken-and-egg problem flagged in review. This is a wording
+fix, not an architecture change: the monorepo/single-CI-run packing model
+described under Versioning and CI above already assumed this mechanism, it
+just wasn't spelled out precisely enough to rule out the broken reading.
 
 ### `SharpMud.Hosting` shape
 
@@ -222,16 +237,29 @@ corrected in this same change (see Critical files in the plan).
 
 ### Repository reorganization
 
-`src/SharpMud.Host`'s current role — the only project allowed to reference a
-specific ruleset, per `engine-vs-ruleset.md` — is now recognized as *sample*
-content, not shipped-package content: it's this repo's own reference
-implementation of what any consumer's `Program.cs` looks like, not something
-we distribute.
+`src/SharpMud.Host`'s current role as the only project allowed to reference
+a specific ruleset (per `engine-vs-ruleset.md`) splits in two, not one —
+**not** "all of `Host` becomes sample content," a distinction an earlier
+version of this ADR blurred (caught in PR review). `Host`'s composition
+root (`Program.cs`) is genuinely sample content — this repo's own reference
+implementation of what any consumer's `Program.cs` looks like. But
+`SessionLoop`/`LoginFlow`/`PasswordHashing`/`HostOptions` are not: all four
+only depend on `SharpMud.Engine.*`, none reference `Ruleset.Classic`, and
+`SessionLoop` specifically is documented as *"shared by every transport"*
+(`SPEC.md`, `docs/networking.md`). Those move into `SharpMud.Hosting` — the
+package — not `samples/`; otherwise a consumer installing `SharpMud.Hosting`
+would still have no way to accept a login or run a session loop without
+copying sample code, which is the opposite of this ADR's "minimal friction"
+decision driver.
 
 ```
 src/                                    (packaged)
   SharpMud.Engine/
-  SharpMud.Hosting/                     new
+  SharpMud.Hosting/                     new — SharpMudApplicationBuilder/
+                                         SharpMudApplication/SharpMudOptions,
+                                         plus SessionLoop/LoginFlow/
+                                         PasswordHashing/HostOptions moved
+                                         in from src/SharpMud.Host
   SharpMud.Persistence/
   SharpMud.Persistence.Sqlite/          new
   SharpMud.Persistence.DynamoDb/        new
@@ -242,9 +270,11 @@ samples/                                (NOT packaged — reference implementati
   SharpMud.Samples.Classic/             single project — merges
                                          SharpMud.Ruleset.Classic's content
                                          (moved from src/, unchanged
-                                         internally) and SharpMud.Host's
-                                         Program.cs (rewritten against
-                                         SharpMud.Hosting) into one project
+                                         internally) and only
+                                         SharpMud.Host's Program.cs
+                                         (rewritten against
+                                         SharpMud.Hosting) — not the rest
+                                         of Host, see above
 ```
 
 This is a genuinely different shape from today's repo, not just a rename:
@@ -254,11 +284,13 @@ split — `Host` references `Ruleset.Classic`, never the reverse). The whole
 point of `SharpMud.Hosting` is that a consumer needs **exactly one project**
 of their own — ruleset code and `Program.cs` living together, per this
 ADR's Decision Drivers. A two-project sample would demonstrate the opposite
-of what this ADR set out to prove, so `SharpMud.Ruleset.Classic` and the old
-`SharpMud.Host` are consolidated into one `samples/SharpMud.Samples.Classic/`
-project — the ruleset behaviors/commands and the few lines of `Program.cs`
-using `SharpMud.Hosting`'s builder live side by side in the same project,
-exactly as an external consumer's own project would.
+of what this ADR set out to prove, so `SharpMud.Ruleset.Classic` and
+`Program.cs` — specifically `Program.cs`, not the whole old `SharpMud.Host`
+project, per the split above — are consolidated into one
+`samples/SharpMud.Samples.Classic/` project: the ruleset behaviors/commands
+and the few lines of `Program.cs` using `SharpMud.Hosting`'s builder live
+side by side in the same project, exactly as an external consumer's own
+project would.
 
 `engine-vs-ruleset.md`'s "Host is the only project allowed to know about a
 specific ruleset" principle doesn't change in spirit — it's just no longer
