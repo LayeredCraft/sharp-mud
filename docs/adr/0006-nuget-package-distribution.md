@@ -102,7 +102,7 @@ Every package ID matches its project/assembly name 1:1 already, so no
 | `SharpMud.Engine` | `Thing`/`Behavior`/events/commands/sessions — unchanged from today | none |
 | `SharpMud.Persistence` | `GameDbContext`, `ThingRepository`, EF Core `Configuration` classes — **provider-agnostic**, no provider `PackageReference` | `Microsoft.EntityFrameworkCore(.Relational)` only |
 | `SharpMud.Persistence.Sqlite` | thin, adds `Microsoft.EntityFrameworkCore.Sqlite` + an `AddSharpMudSqlitePersistence(path)` extension | SQLite |
-| `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB (provider is out of preview per its `v10.0.1`/EF Core 10 release; confirm the EF Core 11 line's actual release status against sharp-mud's target TFM at implementation time — see Open Items) |
+| `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB — pin `EntityFrameworkCore.DynamoDb 10.0.0`, the current stable/non-preview release (confirmed against NuGet's registration index directly: published 2026-07-14, `listed: true`, no prerelease suffix). Targets EF Core 10, not EF Core 11 — see Target frameworks below for why sharp-mud packages multi-target `net10.0;net11.0` rather than `net11.0` alone, which is exactly what makes this pin usable now instead of blocked on an EF Core 11 build. |
 | `SharpMud.Adapters.Telnet` | unchanged | none |
 | `SharpMud.Adapters.Cli` | unchanged | none |
 | `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions` | none beyond `Microsoft.Extensions.Hosting` |

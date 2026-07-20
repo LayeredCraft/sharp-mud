@@ -108,9 +108,10 @@ bundled into this plan's "done").
       wrapping today's `UseSqlite(...)` call site (moved out of
       `Program.cs`)
 - [ ] New `src/SharpMud.Persistence.DynamoDb/` — references
-      `EntityFrameworkCore.DynamoDb` (confirm the actual current
-      non-preview version compatible with sharp-mud's target TFM(s) before
-      pinning — see Open Questions), equivalent
+      `EntityFrameworkCore.DynamoDb 10.0.0` (the current stable release,
+      confirmed against NuGet directly — see ADR-0006's package table),
+      targeting this project's `net10.0` TFM specifically since the
+      provider is an EF Core 10 build, not EF Core 11, equivalent
       `AddSharpMudDynamoDbPersistence(...)` extension
 - [ ] Update `samples/SharpMud.Samples.Classic` to consume
       `SharpMud.Persistence.Sqlite`'s extension instead of the inline
@@ -137,8 +138,12 @@ bundled into this plan's "done").
       lockstep version
 - [ ] `.github/workflows/publish-preview.yaml` — push to `main` →
       `devops-templates`' `publish-preview.yml@v10.1` +
-      `actions/nuget-push@v10.1`, matching `structured-logging`'s repo-level
-      workflow file exactly, pointed at `SharpMud.slnx`, with
+      `LayeredCraft/devops-templates/.github/actions/nuget-push@v10.1` (the
+      full `{owner}/{repo}/{path}@{ref}` reference — a bare
+      `actions/nuget-push@v10.1` resolves to a different, nonexistent
+      `actions/nuget-push` repository and fails to load), matching
+      `structured-logging`'s repo-level workflow file exactly, pointed at
+      `SharpMud.slnx`, with
       `prereleaseIdentifier: alpha` explicitly set (default is `preview`) —
       packages publish as `X.Y.Z-alpha.<run_number>` while this package set
       is in its alpha stage; revisit this input once it graduates out of
@@ -247,12 +252,6 @@ Modified:
 
 ## Open questions / blockers
 
-- `EntityFrameworkCore.DynamoDb`'s actual non-preview status for the EF
-  Core 11 line (sharp-mud's current target) isn't confirmed — the org
-  repo's own `Directory.Build.props`/README still read `alpha`/"in
-  preview" as of this plan's writing, while NuGet's version feed shows
-  `10.0.0` as the only clean non-preview-suffixed release. Confirm the
-  actual version to pin before implementing `SharpMud.Persistence.DynamoDb`.
 - Exact shape of the world-builder registration point on
   `SharpMudOptions`/the builder (how a consumer plugs in their own
   `HubWorldBuilder`-equivalent) isn't fully designed — implementation will
