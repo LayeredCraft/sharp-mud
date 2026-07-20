@@ -27,7 +27,8 @@ SharpMud.slnx
     SharpMud.Adapters.Telnet/     # raw TCP ISession + listener - see networking.md.
     SharpMud.Adapters.Ssh/        # (later)
     SharpMud.Adapters.WebSocket/  # (later)
-    SharpMud/                     # meta-package: pulls in every SharpMud.* package.
+    SharpMud/                     # meta-package: Engine + Hosting + Persistence only -
+                                   # provider/transport packages always explicit (ADR-0007).
   samples/
     SharpMud.Samples.Classic/     # D&D-flavored sample ruleset + composition root
                                    # (Program.cs). References everything; the only

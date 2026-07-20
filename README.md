@@ -29,7 +29,7 @@ SharpMud.slnx
     SharpMud.Persistence.DynamoDb/   # DynamoDB provider
     SharpMud.Adapters.Cli/           # local stdin/stdout session adapter
     SharpMud.Adapters.Telnet/        # raw TCP session adapter + listener
-    SharpMud/                        # meta-package (pulls in every SharpMud.* package)
+    SharpMud/                        # meta-package (Engine + Hosting + Persistence only - ADR-0007)
   samples/
     SharpMud.Samples.Classic/        # D&D-flavored sample ruleset + composition root
   tests/
