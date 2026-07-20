@@ -17,6 +17,7 @@
     <Project Path="src/SharpMud.Persistence/SharpMud.Persistence.csproj" />
     <Project Path="src/SharpMud.Persistence.Sqlite/SharpMud.Persistence.Sqlite.csproj" />
     <Project Path="src/SharpMud.Persistence.DynamoDb/SharpMud.Persistence.DynamoDb.csproj" />
+    <Project Path="src/SharpMud/SharpMud.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj" />

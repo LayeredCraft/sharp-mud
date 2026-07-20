@@ -30,7 +30,8 @@ terminal or just a queued line on stdout for v1.
 
 1. **`SharpMud.Adapters.Cli`** ✅ — implements `ISession` over
    `Console.In`/`Console.Out`. Single process, single local player, fast
-   iteration. `Host` uses this when run with no arguments.
+   iteration. `AddSharpMudCliTransport` registers `CliTransportBackgroundService`,
+   used when the composition root selects CLI mode.
 2. **`SharpMud.Adapters.Telnet`** ✅ — `TelnetSession` (raw TCP via
    `TcpClient`/`NetworkStream`, line-based I/O) + `TelnetListener` (accepts
    connections, yields one `ISession` per client via `IAsyncEnumerable`).
@@ -39,8 +40,10 @@ terminal or just a queued line on stdout for v1.
    [ADR-0002](adr/0002-telnet-protocol-negotiation.md). **MCCP/MXP/TermType
    still not negotiated** — deferred, see Open Items; WheelMUD's
    `Server/Telnet/` (docs/research/wheelmud-findings.md) is the reference to
-   consult when those are actually needed. `Host` uses this when run with
-   `--telnet [port]` (default 4000).
+   consult when those are actually needed. `AddSharpMudTelnetTransport(port)`
+   registers `TelnetTransportBackgroundService`, used when the composition
+   root selects Telnet mode (the sample ruleset does this via `--telnet [port]`,
+   default 4000).
 3. **`SharpMud.Adapters.Ssh`** (later) — secure terminal access.
 4. **`SharpMud.Adapters.WebSocket`** (later) — browser play via xterm.js.
 
@@ -48,13 +51,13 @@ Adding a transport is additive — a new project implementing `ISession` — and
 never requires changes to game logic, command parsing, or world state (see
 [architecture.md](architecture.md) for the enforced dependency direction that
 guarantees this). Confirmed in practice: the Telnet adapter required zero
-changes to `SharpMud.Engine` or `SharpMud.Ruleset.Classic`.
+changes to `SharpMud.Engine` or the sample ruleset.
 
 ## Multi-Session Host
 
-`Host`'s per-connection read-eval loop is `SessionLoop.RunAsync` (extracted
-from what used to be inline in `Program.cs`), shared by every transport. For
-Telnet, `HostRunner.RunTelnetAsync` accepts connections in a loop and spawns
+The per-connection read-eval loop is `SessionLoop.RunAsync` (in
+`SharpMud.Hosting`), shared by every transport. For Telnet,
+`TelnetTransportBackgroundService` accepts connections in a loop and spawns
 one `SessionLoop.RunAsync` task per connection against the same shared
 `World`/`IGameLoop`/`ICommandRegistry` — this is what makes concurrent players
 actually see and interact with each other (confirmed via a live two-client
@@ -76,7 +79,7 @@ role in the sequence:)
 
 1. The transport adapter detects the underlying stream closed/EOF, calls
    `ISession.DisconnectAsync`.
-2. `Host`'s session-loop catches this, fires a `PlayerDisconnectedEvent`
+2. `SessionLoop` catches this, fires a `PlayerDisconnectedEvent`
    consumed by Engine's disconnect handler.
 
 ## Reconnect / Session Resumption ✅ (ADR-0004)

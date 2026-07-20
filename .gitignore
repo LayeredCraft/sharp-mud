@@ -495,3 +495,7 @@ sharpmud.db
 sharpmud.db-wal
 sharpmud.db-shm
 sharpmud.db-journal
+
+# docsite (Zensical/uv) build output and Python venv (uv.lock IS committed)
+docsite/site/
+docsite/.venv/

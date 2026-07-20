@@ -22,8 +22,10 @@ persistent public MUD.
   the prior art this is adapted from and
   [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md) for the concrete
   design. The game we're actually building (classic D&D-flavored stats/combat,
-  the hand-built hub) lives in a separate `SharpMud.Ruleset.Classic` project
-  that consumes the engine the same way a third party's game would.
+  the hand-built hub) lives in `samples/SharpMud.Samples.Classic`, a reference
+  consumer of the published `SharpMud.*` NuGet packages
+  ([ADR-0006](docs/adr/0006-nuget-package-distribution.md)) that consumes the
+  engine the same way a third party's game would.
 
 ## Architecture
 
@@ -38,7 +40,7 @@ optionally a `LockableBehavior`). This is adapted directly from WheelMUD (see
 [docs/research/wheelmud-findings.md](docs/research/wheelmud-findings.md)) and
 is the mechanism that makes the engine/ruleset split real: `SharpMud.Engine`
 ships generic, ruleset-agnostic behaviors (rooms, exits, containment,
-identity); `SharpMud.Ruleset.Classic` adds the D&D-flavored ones (stats,
+identity); `SharpMud.Samples.Classic` adds the D&D-flavored ones (stats,
 combat, dice-roll character creation) purely by composing more `Behavior`s
 onto the same `Thing`s — the engine never references ruleset types. Full
 design in [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md).

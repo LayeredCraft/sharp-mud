@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Meta-package: no code, no compiled output of its own -
+       ProjectReferences to every other SharpMud.* package, which dotnet
+       pack automatically translates into <dependency> entries in the
+       resulting .nuspec at each referenced project's own version. Not
+       PackageReference - none of the sibling packages exist on any feed
+       until after this same solution-wide pack/publish, so a literal
+       PackageReference would fail restore. See
+       docs/adr/0006-nuget-package-distribution.md's meta-package note. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence.Sqlite\SharpMud.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence.DynamoDb\SharpMud.Persistence.DynamoDb.csproj" />
+    <ProjectReference Include="..\SharpMud.Adapters.Telnet\SharpMud.Adapters.Telnet.csproj" />
+    <ProjectReference Include="..\SharpMud.Adapters.Cli\SharpMud.Adapters.Cli.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- No compiled output of its own - suppress the "no source files"
+         warnings/build noise a normal library project would emit. -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <Description>Meta-package for sharp-mud - pulls in every SharpMud.* package (Engine, Hosting, Persistence, Adapters). See https://github.com/LayeredCraft/sharp-mud for getting started.</Description>
+  </PropertyGroup>
+
+</Project>

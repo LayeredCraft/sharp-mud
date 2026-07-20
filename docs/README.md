@@ -13,10 +13,10 @@ implementation detail.
 | [character.md](character.md) | Player entity, D&D-style attributes, Race/Class modifiers, derived stats |
 | [commands.md](commands.md) | Command parser/registry, `ICommand` pipeline, aliases, error handling, movement walkthrough |
 | [combat.md](combat.md) | Round-based combat model, `ICombatResolver`, tick-driven resolution, disconnect-mid-fight handling |
-| [persistence.md](persistence.md) | Repository interfaces, EF Core, provider strategy (SQLite now, Mongo/DynamoDB later) |
-| [networking.md](networking.md) | `ISession` transport abstraction, adapter plan (CLI now, Telnet/SSH/WebSocket later) |
+| [persistence.md](persistence.md) | Repository interfaces, EF Core, provider strategy (SQLite and DynamoDB now, via separate provider packages) |
+| [networking.md](networking.md) | `ISession` transport abstraction, adapter plan (CLI and Telnet now, SSH/WebSocket later) |
 | [accounts-auth.md](accounts-auth.md) | Username/password login, identity fields on Player |
-| [deployment.md](deployment.md) | Dockerfile, container runtime configuration (`HostOptions`), verified-working notes, AWS/CI open items |
+| [deployment.md](deployment.md) | Dockerfile, container runtime configuration (`SharpMudHostOptions`), verified-working notes, AWS/CI open items |
 | [research/wheelmud-findings.md](research/wheelmud-findings.md) | WheelMUD codebase review with code citations — the prior art behind engine-vs-ruleset.md |
 | [adr/README.md](adr/README.md) | Architecture Decision Records — the numbered, permanent record of individual design decisions (numbering, status lifecycle, index) |
 

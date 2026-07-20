@@ -16,9 +16,10 @@ public static class ServiceCollectionExtensions
     /// endpoint (e.g. DynamoDB Local for development).
     /// </summary>
     /// <remarks>
-    /// No <see cref="Hosting.IStorageInitializer"/> is registered here -
-    /// unlike SQLite, this provider does not create or migrate DynamoDB
-    /// tables; the table(s) must already exist.
+    /// No <c>IStorageInitializer</c> is registered here (this project has
+    /// no reference to <c>SharpMud.Hosting</c>) - unlike SQLite, this
+    /// provider does not create or migrate DynamoDB tables; the table(s)
+    /// must already exist.
     /// </remarks>
     public static IServiceCollection AddSharpMudDynamoDbPersistence(this IServiceCollection services, Action<AmazonDynamoDBConfig>? configureClient = null)
     {

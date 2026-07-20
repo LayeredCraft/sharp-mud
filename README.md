@@ -12,37 +12,51 @@ to the genre's feel while built with current .NET architecture.
 ## Solution layout
 
 ```
-SharpMud.sln
+SharpMud.slnx
   src/
-    SharpMud.Engine/            # Thing/Behavior, events, generic behaviors,
-                                 # command pipeline, session, tick loop.
-                                 # Zero deps on any ruleset.
-    SharpMud.Ruleset.Classic/   # D&D-flavored ruleset: stats, combat, kill/flee.
-                                 # References Engine only.
-    SharpMud.Persistence/       # EF Core repositories
-    SharpMud.Adapters.Cli/      # local stdin/stdout session adapter
-    SharpMud.Adapters.Telnet/   # raw TCP session adapter + listener
-    SharpMud.Host/              # composition root / entry point / hub world content
+    SharpMud.Engine/                # Thing/Behavior, events, generic behaviors,
+                                     # command pipeline, session, tick loop.
+                                     # Zero deps on any ruleset.
+    SharpMud.Hosting/                # generic-host composition helpers, ruleset-agnostic
+    SharpMud.Persistence/            # EF Core repositories, provider-agnostic
+    SharpMud.Persistence.Sqlite/     # SQLite provider
+    SharpMud.Persistence.DynamoDb/   # DynamoDB provider
+    SharpMud.Adapters.Cli/           # local stdin/stdout session adapter
+    SharpMud.Adapters.Telnet/        # raw TCP session adapter + listener
+    SharpMud/                        # meta-package (pulls in every SharpMud.* package)
+  samples/
+    SharpMud.Samples.Classic/        # D&D-flavored sample ruleset + composition root
   tests/
     SharpMud.Engine.Tests/
-    SharpMud.Ruleset.Classic.Tests/
+    SharpMud.Hosting.Tests/
     SharpMud.Persistence.Tests/
-    SharpMud.Host.Tests/
+    SharpMud.Adapters.Cli.Tests/
+    SharpMud.Adapters.Telnet.Tests/
+    SharpMud.Samples.Classic.Tests/
 ```
 
 ## Building & testing
 
 ```
-dotnet build SharpMud.sln
-dotnet test SharpMud.sln
+dotnet build SharpMud.slnx
+dotnet test SharpMud.slnx
 ```
 
 ## Running
 
 ```
-dotnet run --project src/SharpMud.Host       # local single-player CLI
-dotnet run --project src/SharpMud.Host -- --telnet [port]  # telnet server, default port 4000
+dotnet run --project samples/SharpMud.Samples.Classic       # local single-player CLI
+dotnet run --project samples/SharpMud.Samples.Classic -- --telnet [port]  # telnet server, default port 4000
 ```
+
+## Using SharpMud as a library
+
+`src/` publishes as NuGet packages (`SharpMud.Engine`, `SharpMud.Hosting`,
+`SharpMud.Persistence`(`.Sqlite`/`.DynamoDb`), `SharpMud.Adapters.Cli`/
+`.Telnet`), plus a `SharpMud` meta-package pulling in all of them.
+`samples/SharpMud.Samples.Classic` is a full reference consumer — start there
+to see how a ruleset composes against the packages. See
+[ADR-0006](docs/adr/0006-nuget-package-distribution.md) for the design.
 
 ## Containerized
 
