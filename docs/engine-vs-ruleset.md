@@ -257,3 +257,10 @@ revisit if guard logic keeps growing.
   serialize `Thing`+`Behavior` graphs; the JSON shape isn't designed yet.
 - No `AssemblyLoadContext`-based dynamic ruleset loading — see `SPEC.md`
   Deferred/Open Items.
+- How an actual external consumer gets `SharpMud.Engine` at all (not just
+  how this repo's own `Host`/`Ruleset.Classic` are split) is resolved by
+  [ADR-0006](adr/0006-nuget-package-distribution.md), not yet implemented —
+  see [PLAN-0006](plans/0006-nuget-package-distribution.md).
+  `SharpMud.Ruleset.Classic` and this repo's own `Host` move to `samples/`
+  under that plan; this doc's project-structure listing above still
+  describes their current `src/` locations until that plan executes.
