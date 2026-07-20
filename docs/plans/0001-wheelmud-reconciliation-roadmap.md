@@ -29,7 +29,8 @@ reconciliation effort stands.
       Accepted, PLAN-0004 Done. See
       [PLAN-0004](0004-session-state-machine-and-reconnect.md).
 - [ ] **Slice 3 — Permission/security-role model + moderation commands.**
-      Not yet designed.
+      ADR-0005 Accepted, PLAN-0005 Not Started. See
+      [PLAN-0005](0005-security-role-model-and-moderation-commands.md).
 - [ ] **Slice 4 — World-building/OLC command surface.** Not yet designed;
       bundles with Slice 3.
 - [ ] **Slice 5 — Help system.** Not yet designed.

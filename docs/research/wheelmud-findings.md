@@ -335,6 +335,24 @@ to regress here.
 
 ---
 
+## 11. Security roles / moderation — `ActionSecurityAttribute`, `Actions/Admin/`
+
+Source dive conducted for [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md)
+(Slice 3 of the reconciliation roadmap). `Core/Attributes/ActionSecurityAttribute.cs`
++ `Actions/Admin/` (16 files): a `[Flags] enum SecurityRole` (`mobile` /
+`item` / `room` / `tutorialPlayer` / `player` / `helper` / `married` /
+`minorBuilder` / `fullBuilder` / `minorAdmin` / `fullAdmin` / `all`, 12 real
+values), an `[ActionSecurity(SecurityRole.x)]` class attribute on each
+Action, reflected off at registration time into a `Command.SecurityRole`
+field, gated at dispatch by a bitwise-AND check
+(`command.SecurityRole & user.SecurityRoles`) in `CommandGuard.cs`.
+`Actions/Admin/` (`Announce`, `Ban`, `Boot`, `Buff`, `Clone`, `Control`,
+`Find`, `GoTo`, `Jail`, `Locate`, `Mute`, `Relinquish`, `RoleGrant`,
+`RoleRevoke`, `Spawn`, `Unmute`) are ordinary Actions decorated with
+high-tier roles — no separate mechanism from any other command.
+
+---
+
 ## Decisions for sharp-mud
 
 Two real forks, resolved as follows (see the "Engine vs. Ruleset" architecture
@@ -378,6 +396,19 @@ don't require adding new delegate pairs to a growing interface.
    replaced with a single-call parser, since sharp-mud's read loop is already
    one sequential `await` chain per connection. MCCP/MXP/TermType remain
    unreviewed beyond the survey in §Networking above.
+
+4. **The `[Flags] SecurityRole` bitmask and its bitwise-AND gating check are
+   adopted from §11's `ActionSecurityAttribute`/`Actions/Admin/` dive;
+   attribute+reflection dispatch is not.** sharp-mud gates via a
+   hand-rolled Decorator (`RoleGuardedCommand`/`MuteGuardedCommand`
+   wrapping an inner `ICommand` at registration time) instead, since
+   sharp-mud's `ICommandRegistry.Register(ICommand)` model has no
+   DI-container registration step for an attribute-scanning approach (or
+   `LayeredCraft.DecoWeaver`, which only intercepts `IServiceCollection`
+   registrations) to hook into. Full rationale, the grant/revoke
+   hierarchy-accumulation rule, and the command set actually built are in
+   [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md)/
+   [PLAN-0005](../plans/0005-security-role-model-and-moderation-commands.md).
 
 Going forward, further reconciliation against WheelMUD (moderation/admin
 tooling, session reconnect, world-building commands, and more) is tracked as

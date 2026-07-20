@@ -124,9 +124,14 @@ actually implemented as of the inventory/items build-order phase:
 - **Character**: `score`/`stats` (display derived stats — see
   [character.md](character.md)) is **not implemented yet**.
 - **Meta** ✅: `help`, `quit`.
-- **Builder/admin verbs** (`@dig`, `@describe`, etc.) explicitly excluded —
+- **Builder/OLC verbs** (`@dig`, `@describe`, etc.) explicitly excluded —
   those belong to the deferred in-game building phase (see
-  [world-model.md](world-model.md)).
+  [world-model.md](world-model.md)). **Moderation/admin verbs**
+  (`boot`/`mute`/`unmute`/`announce`/`ban`/`unban`/`rolegrant`/
+  `rolerevoke`) are a separate thing — designed in
+  [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md), not
+  yet implemented (see
+  [PLAN-0005](plans/0005-security-role-model-and-moderation-commands.md)).
 
 ## Open Items
 
