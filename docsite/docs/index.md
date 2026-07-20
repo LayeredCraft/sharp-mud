@@ -23,7 +23,10 @@ sharp-mud ships as a set of NuGet packages you compose into your own game:
   repositories behind a provider-agnostic `IThingRepository`.
 - **`SharpMud.Adapters.Cli`** / **`SharpMud.Adapters.Telnet`** — transport
   implementations of `ISession`.
-- **`SharpMud`** — a meta-package pulling in all of the above.
+- **`SharpMud`** — a meta-package pulling in `SharpMud.Engine`,
+  `SharpMud.Hosting`, and `SharpMud.Persistence`. You always add a
+  persistence provider and a transport explicitly — the meta-package
+  doesn't include either (see [ADR-0007](https://github.com/LayeredCraft/sharp-mud/blob/main/docs/adr/0007-narrow-meta-package-scope.md)).
 
 Your own game — stats, combat rules, world content, commands — is a separate
 project that references these packages the same way `SharpMud.Samples.Classic`

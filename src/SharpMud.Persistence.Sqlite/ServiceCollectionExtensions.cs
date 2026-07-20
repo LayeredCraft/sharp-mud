@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SharpMud.Engine.Core;
-using SharpMud.Hosting;
 using SharpMud.Persistence;
 
 namespace SharpMud.Persistence.Sqlite;

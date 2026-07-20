@@ -3,8 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
     <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
-    <!-- IStorageInitializer - see SqliteStorageInitializer. -->
-    <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

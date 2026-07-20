@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SharpMud.Hosting;
+using SharpMud.Engine.Core;
 using SharpMud.Persistence;
 
 namespace SharpMud.Persistence.Sqlite;

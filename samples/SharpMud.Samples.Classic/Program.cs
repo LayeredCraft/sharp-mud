@@ -40,7 +40,12 @@ builder.Logging.AddSerilog(serilogLogger, dispose: true);
 // /0006-nuget-package-distribution.md). Not a secret (see security.md) -
 // just a filesystem path - so a CLI arg carries no exposure risk env-only
 // deployment config (credentials, connection strings) would have.
-var dbPathArg = args is ["--db-path", var dbPathValue, ..] ? dbPathValue : null;
+// Looked up by index, not a positional pattern match on args[0] - both
+// --db-path and --telnet need to work regardless of which comes first or
+// whether both are present at once (e.g. `--telnet 4000 --db-path
+// /data/x.db`), which a leading-args-element pattern can't express.
+var dbPathIndex = Array.IndexOf(args, "--db-path");
+var dbPathArg = dbPathIndex >= 0 && dbPathIndex + 1 < args.Length ? args[dbPathIndex + 1] : null;
 var env = new Dictionary<string, string?>
 {
     ["SHARPMUD_DB_PATH"] = dbPathArg ?? Environment.GetEnvironmentVariable("SHARPMUD_DB_PATH"),
@@ -65,13 +70,16 @@ builder.Services.AddSharpMudRuleset((sp, registry) =>
 // precedence as before (CLI arg wins over env var) - this is now the
 // sample's own composition-root decision, since SharpMud.Hosting must not
 // know which transport(s) exist (docs/adr/0006-nuget-package-distribution.md).
-var useTelnet = args is ["--telnet", ..]
+// Looked up by index (see --db-path above), not args[0] - --telnet must
+// still be recognized when it's not the very first arg.
+var telnetIndex = Array.IndexOf(args, "--telnet");
+var useTelnet = telnetIndex >= 0
     || string.Equals(Environment.GetEnvironmentVariable("SHARPMUD_MODE"), "telnet", StringComparison.OrdinalIgnoreCase);
 
 if (useTelnet)
 {
     var port = 4000;
-    if (args is ["--telnet", var portArg, ..] && int.TryParse(portArg, out var parsedArg))
+    if (telnetIndex >= 0 && telnetIndex + 1 < args.Length && int.TryParse(args[telnetIndex + 1], out var parsedArg))
         port = parsedArg;
     else if (int.TryParse(Environment.GetEnvironmentVariable("SHARPMUD_TELNET_PORT"), out var parsedEnv))
         port = parsedEnv;

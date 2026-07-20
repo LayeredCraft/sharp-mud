@@ -661,27 +661,29 @@ Modified:
 
 ## Open questions / blockers
 
-- Whether `EntityFrameworkCore.DynamoDb` supports EF Core's TPH
-  `HasDiscriminator<string>(...)` (used by `BehaviorConfiguration` for the
-  `Behavior` subtype hierarchy) is unconfirmed — flagged in PR review.
-  `ToTable(...)` and single-property `HasKey(...)` are confirmed supported
-  per the provider's own docs, but the discriminator/inheritance question
-  is open. Resolve via the explicit verification task in the
-  `SharpMud.Persistence` split section above before assuming the shared
-  `Configurations/` tree works unmodified against DynamoDB.
-- Exact shape of the world-builder registration point on the builder (how
-  a consumer plugs in their own `HubWorldBuilder`-equivalent) isn't fully
-  designed — implementation will need to work this out concretely, it's
-  sketched but not nailed down in ADR-0006.
-- Whether `GameLoop` itself should take a direct `Microsoft.Extensions.Hosting`
-  dependency (become a `BackgroundService` itself) or stay hosting-agnostic
-  with a thin wrapper in `SharpMud.Hosting` — implementation-time call, not
-  pre-decided.
-- Exact name for the docs-site source directory (`docsite/` used as a
-  placeholder throughout this plan) isn't locked in.
+All resolved during implementation:
+
+- ~~Whether `EntityFrameworkCore.DynamoDb` supports EF Core's TPH
+  `HasDiscriminator<string>(...)`~~ — **resolved: yes.** Confirmed directly
+  against the provider's own modeling docs
+  (`docs/modeling/single-table-design.md` in
+  `LayeredCraft/dynamodb-efcore-provider`), not just inferred — TPH
+  discriminators are supported, so the shared `Configurations/` tree works
+  unmodified against DynamoDB.
+- ~~Exact shape of the world-builder registration point~~ — **resolved:
+  implemented as `IWorldBuilder`/`IPlayerFactory` (`SharpMud.Hosting`),
+  populating `WorldContext` via `WorldLoaderHostedService`.** See
+  `docs/engine-vs-ruleset.md`.
+- ~~Whether `GameLoop` should take a direct `Microsoft.Extensions.Hosting`
+  dependency~~ — **resolved: stays hosting-agnostic.**
+  `GameLoopHostedService` (`SharpMud.Hosting`) wraps it as a thin
+  `BackgroundService`; `SharpMud.Engine` never references
+  `Microsoft.Extensions.Hosting`.
+- ~~Exact name for the docs-site source directory~~ — **resolved:
+  `docsite/`,** as used throughout this plan.
 - Full docs-site content (per-package configuration reference, a
   data-modeling-equivalent guide, samples walkthroughs beyond the one
-  Getting Started page) is real, separate writing work — not scheduled
-  against this plan, needs its own follow-up plan once the package
-  mechanics this plan covers are actually done and stable enough to
-  document accurately.
+  Getting Started page) is real, separate writing work — still not
+  scheduled against this plan, needs its own follow-up plan once the
+  package mechanics this plan covers have had time to prove out in
+  practice.

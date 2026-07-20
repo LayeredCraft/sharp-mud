@@ -67,10 +67,11 @@ Each connection is wrapped in a try/catch so one bad session can't take down
 the listener or other connections (same exception-isolation principle as
 command execution, see [architecture.md](architecture.md)).
 
-New Telnet connections are prompted for a name (`"Name: "`) before a player
-`Thing` is created — this is a placeholder for real login (see
-[accounts-auth.md](accounts-auth.md)'s username/password login prompt),
-not auth.
+New Telnet connections go through `LoginFlow` (`SharpMud.Hosting`) — real
+username/password prompts, DB-backed lookup/creation via
+`IThingRepository.FindPlayerByUsernameAsync`, not a bare name prompt. See
+[accounts-auth.md](accounts-auth.md) for the full implemented flow (this is
+no longer a placeholder).
 
 ## Sequence: Player Disconnects Mid-Fight
 
