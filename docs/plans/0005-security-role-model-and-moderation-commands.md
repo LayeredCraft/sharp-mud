@@ -218,7 +218,14 @@ narrower one.
       }` — explicitly **not** every entry `WhoCommand`-style, and
       explicitly **not** `ConnectionState` alone (see above).
 - [ ] `BanCommand` (`FullAdmin`, `IThingRepository`) — sets `IsBanned`,
-      online-or-not lookup, saves immediately. **Rejects self-targeting**
+      online-or-not lookup, saves immediately. **If the target is
+      currently online (`ConnectionState == Playing && Session is {
+      IsConnected: true }`), also disconnects them the same way
+      `BootCommand` does** — `MarkBooted()` then session write + `Disconn
+      ectAsync(...)` (caught in PR review: `SessionLoop` never re-checks
+      `IsBanned` mid-session, so without this an already-connected banned
+      player keeps issuing commands until an admin separately remembers
+      to `boot` them). **Rejects self-targeting**
       (caught in self-review: `Ban` has no in-game recovery —
       `SHARPMUD_INITIAL_ADMIN` only re-grants roles, it doesn't clear
       `IsBanned` — so an admin banning themselves is locked out short of a
