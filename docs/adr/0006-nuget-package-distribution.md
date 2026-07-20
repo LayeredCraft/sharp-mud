@@ -102,7 +102,30 @@ Every package ID matches its project/assembly name 1:1 already, so no
 | `SharpMud.Engine` | `Thing`/`Behavior`/events/commands/sessions — unchanged from today | none |
 | `SharpMud.Persistence` | `GameDbContext`, `ThingRepository`, EF Core `Configuration` classes — **provider-agnostic at the package-reference level** (no provider `PackageReference`), but see the caveat below the table — the *model config* isn't yet confirmed provider-agnostic in practice | `Microsoft.EntityFrameworkCore(.Relational)` only |
 | `SharpMud.Persistence.Sqlite` | thin, adds `Microsoft.EntityFrameworkCore.Sqlite` + an `AddSharpMudSqlitePersistence(path)` extension | SQLite |
-| `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB — pin `EntityFrameworkCore.DynamoDb 10.0.0`, the current stable/non-preview release (confirmed against NuGet's registration index directly: published 2026-07-14, `listed: true`, no prerelease suffix). Targets EF Core 10, not EF Core 11 — see Target frameworks below for why sharp-mud packages multi-target `net10.0;net11.0` rather than `net11.0` alone, which is exactly what makes this pin usable now instead of blocked on an EF Core 11 build. |
+| `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB — pin `EntityFrameworkCore.DynamoDb 10.0.0`, the current stable/non-preview release. Targets EF Core 10, not EF Core 11 — see Target frameworks below for why sharp-mud packages multi-target `net10.0;net11.0` rather than `net11.0` alone, which is exactly what makes this pin usable now instead of blocked on an EF Core 11 build. |
+
+**On `10.0.0`'s stability, since this has been repeatedly flagged in review
+as still-preview and is repeatedly wrong:** confirmed live, independently,
+against four separate sources, not just one version list that could be
+stale or misread:
+- NuGet's flat-container version index (`v3-flatcontainer/.../index.json`)
+  lists `10.0.0` with no prerelease suffix.
+- NuGet's registration index for that exact version
+  (`v3/registration5-semver1/entityframeworkcore.dynamodb/10.0.0.json`)
+  shows `"listed": true`, `"published": "2026-07-14T12:16:32.32+00:00"`.
+- NuGet's Azure Search endpoint — the same restore/search-facing API
+  `dotnet restore`/`nuget.exe` actually query — returns `"version":
+  "10.0.0"` as the top hit with `prerelease=false`.
+- `libraries.io`'s own API for this package (the source a prior review
+  comment cited *for* the preview claim) reports `"latest_stable_release_
+  number":"10.0.0"` and `"latest_stable_release_published_at":
+  "2026-07-14T..."` — i.e. it actually agrees `10.0.0` is stable; the
+  preview claim didn't match the source it cited.
+
+If a future review flags this again, re-verify against one of the four
+URLs above directly rather than trusting a version list or a bot's summary
+of one — this exact claim has now been wrong twice from what look like two
+different stale/misread sources.
 | `SharpMud.Adapters.Telnet` | unchanged | none |
 | `SharpMud.Adapters.Cli` | unchanged | none |
 | `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions` | none beyond `Microsoft.Extensions.Hosting` |

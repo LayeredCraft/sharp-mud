@@ -51,6 +51,20 @@ bundled into this plan's "done").
 - [ ] Move `HubWorldBuilder` (and any other hand-built hub content) into
       the consolidated project — it's sample content per ADR-0006, not
       engine
+- [ ] **Consolidate the test projects the same way, preserving every
+      existing test** — `tests/SharpMud.Ruleset.Classic.Tests`
+      (`CombatManagerTests`, `CombatResolverTests`) and
+      `tests/SharpMud.Host.Tests` (`SessionLoopTests`, `LoginFlowTests`,
+      `HostOptionsTests`, `PasswordHashingTests`) both cover real,
+      non-trivial behavior — combat resolution, login/session-loop
+      handling, password hashing, `HostOptions` env-var parsing — and none
+      of it stops mattering just because the code they test moved into
+      `samples/`. `git mv` both into one consolidated
+      `tests/SharpMud.Samples.Classic.Tests` project, mirroring the
+      `src/` → `samples/` consolidation 1:1 per this repo's established
+      tests-mirror-source convention. This is regression coverage, not new
+      testing — every existing test keeps passing under its new home, none
+      get deleted or downgraded to "sample, so untested."
 - [ ] Rewrite `samples/SharpMud.Samples.Classic/Program.cs` against
       `SharpMud.Hosting`'s builder — this is the concrete proof that the
       ~130 lines of generic plumbing identified in ADR-0006's Context
@@ -235,6 +249,8 @@ New:
   `zensical.toml`, skeleton content)
 - `samples/SharpMud.Samples.Classic/*` (moved + consolidated from
   `src/SharpMud.Ruleset.Classic` and `src/SharpMud.Host`)
+- `tests/SharpMud.Samples.Classic.Tests/*` (moved + consolidated from
+  `tests/SharpMud.Ruleset.Classic.Tests` and `tests/SharpMud.Host.Tests`)
 
 Modified:
 - `src/SharpMud.Persistence/SharpMud.Persistence.csproj` (drop SQLite refs)
@@ -250,9 +266,21 @@ Modified:
 - Existing `SharpMud.Persistence.Tests` split/adjusted to match the
   core/`Sqlite`/`DynamoDb` project split — regression coverage, not new
   behavior.
-- `samples/SharpMud.Samples.Classic` is not unit-tested itself (it's a
-  sample, matching `SharpMud.Host`'s current untested status) but its
-  successful build + a real manual run is the actual verification (below).
+- `tests/SharpMud.Samples.Classic.Tests` (consolidated from
+  `SharpMud.Ruleset.Classic.Tests` + `SharpMud.Host.Tests`, per the
+  Repository reorganization task above) — every existing test carries
+  forward unmodified: `CombatManagerTests`, `CombatResolverTests`,
+  `SessionLoopTests`, `LoginFlowTests`, `HostOptionsTests`,
+  `PasswordHashingTests`. This was previously (incorrectly) described in
+  this plan as "not unit-tested... matching `SharpMud.Host`'s current
+  untested status" — `SharpMud.Host` is not untested today, that was a
+  factual error, not a real gap being introduced; regression coverage, not
+  new behavior.
+- On top of that existing coverage, a successful build + a real manual run
+  of `samples/SharpMud.Samples.Classic` is the actual verification that the
+  new `SharpMud.Hosting`-based `Program.cs` itself works end-to-end
+  (below) — unit tests alone don't prove that; the two are complementary,
+  not substitutes for each other.
 
 ## Verification
 
