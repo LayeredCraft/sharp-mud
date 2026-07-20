@@ -18,13 +18,13 @@ player types is unconditionally resolved and executed —
 arg-presence check), nothing role-related. `SPEC.md`'s Deferred/Open Items
 lists "Moderation/admin tooling... Known future need, not designed yet."
 
-WheelMUD's own mechanism (`Core/Attributes/ActionSecurityAttribute.cs` +
-`Actions/Admin/`, 16 files): a `[Flags] enum SecurityRole` (`mobile` /
-`item` / `room` / `tutorialPlayer` / `player` / `helper` / `married` /
-`minorBuilder` / `fullBuilder` / `minorAdmin` / `fullAdmin` / `all`,
-12 real values), an `[ActionSecurity(SecurityRole.x)]` class attribute on
-each Action, reflected off at registration time into a `Command
-.SecurityRole` field, gated at dispatch by a bitwise-AND check
+WheelMUD's own mechanism, full source dive recorded in
+[wheelmud-findings.md §11](../research/wheelmud-findings.md#11-security-roles--moderation--actionsecurityattribute-actionsadmin):
+a `[Flags] enum SecurityRole` (`mobile`/`item`/`room`/`tutorialPlayer`/
+`player`/`helper`/`married`/`minorBuilder`/`fullBuilder`/`minorAdmin`/
+`fullAdmin`/`all`, 12 real values), an `[ActionSecurity(SecurityRole.x)]`
+class attribute on each Action, reflected off at registration time into a
+`Command.SecurityRole` field, gated at dispatch by a bitwise-AND check
 (`command.SecurityRole & user.SecurityRoles`) in `CommandGuard.cs`.
 `Actions/Admin/` (`Announce`, `Ban`, `Boot`, `Buff`, `Clone`, `Control`,
 `Find`, `GoTo`, `Jail`, `Locate`, `Mute`, `Relinquish`, `RoleGrant`,
