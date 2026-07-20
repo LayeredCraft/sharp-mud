@@ -59,7 +59,9 @@ dotnet run --project samples/SharpMud.Samples.Classic -- --telnet [port]  # teln
 
 `src/` publishes as NuGet packages (`SharpMud.Engine`, `SharpMud.Hosting`,
 `SharpMud.Persistence`(`.Sqlite`/`.DynamoDb`), `SharpMud.Adapters.Cli`/
-`.Telnet`), plus a `SharpMud` meta-package pulling in all of them.
+`.Telnet`), plus a `SharpMud` meta-package pulling in the engine-level core
+(`Engine`/`Hosting`/`Persistence`) — you still add a persistence provider and
+a transport explicitly, per [ADR-0007](docs/adr/0007-narrow-meta-package-scope.md).
 `samples/SharpMud.Samples.Classic` is a full reference consumer — start there
 to see how a ruleset composes against the packages. See
 [ADR-0006](docs/adr/0006-nuget-package-distribution.md) for the design.

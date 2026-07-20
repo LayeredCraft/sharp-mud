@@ -1,21 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Meta-package: no code, no compiled output of its own -
-       ProjectReferences to every other SharpMud.* package, which dotnet
-       pack automatically translates into <dependency> entries in the
-       resulting .nuspec at each referenced project's own version. Not
-       PackageReference - none of the sibling packages exist on any feed
-       until after this same solution-wide pack/publish, so a literal
-       PackageReference would fail restore. See
-       docs/adr/0006-nuget-package-distribution.md's meta-package note. -->
+       ProjectReferences to the engine-level packages every consumer needs
+       (Engine, Hosting, provider-agnostic Persistence), which dotnet pack
+       automatically translates into <dependency> entries in the resulting
+       .nuspec at each referenced project's own version. Deliberately does
+       NOT include persistence providers or transport adapters - a consumer
+       always adds one of each explicitly, per ADR-0007 (which narrowed
+       this from ADR-0006's original "everything" scope once that was found
+       to make every consumer pull in an unused DynamoDB SDK dependency and
+       Telnet listener by default). Not PackageReference - none of the
+       sibling packages exist on any feed until after this same
+       solution-wide pack/publish, so a literal PackageReference would fail
+       restore. -->
   <ItemGroup>
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
     <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
     <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
-    <ProjectReference Include="..\SharpMud.Persistence.Sqlite\SharpMud.Persistence.Sqlite.csproj" />
-    <ProjectReference Include="..\SharpMud.Persistence.DynamoDb\SharpMud.Persistence.DynamoDb.csproj" />
-    <ProjectReference Include="..\SharpMud.Adapters.Telnet\SharpMud.Adapters.Telnet.csproj" />
-    <ProjectReference Include="..\SharpMud.Adapters.Cli\SharpMud.Adapters.Cli.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -26,7 +27,7 @@
          warnings/build noise a normal library project would emit. -->
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
-    <Description>Meta-package for sharp-mud - pulls in every SharpMud.* package (Engine, Hosting, Persistence, Adapters). See https://github.com/LayeredCraft/sharp-mud for getting started.</Description>
+    <Description>Meta-package for sharp-mud - pulls in SharpMud.Engine, SharpMud.Hosting, and SharpMud.Persistence. Add a persistence provider (SharpMud.Persistence.Sqlite or .DynamoDb) and a transport (SharpMud.Adapters.Cli and/or .Telnet) explicitly. See https://github.com/LayeredCraft/sharp-mud for getting started.</Description>
   </PropertyGroup>
 
 </Project>

@@ -22,6 +22,7 @@ public sealed class TelnetListenerTests
         // cts.Token IS derived from TestContext.Current.CancellationToken
         // (linked above) plus a CancelAfter - xUnit1051 doesn't trace that
         // and flags this line as a false positive.
+#pragma warning disable xUnit1051
         var enumerationTask = Task.Run(async () =>
         {
             await foreach (var _ in listener.AcceptSessionsAsync(cts.Token))
@@ -29,6 +30,7 @@ public sealed class TelnetListenerTests
                 // No connections expected - loop should simply end.
             }
         });
+#pragma warning restore xUnit1051
 
         var completed = await Task.WhenAny(enumerationTask, Task.Delay(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
 

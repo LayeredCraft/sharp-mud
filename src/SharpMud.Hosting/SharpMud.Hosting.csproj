@@ -28,6 +28,7 @@
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>.NET generic host composition helpers for SharpMud: WorldContext, IWorldBuilder, IPlayerFactory, the login/session flow, and the AddSharpMud* DI extensions.</Description>
   </PropertyGroup>
 
 </Project>

@@ -20,6 +20,7 @@
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>SQLite provider for SharpMud.Persistence - AddSharpMudSqlitePersistence(path) and schema-creation storage initialization.</Description>
   </PropertyGroup>
 
 </Project>

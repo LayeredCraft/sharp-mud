@@ -4,6 +4,7 @@
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>Ruleset-agnostic MUD engine core: Thing/Behavior composition, the event system, the command pipeline, and the global tick loop.</Description>
   </PropertyGroup>
 
   <ItemGroup>

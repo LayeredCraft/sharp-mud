@@ -22,10 +22,11 @@ dotnet add package SharpMud.Adapters.Cli --prerelease
 ```
 
 `SharpMud` is a meta-package pulling in `SharpMud.Engine`, `SharpMud.Hosting`,
-`SharpMud.Persistence`, and both adapter packages — you still pick a
-persistence *provider* (`.Sqlite` or `.DynamoDb`) and a transport
-(`SharpMud.Adapters.Cli` and/or `SharpMud.Adapters.Telnet`) explicitly.
-`--prerelease` is required until a stable 1.0 release ships.
+and `SharpMud.Persistence` — you always add a persistence *provider*
+(`.Sqlite` or `.DynamoDb`) and a transport (`SharpMud.Adapters.Cli` and/or
+`SharpMud.Adapters.Telnet`) explicitly; the meta-package doesn't include
+either (see [ADR-0007](https://github.com/LayeredCraft/sharp-mud/blob/main/docs/adr/0007-narrow-meta-package-scope.md)
+for why). `--prerelease` is required until a stable 1.0 release ships.
 
 ## Build the world
 

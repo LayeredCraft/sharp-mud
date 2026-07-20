@@ -20,6 +20,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>DynamoDB provider for SharpMud.Persistence - AddSharpMudDynamoDbPersistence(...) via the EntityFrameworkCore.DynamoDb provider.</Description>
   </PropertyGroup>
 
 </Project>

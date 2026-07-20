@@ -145,9 +145,14 @@ publish) for this purpose, visible to `SharpMud.Persistence` via
 
 ## SQLite Path
 
-`SHARPMUD_DB_PATH` env var, following the same precedence pattern as
-`SharpMudHostOptions` (`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`) — CLI arg, then
-env var, then a default of `./sharpmud.db`. `SqliteStorageInitializer`
+`--db-path <path>` CLI arg, then `SHARPMUD_DB_PATH` env var, then a default
+of `./sharpmud.db` — same precedence pattern as the sample's transport
+selection (`--telnet`/`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`), resolved in
+the sample's own `Program.cs`, not in `SharpMudHostOptions.Parse` itself
+(which only ever takes the already-resolved env dict — see
+[architecture.md](architecture.md)/[ADR-0006](adr/0006-nuget-package-distribution.md)
+for why CLI-arg resolution stays a consumer concern, not `SharpMud.Hosting`'s).
+`SqliteStorageInitializer`
 (`SharpMud.Persistence.Sqlite`, an `IStorageInitializer`) runs `EnsureCreatedAsync`
 before the world loader reads/writes anything, so the schema always exists
 first regardless of registration order across packages. Deploying the Docker

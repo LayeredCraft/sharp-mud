@@ -33,9 +33,17 @@ var serilogLogger = new LoggerConfiguration()
 builder.Logging.ClearProviders();
 builder.Logging.AddSerilog(serilogLogger, dispose: true);
 
+// --db-path wins over SHARPMUD_DB_PATH, same CLI-arg-over-env-var
+// precedence as --telnet/SHARPMUD_MODE below - handled here rather than in
+// SharpMudHostOptions.Parse itself, matching how transport CLI args are
+// also the sample's own composition-root decision, not Hosting's (docs/adr
+// /0006-nuget-package-distribution.md). Not a secret (see security.md) -
+// just a filesystem path - so a CLI arg carries no exposure risk env-only
+// deployment config (credentials, connection strings) would have.
+var dbPathArg = args is ["--db-path", var dbPathValue, ..] ? dbPathValue : null;
 var env = new Dictionary<string, string?>
 {
-    ["SHARPMUD_DB_PATH"] = Environment.GetEnvironmentVariable("SHARPMUD_DB_PATH"),
+    ["SHARPMUD_DB_PATH"] = dbPathArg ?? Environment.GetEnvironmentVariable("SHARPMUD_DB_PATH"),
 };
 var hostOptions = SharpMudHostOptions.Parse(env);
 

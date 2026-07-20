@@ -66,3 +66,4 @@ the mechanics: numbering, status, and the index.
 | [0004](0004-session-state-machine-and-reconnect.md) | Session State Machine + Linkdead Reconnect | Accepted |
 | [0005](0005-security-role-model-and-moderation-commands.md) | Security Role Model + Moderation Commands | Accepted |
 | [0006](0006-nuget-package-distribution.md) | NuGet Package Distribution + Sample-Based Ruleset Extraction | Accepted |
+| [0007](0007-narrow-meta-package-scope.md) | Narrow the `SharpMud` Meta-Package to Engine + Hosting + Persistence | Accepted |

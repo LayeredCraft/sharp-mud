@@ -53,10 +53,21 @@ public static class ServiceCollectionExtensions
 
     // Called once from SharpMudApplicationBuilder's constructor - see
     // docs/adr/0006-nuget-package-distribution.md's SharpMud.Hosting shape.
-    // Registration order matters: WorldLoaderHostedService must run before
-    // GameLoopHostedService/any transport BackgroundService, since the
-    // generic host awaits each hosted service's StartAsync in registration
-    // order before starting the next.
+    // Registration order matters on both ends of the host lifecycle:
+    // - Start: WorldLoaderHostedService must run before GameLoopHostedService/
+    //   any transport BackgroundService, since the generic host awaits each
+    //   hosted service's StartAsync in registration order before starting
+    //   the next.
+    // - Stop: the generic host stops hosted services in REVERSE registration
+    //   order, so GameLoopHostedService is registered after
+    //   ShutdownSaveHostedService here - GameLoop's tick loop fully quiesces
+    //   (its BackgroundService.StopAsync cancels and awaits ExecuteAsync)
+    //   before ShutdownSaveHostedService's StopAsync takes its snapshot,
+    //   instead of racing a still-running tick that could still be mutating
+    //   the world mid-save. A consumer's transport BackgroundService is
+    //   registered later still (after this method returns), so it stops
+    //   before either of these - no new connections/input once shutdown
+    //   starts.
     internal static IServiceCollection AddSharpMudHostingCore(this IServiceCollection services)
     {
         services.AddSingleton<WorldContext>();
@@ -83,8 +94,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<PlayerLogin>();
 
         services.AddHostedService<WorldLoaderHostedService>();
-        services.AddHostedService<GameLoopHostedService>();
         services.AddHostedService<ShutdownSaveHostedService>();
+        services.AddHostedService<GameLoopHostedService>();
 
         return services;
     }

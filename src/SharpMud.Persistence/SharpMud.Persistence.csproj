@@ -16,6 +16,7 @@
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>Provider-agnostic EF Core repository (IThingRepository/GameDbContext) for SharpMud. Pair with SharpMud.Persistence.Sqlite or .DynamoDb for an actual storage provider.</Description>
   </PropertyGroup>
 
 </Project>
