@@ -133,6 +133,13 @@ bundled into this plan's "done").
 - [ ] Move `HubWorldBuilder` (and any other hand-built hub content) into
       the consolidated project — it's sample content per ADR-0006, not
       engine
+- [ ] `git mv src/SharpMud.Host/appsettings.json
+      samples/SharpMud.Samples.Classic/appsettings.json`, and add the same
+      `<Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />`
+      item (per ADR-0003) to the new sample's `.csproj` — caught in PR
+      review: `Program.cs` loads it with `optional: false`, so without
+      this the sample fails at startup, not just at some later config
+      lookup.
 - [ ] **Move each test project to follow its production code, not as one
       block** — mirrors the split above, not the "everything to `samples/`"
       version this task previously described:
@@ -189,6 +196,26 @@ bundled into this plan's "done").
       ruleset code it registers; if it doesn't, that's a signal the
       `Hosting` design needs revisiting before merging, not something to
       paper over
+- [ ] **Update the actual `Dockerfile`, not just docs referencing it** —
+      flagged independently in two rounds of PR review (self-review and
+      Codex): it currently `COPY`s/restores/publishes
+      `src/SharpMud.Host/SharpMud.Host.csproj` and
+      `src/SharpMud.Ruleset.Classic/SharpMud.Ruleset.Classic.csproj`
+      directly, and its `ENTRYPOINT` runs `SharpMud.Host.dll` — every one
+      of those breaks once `src/SharpMud.Host` is deleted and the
+      runnable app moves to `samples/SharpMud.Samples.Classic`. This is a
+      real build/deploy break, not just a docs-drift issue: the checklist
+      items above can all be satisfied while the container image still
+      fails to build or immediately crashes on the wrong entrypoint.
+      Concretely: update the `COPY`/`dotnet restore`/`dotnet publish`
+      lines to target `samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj`
+      (and drop the now-nonexistent separate `Ruleset.Classic` `COPY`
+      line, since it's part of the same project now), and change
+      `ENTRYPOINT` to `["dotnet", "SharpMud.Samples.Classic.dll"]`. The
+      `SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`/`SHARPMUD_DB_PATH` `ENV`
+      lines stay as-is — they're still consumed by the sample's
+      `Program.cs`, which per the `HostOptions` split above is exactly
+      where transport-mode selection now lives.
 - [ ] Update `docs/engine-vs-ruleset.md`'s project-structure listing and
       `docs/deployment.md`'s Dockerfile references to the new paths
 
@@ -244,6 +271,22 @@ bundled into this plan's "done").
       `BackgroundService` wrapper around it, if `GameLoop` itself shouldn't
       take a direct `Microsoft.Extensions.Hosting` dependency — decide
       during implementation which project should own that coupling)
+- [ ] **Explicit owner for the shutdown-time whole-world save** — caught in
+      PR review: today's `Program.cs` does `await
+      repository.SaveTreeAsync(hubArea, CancellationToken.None)` after the
+      session loop/listener wind down but before the final `gameLoopTask`
+      await, specifically to capture NPC state (wander position, live
+      combat HP) that isn't tied to any player session and so isn't
+      already covered by each session's own on-disconnect save
+      (`docs/persistence.md`). The `SharpMudApplicationBuilder`/
+      `BackgroundService` shape this ADR moves to doesn't have an
+      equivalent by default — nothing currently listed in this plan
+      performs that save once `IHost` owns the shutdown sequence. Assign
+      this to a hosted service's `StopAsync` override (or an
+      `IHostApplicationLifetime.ApplicationStopping` callback) inside
+      `SharpMud.Hosting`, not left as only a Verification-section check —
+      needs the world root/hub `Thing` reference, which ties to the
+      still-open world-builder registration point (see Open Questions).
 - [ ] **No transport wiring lives here** — `Hosting` must not reference
       `SharpMud.Adapters.Telnet`/`SharpMud.Adapters.Cli` (caught in PR
       review: an earlier version of this task had `Hosting` itself
@@ -474,6 +517,9 @@ Modified:
   extension)
 - `tests/SharpMud.Adapters.Telnet.Tests/*` (new coverage for
   `AddSharpMudTelnetTransport(...)`)
+- `Dockerfile` (COPY/restore/publish/`ENTRYPOINT` retargeted from
+  `src/SharpMud.Host` to `samples/SharpMud.Samples.Classic` — flagged in
+  two rounds of PR review, a real build/deploy break if missed)
 - `SharpMud.slnx`
 - `.agents/skills/engineering-workflow/references/coding-standards.md`
 - `docs/adr/README.md`, `docs/plans/README.md`, `docs/engine-vs-ruleset.md`, `docs/deployment.md`, `README.md`
@@ -487,10 +533,19 @@ Modified:
 - Existing `SharpMud.Persistence.Tests` split/adjusted to match the
   core/`Sqlite`/`DynamoDb` project split — regression coverage, not new
   behavior.
-- `tests/SharpMud.Hosting.Tests` (`SessionLoopTests`, `LoginFlowTests`,
-  `HostOptionsTests`, `PasswordHashingTests`, moved from
-  `SharpMud.Host.Tests` per the Repository reorganization task) —
-  regression coverage, carried forward unmodified.
+- `tests/SharpMud.Hosting.Tests` (moved from `SharpMud.Host.Tests` per the
+  Repository reorganization task) — mixed, not uniformly "carried forward
+  unmodified" (an earlier version of this summary said that for
+  everything, out of sync with the detailed task list — fixed here to
+  match): `SessionLoopTests`/`PasswordHashingTests` carry forward
+  unmodified, regression coverage; `HostOptionsTests` needs its
+  `UseTelnet`/`TelnetPort` assertions dropped (trimmed `HostOptions`, see
+  above); `LoginFlowTests` needs real edits for the `LoginFlow`
+  static-class-to-service conversion. New coverage for `PlayerLogin` and
+  both transport extensions (`AddSharpMudTelnetTransport`/
+  `AddSharpMudCliTransport`, including the new
+  `tests/SharpMud.Adapters.Cli.Tests` project) isn't regression coverage
+  at all — none of that behavior exists today.
 - `tests/SharpMud.Samples.Classic.Tests` (`CombatManagerTests`,
   `CombatResolverTests`, moved from `SharpMud.Ruleset.Classic.Tests`) —
   regression coverage, carried forward unmodified. This section previously

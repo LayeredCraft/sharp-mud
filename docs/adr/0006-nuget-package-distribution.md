@@ -222,6 +222,22 @@ already handles `SIGTERM` correctly on Unix — if so, the hand-rolled
 fix a real bug: `Console.CancelKeyPress` never catches `SIGTERM`, see
 `docs/persistence.md`) can be deleted entirely rather than re-solved.
 
+**The shutdown-time whole-world save needs an explicit owner, flagged in
+PR review.** Today's `Program.cs` does one final
+`repository.SaveTreeAsync(hubArea, ...)` after the session loop/listener
+wind down but before `gameLoopTask` is awaited — a whole-world snapshot
+specifically for NPC state (wander position, live combat HP) that isn't
+tied to any player session and so isn't already covered by each session's
+own on-disconnect save (`docs/persistence.md`). Moving to `IHost`-managed
+`BackgroundService`s doesn't give this an owner automatically — a
+`BackgroundService`'s work stops when the host stops, it doesn't imply a
+save happens on the way out. This needs an explicit hosted service
+`StopAsync` override (or an `IHostApplicationLifetime.ApplicationStopping`
+callback) inside `SharpMud.Hosting` that performs this save — not
+something to leave to "the tests will catch it if it's missing," since
+losing NPC state on every graceful redeploy would be a silent regression,
+not a loud one.
+
 **Transport wiring does *not* live in `SharpMud.Hosting`, flagged in PR
 review.** An earlier version of this ADR had `Hosting` itself instantiate
 `TelnetListener` (from `SharpMud.Adapters.Telnet`) and the CLI session type
