@@ -105,7 +105,7 @@ Every package ID matches its project/assembly name 1:1 already, so no
 | `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB — pin `EntityFrameworkCore.DynamoDb 10.0.0`, the current stable/non-preview release (see the stability note below the table). Targets EF Core 10, not EF Core 11 — see Target frameworks below for why sharp-mud packages multi-target `net10.0;net11.0` rather than `net11.0` alone, which is exactly what makes this pin usable now instead of blocked on an EF Core 11 build. |
 | `SharpMud.Adapters.Telnet` | unchanged, plus a new `AddSharpMudTelnetTransport(...)` DI extension (see `SharpMud.Hosting` shape below for why transport wiring lives *here*, not in `Hosting` itself) | none |
 | `SharpMud.Adapters.Cli` | unchanged, plus a new `AddSharpMudCliTransport(...)` DI extension, same reasoning | none |
-| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions`, plus `SessionLoop`/`PasswordHashing`/`PlayerLogin`/`LoginFlow` moved in from today's `src/SharpMud.Host` **after decoupling `LoginFlow`/`PlayerLogin` from `HubWorldBuilder.CreatePlayer`** (see below — they are not ruleset-agnostic as currently written) | none beyond `Microsoft.Extensions.Hosting` — **not** `Adapters.Telnet`/`Adapters.Cli` (see below) |
+| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions` (trimmed to `DbPath` only — see below), plus `SessionLoop`/`PasswordHashing`/`PlayerLogin`/`LoginFlow` moved in from today's `src/SharpMud.Host` **after decoupling `LoginFlow`/`PlayerLogin` from `HubWorldBuilder.CreatePlayer`** (see below — they are not ruleset-agnostic as currently written) | `Microsoft.Extensions.Hosting` **and** `Microsoft.Extensions.Identity.Core` — `PasswordHashing.cs` uses `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>`, supplied by that package (caught in PR review: an earlier version of this table said "none beyond `Microsoft.Extensions.Hosting`," which was wrong). **Not** `Adapters.Telnet`/`Adapters.Cli` (see below). |
 | `SharpMud` | **new**, meta-package — no code, `ProjectReference`s (not `PackageReference`s — see the meta-package note below) to everything above | — |
 
 **On `EntityFrameworkCore.DynamoDb 10.0.0`'s stability, since this has now
@@ -268,16 +268,83 @@ fails to compile (no reference to a consumer's ruleset) or has to reference
 sample/ruleset code, either way breaking the package boundary this whole
 ADR exists to establish.
 
-Fix: both methods take a player-creation delegate as a parameter instead of
-calling `HubWorldBuilder.CreatePlayer` directly —
-`Func<World, string, string, Thing, Thing> createPlayer` (world, username,
-password hash, starting room), matching the same shape as the
-world-builder registration point already noted as an open design question
-below. The consumer's sample supplies `HubWorldBuilder.CreatePlayer` as
-that delegate when wiring up `SharpMud.Hosting`; a different consumer
-supplies their own ruleset's equivalent. This makes `LoginFlow`/
-`PlayerLogin` genuinely ruleset-agnostic, not just apparently so from their
-`using` statements alone.
+**Fix, revised after further review:** the first draft of this fix added a
+raw `Func<World, string, string, Thing, Thing> createPlayer` parameter to
+both methods — but `LoginFlow.RunAsync` and `PlayerLogin.ResolveOrCreateAsync`
+already sit at `coding-standards.md`'s 4-parameter limit today (`session`/
+`world`/`repository`/`startingRoom` for `LoginFlow`; `world`/`repository`/
+`name`/`startingRoom` for `PlayerLogin`, both plus a trailing
+`CancellationToken` which doesn't count against the limit). A 5th
+parameter — raw `Func<>` or not — pushes both over that limit, caught in
+PR review.
+
+The actual fix: `LoginFlow`/`PlayerLogin` stop being `public static class`
+utility holders and become ordinary constructor-injected service classes,
+matching this repo's existing DI/composition convention (`coding-standards.md`
+already requires constructor injection into `private readonly` fields for
+exactly this kind of dependency) — the same convention `TelnetHostContext`
+was introduced for in the first place (see its own doc comment: *"a
+parameter object rather than a growing parameter list, per
+coding-standards.md's 4-parameter rule"*, ADR-0002). A new interface:
+
+```csharp
+public interface IPlayerFactory
+{
+    Thing CreatePlayer(World world, string username, string passwordHash, Thing startingRoom);
+}
+```
+
+`LoginFlow`/`PlayerLogin` take `IThingRepository`/`IPlayerFactory` via
+constructor injection instead of as method parameters — their `RunAsync`/
+`ResolveOrCreateAsync` methods drop back to 3 parameters plus a trailing
+`CancellationToken` (`session`/`world`/`startingRoom`), under the limit
+again. The consumer's sample registers `services.AddSingleton<IPlayerFactory,
+ClassicPlayerFactory>()`, a thin wrapper around `HubWorldBuilder.CreatePlayer`;
+a different consumer registers their own ruleset's equivalent. This settles
+the "raw `Func<>` vs. named type, DI vs. direct parameter" question a
+previous draft of this ADR left open, rather than leaving it open — a named
+interface registered via DI is both the fix for the parameter-count
+violation and the more idiomatic shape per this repo's own conventions.
+
+**`HostOptions.cs` needs splitting, not a straight move, flagged in PR
+review.** Today's `HostOptions` record bundles `DbPath` with `UseTelnet`/
+`TelnetPort`, parsed together from `SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`/
+`--telnet`. Moving it into `SharpMud.Hosting` unchanged contradicts the
+"no `TransportMode` in `Hosting`" decision above — `UseTelnet`/`TelnetPort`
+are exactly the transport-selection concept that decision just removed
+from `Hosting`. Split:
+- `SharpMud.Hosting.HostOptions` keeps only `DbPath`, parsed from
+  `SHARPMUD_DB_PATH` — genuinely transport-agnostic.
+- Which transport(s) to run becomes composition-root logic in the
+  consumer's own `Program.cs` (deciding whether to call
+  `AddSharpMudTelnetTransport(...)`/`AddSharpMudCliTransport()`) rather
+  than a shared options type any package parses — an adapter package
+  shouldn't have opinions about *whether* the app wants it, only about its
+  own configuration once it's wanted.
+- The Telnet port specifically becomes `AddSharpMudTelnetTransport(int
+  port)`'s own parameter (or a small `SharpMud.Adapters.Telnet`-local
+  options type, implementation's call) — not something `Hosting` parses on
+  the adapter's behalf.
+
+**`TelnetHostContext` needs a home, flagged in PR review.** This record
+(`src/SharpMud.Host/TelnetHostContext.cs`) exists today specifically to
+satisfy `coding-standards.md`'s 4-parameter rule for `HostRunner.RunTelnetAsync`
+(see its own doc comment, citing ADR-0002) — bundling `World`/`Parser`/
+`Registry`/`Repository`/`StartingRoom`/`Port`/`Logger` into one parameter
+object. Once `HostRunner`'s logic becomes a DI-constructed
+`BackgroundService` inside `SharpMud.Adapters.Telnet` (per the transport-
+wiring fix above), most of those fields are ordinary constructor-injected
+DI dependencies (`World`, `ICommandParser`, `ICommandRegistry`,
+`IThingRepository`, `ILogger<TelnetSession>` are all already
+DI-registered services) — the manually-assembled parameter-object pattern
+`TelnetHostContext` exists for is superseded by DI itself, not carried
+forward as a moved file. `Port` becomes `AddSharpMudTelnetTransport(int
+port)`'s own parameter, per the `HostOptions` split above. `StartingRoom`
+is the one field with no obvious DI-singleton home — it's a specific
+`Thing` instance produced by world-building, so where the new
+`BackgroundService` gets it is tied to the still-open world-builder
+registration point (see Open Items below), not resolved by this note
+alone.
 
 ### Repository reorganization
 
@@ -288,15 +355,20 @@ version of this ADR blurred (caught in PR review). `Host`'s composition
 root (`Program.cs`) is genuinely sample content — this repo's own reference
 implementation of what any consumer's `Program.cs` looks like. But
 `SessionLoop`/`LoginFlow`/`PasswordHashing`/`PlayerLogin`/`HostOptions` are
-not: `SessionLoop`/`PasswordHashing`/`HostOptions` only depend on
-`SharpMud.Engine.*` today; `LoginFlow`/`PlayerLogin` do too *once* decoupled
-from `HubWorldBuilder.CreatePlayer` per the `SharpMud.Hosting` shape section
-above — and `SessionLoop` specifically is documented as *"shared by every
-transport"* (`SPEC.md`, `docs/networking.md`). Those move into
-`SharpMud.Hosting` — the package — not `samples/`; otherwise a consumer
-installing `SharpMud.Hosting` would still have no way to accept a login or
-run a session loop without copying sample code, which is the opposite of
-this ADR's "minimal friction" decision driver.
+not: `SessionLoop` only depends on `SharpMud.Engine.*` today; `PasswordHashing`
+depends on nothing ruleset/sample-specific either (it needs
+`Microsoft.Extensions.Identity.Core`, not `SharpMud.Ruleset.Classic` — see
+the package table above); `LoginFlow`/`PlayerLogin` are ruleset-agnostic
+too *once* decoupled from `HubWorldBuilder.CreatePlayer` per the
+`SharpMud.Hosting` shape section above; `HostOptions` is ruleset-agnostic
+*once trimmed* to just `DbPath` per the split above (its `UseTelnet`/
+`TelnetPort` fields don't move with it). `SessionLoop` specifically is
+documented as *"shared by every transport"* (`SPEC.md`,
+`docs/networking.md`). All of it moves into `SharpMud.Hosting` — the
+package — not `samples/`; otherwise a consumer installing `SharpMud.Hosting`
+would still have no way to accept a login or run a session loop without
+copying sample code, which is the opposite of this ADR's "minimal
+friction" decision driver.
 
 `HostRunner.cs` (the Telnet-specific connection-accept loop) does **not**
 move into `SharpMud.Hosting` as-is either — its logic becomes
@@ -308,12 +380,17 @@ not reference `Adapters.Telnet`/`Adapters.Cli`.
 src/                                    (packaged)
   SharpMud.Engine/
   SharpMud.Hosting/                     new — SharpMudApplicationBuilder/
-                                         SharpMudApplication/SharpMudOptions,
-                                         plus SessionLoop/PasswordHashing/
-                                         HostOptions/PlayerLogin/LoginFlow
-                                         (the latter two decoupled from
-                                         HubWorldBuilder.CreatePlayer first)
-                                         moved in from src/SharpMud.Host
+                                         SharpMudApplication/SharpMudOptions
+                                         (DbPath only), plus SessionLoop/
+                                         PasswordHashing/HostOptions
+                                         (trimmed to DbPath)/PlayerLogin/
+                                         LoginFlow (the latter two decoupled
+                                         from HubWorldBuilder.CreatePlayer,
+                                         via a new IPlayerFactory) moved in
+                                         from src/SharpMud.Host. Needs
+                                         Microsoft.Extensions.Identity.Core
+                                         (PasswordHashing) in addition to
+                                         Microsoft.Extensions.Hosting.
   SharpMud.Persistence/
   SharpMud.Persistence.Sqlite/          new
   SharpMud.Persistence.DynamoDb/        new

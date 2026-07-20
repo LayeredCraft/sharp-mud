@@ -52,26 +52,64 @@ bundled into this plan's "done").
         — genuinely sample-specific (it's the composition root being
         rewritten against `SharpMud.Hosting`'s builder anyway).
       - `git mv src/SharpMud.Host/SessionLoop.cs src/SharpMud.Host/PasswordHashing.cs
-        src/SharpMud.Host/HostOptions.cs src/SharpMud.Hosting/` — all three
-        only import `SharpMud.Engine.*` (verified: zero references to
-        `Ruleset.Classic`), and `SessionLoop` specifically is documented as
-        *"shared by every transport"* (`SPEC.md`, `docs/networking.md`) —
-        this is exactly the generic plumbing `SharpMud.Hosting` exists to
-        package, not sample content.
+        src/SharpMud.Hosting/` — `SessionLoop` only imports
+        `SharpMud.Engine.*` (verified: zero references to `Ruleset.Classic`)
+        and is documented as *"shared by every transport"* (`SPEC.md`,
+        `docs/networking.md`); `PasswordHashing` depends on nothing
+        ruleset/sample-specific either, but **does** need
+        `Microsoft.Extensions.Identity.Core` added to
+        `SharpMud.Hosting.csproj` (caught in PR review: it uses
+        `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>`, which
+        that package supplies — an earlier version of this plan/the ADR's
+        package table said `Hosting` needed nothing beyond
+        `Microsoft.Extensions.Hosting`, which was wrong).
+      - `git mv src/SharpMud.Host/HostOptions.cs src/SharpMud.Hosting/` —
+        **trim it first, don't move it unchanged** (caught in PR review):
+        today's `HostOptions` bundles `DbPath` with `UseTelnet`/
+        `TelnetPort`, which conflicts with the "no `TransportMode` in
+        `Hosting`" decision below. Reduce it to `DbPath`
+        (`SHARPMUD_DB_PATH`) only before moving; `UseTelnet`/`TelnetPort`
+        don't move with it — see the transport-wiring tasks below for
+        where the port setting actually goes.
       - `git mv src/SharpMud.Host/LoginFlow.cs src/SharpMud.Host/PlayerLogin.cs
-        src/SharpMud.Hosting/` — **not "unchanged" like the three above**
-        (caught in PR review): both currently call
+        src/SharpMud.Hosting/` — **not "unchanged" like the two above**
+        (caught in PR review, twice now): both currently call
         `HubWorldBuilder.CreatePlayer(...)` directly, and `HubWorldBuilder.cs`
         itself `using`s `SharpMud.Ruleset.Classic` — genuinely ruleset-coupled,
         not just apparently so from `LoginFlow`'s/`PlayerLogin`'s own `using`
-        statements. Change both to take a
-        `Func<World, string, string, Thing, Thing> createPlayer` delegate
-        parameter (world, username, password hash, starting room) instead
-        of calling `HubWorldBuilder.CreatePlayer` directly — the sample
-        supplies `HubWorldBuilder.CreatePlayer` as that delegate; a
-        different consumer supplies their own ruleset's equivalent. Do this
-        decoupling *before* moving the files, not after, so the move itself
-        doesn't temporarily break the build.
+        statements. **Do not add a `createPlayer` parameter to either
+        method** — both already sit at `coding-standards.md`'s 4-parameter
+        limit, and a 5th parameter (raw `Func<>` or otherwise) blows past
+        it, caught in a second round of PR review. Instead:
+        1. Add a new `IPlayerFactory` interface to `SharpMud.Hosting`:
+           `Thing CreatePlayer(World world, string username, string
+           passwordHash, Thing startingRoom)`.
+        2. Convert `LoginFlow`/`PlayerLogin` from `public static class` to
+           ordinary constructor-injected service classes, taking
+           `IThingRepository`/`IPlayerFactory` via the constructor (per
+           `coding-standards.md`'s DI convention) instead of as method
+           parameters — their `RunAsync`/`ResolveOrCreateAsync` methods
+           drop back to 3 parameters plus a trailing `CancellationToken`,
+           under the limit again.
+        3. Register both in `SharpMud.Hosting`'s own DI setup; the sample
+           registers `services.AddSingleton<IPlayerFactory,
+           ClassicPlayerFactory>()`, a thin wrapper around
+           `HubWorldBuilder.CreatePlayer`.
+        Do this decoupling *before* moving the files, not after, so the
+        move itself doesn't temporarily break the build.
+      - `TelnetHostContext.cs` does **not** move anywhere — it gets
+        deleted, not relocated (caught in PR review: an earlier version of
+        this plan deleted `src/SharpMud.Host` without accounting for this
+        file at all). It exists today only to satisfy the 4-parameter rule
+        for `HostRunner.RunTelnetAsync` by bundling `World`/`Parser`/
+        `Registry`/`Repository`/`StartingRoom`/`Port`/`Logger` into one
+        parameter object; once `HostRunner`'s logic becomes a
+        DI-constructed `BackgroundService` (next bullet), all of those
+        except `Port` and `StartingRoom` are ordinary constructor-injected
+        DI dependencies and don't need a bundling record at all. `Port`
+        becomes `AddSharpMudTelnetTransport(int port)`'s own parameter.
+        `StartingRoom` has no obvious DI-singleton home yet — tied to the
+        still-open world-builder registration point, see Open Questions.
       - `git mv src/SharpMud.Host/HostRunner.cs
         src/SharpMud.Adapters.Telnet/` and fold its logic into a new
         `AddSharpMudTelnetTransport(int port)` DI extension there instead of
@@ -103,31 +141,47 @@ bundled into this plan's "done").
         `CombatResolverTests`) — follows `Ruleset.Classic`'s move into the
         sample, unmodified.
       - `git mv tests/SharpMud.Host.Tests/SessionLoopTests.cs
-        tests/SharpMud.Host.Tests/HostOptionsTests.cs
         tests/SharpMud.Host.Tests/PasswordHashingTests.cs
         tests/SharpMud.Hosting.Tests/` (new project) — follows
-        `SessionLoop`/`HostOptions`/`PasswordHashing` into
-        `SharpMud.Hosting`, unmodified.
+        `SessionLoop`/`PasswordHashing` into `SharpMud.Hosting`, unmodified.
+      - `git mv tests/SharpMud.Host.Tests/HostOptionsTests.cs
+        tests/SharpMud.Hosting.Tests/` — **needs real edits, not a straight
+        move**: `HostOptionsTests` today covers `UseTelnet`/`TelnetPort`
+        parsing, which no longer exists on the trimmed `HostOptions` (per
+        the split above) — drop those assertions, keep/expand `DbPath`
+        parsing coverage. Any `UseTelnet`/`TelnetPort` coverage that's
+        still worth having moves to wherever that config actually lands
+        (`SharpMud.Adapters.Telnet.Tests`, once that config exists there).
       - `git mv tests/SharpMud.Host.Tests/LoginFlowTests.cs
         tests/SharpMud.Hosting.Tests/` — **needs real updates, not a
-        straight move**: `LoginFlowTests` currently exercises
-        `LoginFlow.RunAsync` without a `createPlayer` parameter; once
-        `LoginFlow` takes that delegate (per the split above), every
-        existing test call site needs it threaded through (a fake/stub
-        player-creation delegate is fine for most cases, a real one for
-        whichever test actually asserts on the created player's shape).
-        Existing assertions carry forward, the call sites don't.
+        straight move**: `LoginFlowTests` currently calls
+        `LoginFlow.RunAsync` directly against the static class; once
+        `LoginFlow` becomes a constructor-injected service taking
+        `IThingRepository`/`IPlayerFactory` (per the split above), every
+        existing test needs to construct a `LoginFlow` instance with a
+        fake/stub `IPlayerFactory` (a real one only where a test actually
+        asserts on the created player's shape) instead of calling a static
+        method. Existing assertions carry forward, the call sites don't.
       - `PlayerLogin`/`HostRunner` have no existing tests to move (neither
         has a test file today) — add coverage for the new
-        `createPlayer`-parameterized `PlayerLogin.ResolveOrCreateAsync` and
-        the new `AddSharpMudTelnetTransport`/`AddSharpMudCliTransport`
-        extensions as new coverage, not carried-forward regression tests.
+        `IPlayerFactory`-injected `PlayerLogin.ResolveOrCreateAsync` as new
+        `SharpMud.Hosting.Tests` coverage, not a carried-forward regression
+        test.
       - Delete the now-empty `tests/SharpMud.Host.Tests`.
-      Everything above is regression coverage in spirit — no existing
-      assertion gets dropped or downgraded to "sample, so untested" (the
-      error an earlier version of this plan made, caught in PR review) —
-      but `LoginFlowTests` specifically needs real edits, not just a
-      `git mv`, because the method signature it tests is changing.
+      - **New test projects for the transport extensions** — neither
+        exists today (only `tests/SharpMud.Adapters.Telnet.Tests` does,
+        and it doesn't yet cover the new extension): add coverage for
+        `AddSharpMudTelnetTransport(...)` in
+        `tests/SharpMud.Adapters.Telnet.Tests`, and create a new
+        `tests/SharpMud.Adapters.Cli.Tests` project (doesn't exist today)
+        for `AddSharpMudCliTransport()`. New coverage, not regression —
+        this behavior doesn't exist yet either.
+      Everything above is regression coverage in spirit for the *moved*
+      files — no existing assertion gets dropped or downgraded to "sample,
+      so untested" (the error an earlier version of this plan made, caught
+      in PR review) — but `HostOptionsTests`/`LoginFlowTests` specifically
+      need real edits, not just a `git mv`, because the signatures/types
+      they test are changing.
 - [ ] Rewrite `samples/SharpMud.Samples.Classic/Program.cs` against
       `SharpMud.Hosting`'s builder — this is the concrete proof that the
       ~130 lines of generic plumbing identified in ADR-0006's Context
@@ -140,7 +194,12 @@ bundled into this plan's "done").
 
 ### `SharpMud.Hosting` (new project)
 
-- [ ] `src/SharpMud.Hosting/SharpMud.Hosting.csproj`
+- [ ] `src/SharpMud.Hosting/SharpMud.Hosting.csproj` — `PackageReference`s
+      to `Microsoft.Extensions.Hosting` **and**
+      `Microsoft.Extensions.Identity.Core` (needed by `PasswordHashing.cs`
+      — caught in PR review, an earlier version of this plan/ADR-0006's
+      package table said `Hosting` needed nothing beyond
+      `Microsoft.Extensions.Hosting`)
 - [ ] `SharpMudApplicationBuilder : IHostApplicationBuilder` — wraps
       `Host.CreateApplicationBuilder(args)`, delegates
       `Services`/`Configuration`/`Environment`/`Logging`/`Metrics`/
@@ -150,27 +209,37 @@ bundled into this plan's "done").
       delegates to it directly (no custom middleware/invocation pipeline —
       see ADR-0006's comparison to `minimal-lambda` for why that's
       deliberately not needed here)
-- [ ] `SharpMudOptions` — `IOptions<T>`-shaped (`DbPath`, and any other
-      genuinely transport-agnostic setting) per `coding-standards.md`'s
-      `IOptions<T>` convention; kept as a distinct concern from
-      `HostOptions.Parse`'s env-var/secrets path even though both now live
-      in this same project — `SharpMudOptions` is code-configured wiring,
-      `HostOptions` stays the env-var/CLI-arg parsing path per
-      `security.md`'s reasoning for keeping that one manual, not a second
-      `IOptions<T>` binding for the same thing. **No `TransportMode`
-      enum/property here** (removed per PR review — see the transport
-      task below for why).
-- [ ] `SessionLoop.cs`/`PasswordHashing.cs`/`HostOptions.cs` — moved in
-      from `src/SharpMud.Host` per the Repository reorganization task
-      above, namespace updated to `SharpMud.Hosting`, otherwise unchanged
-      (all three already only depend on `SharpMud.Engine.*`).
+- [ ] `SharpMudOptions` — `IOptions<T>`-shaped, `DbPath` only, per
+      `coding-standards.md`'s `IOptions<T>` convention; kept as a distinct
+      concern from `HostOptions.Parse`'s env-var/secrets path even though
+      both now live in this same project — `SharpMudOptions` is code-
+      configured wiring, `HostOptions` stays the env-var/CLI-arg parsing
+      path per `security.md`'s reasoning for keeping that one manual, not
+      a second `IOptions<T>` binding for the same thing. **No
+      `TransportMode` enum/property here** (removed per PR review — see
+      the transport task below for why).
+- [ ] `HostOptions.cs` — moved in from `src/SharpMud.Host` **trimmed to
+      `DbPath` only** (per the Repository reorganization task above, not a
+      straight move) — `UseTelnet`/`TelnetPort` don't come with it.
+- [ ] `SessionLoop.cs`/`PasswordHashing.cs` — moved in from
+      `src/SharpMud.Host` per the Repository reorganization task above,
+      namespace updated to `SharpMud.Hosting`, otherwise unchanged.
+- [ ] New `IPlayerFactory` interface: `Thing CreatePlayer(World world,
+      string username, string passwordHash, Thing startingRoom)`.
 - [ ] `LoginFlow.cs`/`PlayerLogin.cs` — moved in from `src/SharpMud.Host`,
-      **with the `createPlayer` delegate parameter added first** (per the
-      Repository reorganization task above) — not a straight move, the
-      signature genuinely changes. This is what actually makes a
-      consumer's login/session handling work out of the package instead
+      **converted from `public static class` to constructor-injected
+      service classes taking `IThingRepository`/`IPlayerFactory`** (per the
+      Repository reorganization task above) — not a straight move and
+      **not** a raw `Func<>` parameter either (a first-draft fix that
+      would have blown past `coding-standards.md`'s 4-parameter limit,
+      caught in a second round of PR review). This is what actually makes
+      a consumer's login/session handling work out of the package instead
       of requiring copied sample code — the concrete gap caught in PR
       review.
+- [ ] Register `LoginFlow`/`PlayerLogin` in `SharpMud.Hosting`'s DI setup
+      (whatever shape that takes — `AddSharpMud(...)`-style extension or
+      direct `Services.AddScoped<LoginFlow>()`/etc., implementation's
+      call).
 - [ ] `GameLoop` registered as a `BackgroundService` (or a thin
       `BackgroundService` wrapper around it, if `GameLoop` itself shouldn't
       take a direct `Microsoft.Extensions.Hosting` dependency — decide
@@ -208,11 +277,18 @@ bundled into this plan's "done").
 - [ ] Fold `HostRunner.cs`'s logic (moved in from `src/SharpMud.Host` per
       the Repository reorganization task) into an
       `AddSharpMudTelnetTransport(int port)` DI extension — a
-      `BackgroundService` that accepts connections
+      `BackgroundService` constructor-injected with `World`/
+      `ICommandParser`/`ICommandRegistry`/`IThingRepository`/
+      `ILogger<TelnetSession>` (ordinary DI dependencies, replacing
+      `TelnetHostContext`'s manually-assembled bundle — see the Repository
+      reorganization task above for why that record doesn't move) and
+      `port` from the extension's own parameter. Accepts connections
       (`TelnetListener.AcceptSessionsAsync`, unchanged) and, per
       connection, runs `LoginFlow.RunAsync` then `SessionLoop.RunAsync`
-      from `SharpMud.Hosting`, same exception-isolation shape
-      `HostRunner.HandleConnectionAsync` already has today.
+      via the injected `LoginFlow`/`SharpMud.Hosting` services, same
+      exception-isolation shape `HostRunner.HandleConnectionAsync` already
+      has today. Where `StartingRoom` comes from is tied to the
+      still-open world-builder registration point — see Open Questions.
 - [ ] XML doc comments per `documentation.md`.
 
 ### `SharpMud.Adapters.Cli` transport wiring (new tasks on an existing project)
@@ -221,9 +297,10 @@ bundled into this plan's "done").
       `SharpMud.Hosting`, same reasoning as Telnet above.
 - [ ] `AddSharpMudCliTransport()` DI extension covering what today's
       `Program.cs` CLI branch does inline: construct a `ConsoleSession`,
-      resolve/create the player via `PlayerLogin.ResolveOrCreateAsync`
-      (now taking the `createPlayer` delegate), run
-      `SessionLoop.RunAsync`.
+      resolve/create the player via the injected `PlayerLogin` service
+      (constructor-injected `IThingRepository`/`IPlayerFactory`, not a
+      `createPlayer` parameter — per the `LoginFlow`/`PlayerLogin` fix
+      above), run `SessionLoop.RunAsync`.
 - [ ] XML doc comments per `documentation.md`.
 
 ### `SharpMud.Persistence` split
@@ -362,10 +439,11 @@ New:
 - `docs/adr/0006-nuget-package-distribution.md`
 - `docs/plans/0006-nuget-package-distribution.md`
 - `src/SharpMud.Hosting/*` — new `SharpMudApplicationBuilder`/
-  `SharpMudApplication`/`SharpMudOptions`, plus `SessionLoop.cs`/
-  `PasswordHashing.cs`/`HostOptions.cs` (unchanged) and `LoginFlow.cs`/
-  `PlayerLogin.cs` (`createPlayer`-delegate-parameterized) moved in from
-  `src/SharpMud.Host`
+  `SharpMudApplication`/`SharpMudOptions`/`IPlayerFactory`, plus
+  `SessionLoop.cs`/`PasswordHashing.cs` (unchanged), `HostOptions.cs`
+  (trimmed to `DbPath`), and `LoginFlow.cs`/`PlayerLogin.cs` (converted to
+  constructor-injected services taking `IThingRepository`/`IPlayerFactory`)
+  moved in from `src/SharpMud.Host`
 - `src/SharpMud.Persistence.Sqlite/*`
 - `src/SharpMud.Persistence.DynamoDb/*`
 - `src/SharpMud/SharpMud.csproj` (meta-package)
@@ -379,10 +457,12 @@ New:
 - `tests/SharpMud.Samples.Classic.Tests/*` (moved from
   `tests/SharpMud.Ruleset.Classic.Tests`)
 - `tests/SharpMud.Hosting.Tests/*` (new project — `SessionLoopTests.cs`/
-  `HostOptionsTests.cs`/`PasswordHashingTests.cs` moved unchanged,
-  `LoginFlowTests.cs` moved with real edits for the new `createPlayer`
-  parameter, plus new coverage for `PlayerLogin`/the transport extensions,
-  all moved in from `tests/SharpMud.Host.Tests`)
+  `PasswordHashingTests.cs` moved unchanged, `HostOptionsTests.cs`/
+  `LoginFlowTests.cs` moved with real edits for the trimmed `HostOptions`/
+  the `LoginFlow`→service-class conversion, plus new coverage for
+  `PlayerLogin`, all moved in from `tests/SharpMud.Host.Tests`)
+- `tests/SharpMud.Adapters.Cli.Tests/*` (new project — doesn't exist
+  today, covers the new `AddSharpMudCliTransport()` extension)
 
 Modified:
 - `src/SharpMud.Persistence/SharpMud.Persistence.csproj` (drop SQLite refs)
@@ -392,6 +472,8 @@ Modified:
 - `src/SharpMud.Adapters.Cli/SharpMud.Adapters.Cli.csproj` (new
   `ProjectReference` to `SharpMud.Hosting`, new `AddSharpMudCliTransport`
   extension)
+- `tests/SharpMud.Adapters.Telnet.Tests/*` (new coverage for
+  `AddSharpMudTelnetTransport(...)`)
 - `SharpMud.slnx`
 - `.agents/skills/engineering-workflow/references/coding-standards.md`
 - `docs/adr/README.md`, `docs/plans/README.md`, `docs/engine-vs-ruleset.md`, `docs/deployment.md`, `README.md`
@@ -457,15 +539,6 @@ Modified:
   `HubWorldBuilder`-equivalent) isn't fully designed — implementation will
   need to work this out concretely, it's sketched but not nailed down in
   ADR-0006.
-- Same open-ness applies to the `createPlayer` delegate
-  (`Func<World, string, string, Thing, Thing>`) `LoginFlow`/`PlayerLogin`
-  need per PR review — the parameter shape sketched in ADR-0006 is a
-  starting point, not a settled signature; whether it should be its own
-  named delegate type (clearer call sites, matches this repo's general
-  preference for named types over bare `Func<>` in public APIs) versus a
-  raw `Func<>`, and whether it's registered via DI (`IPlayerFactory`-style)
-  or passed directly into `AddSharpMudRuleset`/an equivalent builder call,
-  is an implementation-time design call.
 - Whether `GameLoop` itself should take a direct `Microsoft.Extensions.Hosting`
   dependency (become a `BackgroundService` itself) or stay hosting-agnostic
   with a thin wrapper in `SharpMud.Hosting` — implementation-time call, not
