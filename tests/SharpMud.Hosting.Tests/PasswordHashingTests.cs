@@ -1,6 +1,6 @@
-using SharpMud.Host;
+using SharpMud.Hosting;
 
-namespace SharpMud.Host.Tests;
+namespace SharpMud.Hosting.Tests;
 
 public sealed class PasswordHashingTests
 {

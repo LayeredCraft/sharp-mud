@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SharpMud.Host.Tests</RootNamespace>
+    <RootNamespace>SharpMud.Hosting.Tests</RootNamespace>
     <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SharpMud.Host\SharpMud.Host.csproj" />
+    <ProjectReference Include="..\..\src\SharpMud.Hosting\SharpMud.Hosting.csproj" />
   </ItemGroup>
 
 </Project>

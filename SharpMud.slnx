@@ -13,15 +13,17 @@
     <Project Path="src/SharpMud.Adapters.Cli/SharpMud.Adapters.Cli.csproj" />
     <Project Path="src/SharpMud.Adapters.Telnet/SharpMud.Adapters.Telnet.csproj" />
     <Project Path="src/SharpMud.Engine/SharpMud.Engine.csproj" />
-    <Project Path="src/SharpMud.Host/SharpMud.Host.csproj" />
+    <Project Path="src/SharpMud.Hosting/SharpMud.Hosting.csproj" />
     <Project Path="src/SharpMud.Persistence/SharpMud.Persistence.csproj" />
-    <Project Path="src/SharpMud.Ruleset.Classic/SharpMud.Ruleset.Classic.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/SharpMud.Adapters.Telnet.Tests/SharpMud.Adapters.Telnet.Tests.csproj" />
     <Project Path="tests/SharpMud.Engine.Tests/SharpMud.Engine.Tests.csproj" />
-    <Project Path="tests/SharpMud.Host.Tests/SharpMud.Host.Tests.csproj" />
+    <Project Path="tests/SharpMud.Hosting.Tests/SharpMud.Hosting.Tests.csproj" />
     <Project Path="tests/SharpMud.Persistence.Tests/SharpMud.Persistence.Tests.csproj" />
-    <Project Path="tests/SharpMud.Ruleset.Classic.Tests/SharpMud.Ruleset.Classic.Tests.csproj" />
+    <Project Path="tests/SharpMud.Samples.Classic.Tests/SharpMud.Samples.Classic.Tests.csproj" />
   </Folder>
 </Solution>

@@ -2,23 +2,33 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 
-namespace SharpMud.Host;
+namespace SharpMud.Hosting;
 
-// Classic MUD login prompt (docs/accounts-auth.md) - only used by networked
-// transports (Telnet now, SSH/WebSocket later). Local CLI stays login-free
-// per SPEC.md and never calls this.
-public static class LoginFlow
+// Classic MUD login prompt (docs/accounts-auth.md) - used by every
+// networked transport (Telnet, SSH/WebSocket later); local CLI stays
+// login-free per SPEC.md and never calls this.
+public sealed class LoginFlow
 {
     // Not yet tuned - docs/accounts-auth.md Open Items flags the exact
     // retry/lockout policy as still undecided; this is a concrete default,
     // not a considered final answer.
     private const int MaxPasswordAttempts = 3;
 
+    private readonly WorldContext _worldContext;
+    private readonly IThingRepository _repository;
+    private readonly IPlayerFactory _playerFactory;
+
+    public LoginFlow(WorldContext worldContext, IThingRepository repository, IPlayerFactory playerFactory)
+    {
+        _worldContext = worldContext;
+        _repository = repository;
+        _playerFactory = playerFactory;
+    }
+
     // Returns null if the connection should be dropped (empty input,
     // disconnect mid-flow) - a failed login attempt on its own loops back to
     // the username prompt rather than dropping the connection.
-    public static async Task<Thing?> RunAsync(
-        ISession session, World world, IThingRepository repository, Thing startingRoom, CancellationToken ct)
+    public async Task<Thing?> RunAsync(ISession session, CancellationToken ct)
     {
         while (true)
         {
@@ -27,11 +37,11 @@ public static class LoginFlow
             if (string.IsNullOrWhiteSpace(username))
                 return null;
 
-            var existing = await FindAndAttachExistingAsync(world, repository, username, startingRoom, ct);
+            var existing = await FindAndAttachExistingAsync(username, ct);
 
             var player = existing is not null
                 ? await LoginExistingAsync(session, existing, ct)
-                : await MaybeCreateAsync(session, world, username, startingRoom, repository, ct);
+                : await MaybeCreateAsync(session, username, ct);
 
             if (player is not null)
                 return player;
@@ -41,15 +51,16 @@ public static class LoginFlow
         }
     }
 
-    private static async Task<Thing?> FindAndAttachExistingAsync(
-        World world, IThingRepository repository, string username, Thing startingRoom, CancellationToken ct)
+    private async Task<Thing?> FindAndAttachExistingAsync(string username, CancellationToken ct)
     {
+        var world = _worldContext.World;
+
         var alreadyLive = world.AllWithBehavior<PlayerBehavior>()
             .FirstOrDefault(p => p.FindBehavior<PlayerBehavior>()!.Username == username);
         if (alreadyLive is not null)
             return alreadyLive;
 
-        var loaded = await repository.FindPlayerByUsernameAsync(username, ct);
+        var loaded = await _repository.FindPlayerByUsernameAsync(username, ct);
         if (loaded is null)
             return null;
 
@@ -57,7 +68,7 @@ public static class LoginFlow
         // this DB call, not the live room other players are actually in -
         // attach into the real live room instead (falls back to the hub if
         // that room no longer exists). See docs/persistence.md.
-        var liveRoom = loaded.Parent is { } lastRoom ? world.GetThing(lastRoom.Id) ?? startingRoom : startingRoom;
+        var liveRoom = loaded.Parent is { } lastRoom ? world.GetThing(lastRoom.Id) ?? _worldContext.StartingRoom : _worldContext.StartingRoom;
         liveRoom.Add(loaded);
         PlayerLogin.RegisterSubtree(world, loaded);
         return loaded;
@@ -122,8 +133,7 @@ public static class LoginFlow
         return null;
     }
 
-    private static async Task<Thing?> MaybeCreateAsync(
-        ISession session, World world, string username, Thing startingRoom, IThingRepository repository, CancellationToken ct)
+    private async Task<Thing?> MaybeCreateAsync(ISession session, string username, CancellationToken ct)
     {
         await session.WriteAsync("Create a new character? (y/n) ", ct);
         var confirm = (await session.ReadLineAsync(ct))?.Trim();
@@ -144,12 +154,12 @@ public static class LoginFlow
             return null;
         }
 
-        var player = HubWorldBuilder.CreatePlayer(world, username, PasswordHashing.Hash(password), startingRoom);
+        var player = _playerFactory.CreatePlayer(_worldContext.World, username, PasswordHashing.Hash(password), _worldContext.StartingRoom);
 
         // Persist immediately, not just on the eventual disconnect-triggered
         // save - a crash before this player's first disconnect shouldn't
         // lose a freshly created login.
-        await repository.SaveTreeAsync(player, ct);
+        await _repository.SaveTreeAsync(player, ct);
 
         return player;
     }

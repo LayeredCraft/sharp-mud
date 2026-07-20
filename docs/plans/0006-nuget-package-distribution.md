@@ -2,7 +2,7 @@
 
 **Implements:** [ADR-0006](../adr/0006-nuget-package-distribution.md)
 
-**Status:** Not Started
+**Status:** In Progress
 
 **Last updated:** 2026-07-20
 

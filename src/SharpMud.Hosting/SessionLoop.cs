@@ -4,22 +4,33 @@ using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 
-namespace SharpMud.Host;
+namespace SharpMud.Hosting;
 
-// Shared by every transport (local CLI, Telnet, ...) so adding a transport
-// never touches game logic - just a new ISession implementation feeding the
-// same loop (SPEC.md transport-agnostic sessions decision).
-public static class SessionLoop
+/// <summary>
+/// Per-connection read-eval loop, shared by every transport (local CLI,
+/// Telnet, ...) so adding a transport never touches game logic - just a new
+/// <see cref="ISession"/> implementation feeding the same loop (SPEC.md
+/// transport-agnostic sessions decision).
+/// </summary>
+public sealed class SessionLoop
 {
-    public static async Task RunAsync(
-        World world,
-        ICommandParser parser,
-        ICommandRegistry registry,
-        ISession session,
-        Thing player,
-        IThingRepository repository,
-        CancellationToken ct)
+    private readonly WorldContext _worldContext;
+    private readonly ICommandParser _parser;
+    private readonly ICommandRegistry _registry;
+    private readonly IThingRepository _repository;
+
+    public SessionLoop(WorldContext worldContext, ICommandParser parser, ICommandRegistry registry, IThingRepository repository)
     {
+        _worldContext = worldContext;
+        _parser = parser;
+        _registry = registry;
+        _repository = repository;
+    }
+
+    public async Task RunAsync(ISession session, Thing player, CancellationToken ct)
+    {
+        var world = _worldContext.World;
+
         // "quit" disconnects intentionally (QuitCommand) - that path skips
         // the Linkdead grace period entirely and removes the player
         // immediately below, same as every disconnect used to behave before
@@ -46,7 +57,7 @@ public static class SessionLoop
                 if (input is null)
                     break;
 
-                var parsed = parser.Parse(input);
+                var parsed = _parser.Parse(input);
                 if (parsed.Verb.Length == 0)
                     continue;
 
@@ -54,7 +65,7 @@ public static class SessionLoop
                 if (currentRoom is null)
                     break;
 
-                if (!registry.TryResolve(parsed.Verb, out var command))
+                if (!_registry.TryResolve(parsed.Verb, out var command))
                 {
                     await session.WriteLineAsync("Huh?", ct);
                     continue;
@@ -103,7 +114,7 @@ public static class SessionLoop
             // finally around the whole method (not just this line)
             // guarantees this runs even if a read/write above threw due to
             // cancellation mid-operation.
-            await repository.SaveTreeAsync(player, CancellationToken.None);
+            await _repository.SaveTreeAsync(player, CancellationToken.None);
 
             // explicitQuit's removal happens AFTER the save, not before
             // (PR #1 review) - ThingRepository.SaveTreeAsync persists

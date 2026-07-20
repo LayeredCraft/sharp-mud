@@ -2,12 +2,13 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
+using SharpMud.Hosting;
 
-namespace SharpMud.Host.Tests;
+namespace SharpMud.Hosting.Tests;
 
 public sealed class SessionLoopTests
 {
-    private static (World world, Thing room, Thing player, PlayerBehavior playerBehavior) MakePlayerInRoom()
+    private static (WorldContext worldContext, World world, Thing room, Thing player, PlayerBehavior playerBehavior) MakePlayerInRoom()
     {
         var world = new World();
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
@@ -17,13 +18,17 @@ public sealed class SessionLoopTests
         room.Add(player);
         world.Register(room);
         world.Register(player);
-        return (world, room, player, playerBehavior);
+
+        var worldContext = new WorldContext();
+        worldContext.Initialize(world, room, room);
+
+        return (worldContext, world, room, player, playerBehavior);
     }
 
     [Fact]
     public async Task RunAsync_MarksLinkdead_WhenSessionDropsWithoutQuit()
     {
-        var (world, room, player, playerBehavior) = MakePlayerInRoom();
+        var (worldContext, world, room, player, playerBehavior) = MakePlayerInRoom();
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
@@ -32,8 +37,9 @@ public sealed class SessionLoopTests
         var parser = Substitute.For<ICommandParser>();
         var registry = Substitute.For<ICommandRegistry>();
         var repository = Substitute.For<IThingRepository>();
+        var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
 
-        await SessionLoop.RunAsync(world, parser, registry, session, player, repository, TestContext.Current.CancellationToken);
+        await sessionLoop.RunAsync(session, player, TestContext.Current.CancellationToken);
 
         playerBehavior.ConnectionState.Should().Be(ConnectionState.Linkdead);
         room.Children.Should().Contain(player);
@@ -43,7 +49,7 @@ public sealed class SessionLoopTests
     [Fact]
     public async Task RunAsync_DoesNotClobberState_WhenNewerSessionAlreadyReconnected()
     {
-        var (world, room, player, playerBehavior) = MakePlayerInRoom();
+        var (worldContext, world, room, player, playerBehavior) = MakePlayerInRoom();
         var oldSession = Substitute.For<ISession>();
         oldSession.IsConnected.Returns(true);
         oldSession.ReadLineAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
@@ -58,8 +64,9 @@ public sealed class SessionLoopTests
         var parser = Substitute.For<ICommandParser>();
         var registry = Substitute.For<ICommandRegistry>();
         var repository = Substitute.For<IThingRepository>();
+        var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
 
-        await SessionLoop.RunAsync(world, parser, registry, oldSession, player, repository, TestContext.Current.CancellationToken);
+        await sessionLoop.RunAsync(oldSession, player, TestContext.Current.CancellationToken);
 
         // The stale disconnect must not mark the actively-reconnected
         // character Linkdead or remove it from the world.
@@ -71,7 +78,7 @@ public sealed class SessionLoopTests
     [Fact]
     public async Task RunAsync_RemovesImmediately_WhenPlayerQuits()
     {
-        var (world, room, player, playerBehavior) = MakePlayerInRoom();
+        var (worldContext, world, room, player, playerBehavior) = MakePlayerInRoom();
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true, false);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("quit");
@@ -85,8 +92,9 @@ public sealed class SessionLoopTests
             return true;
         });
         var repository = Substitute.For<IThingRepository>();
+        var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
 
-        await SessionLoop.RunAsync(world, parser, registry, session, player, repository, TestContext.Current.CancellationToken);
+        await sessionLoop.RunAsync(session, player, TestContext.Current.CancellationToken);
 
         room.Children.Should().NotContain(player);
         world.GetThing(player.Id).Should().BeNull();
@@ -100,7 +108,7 @@ public sealed class SessionLoopTests
         // before - ThingRepository.SaveTreeAsync persists ParentId from
         // thing.Parent at save time, so removing first would silently save
         // ParentId=null and lose the room the player quit from.
-        var (world, room, player, playerBehavior) = MakePlayerInRoom();
+        var (worldContext, world, room, player, playerBehavior) = MakePlayerInRoom();
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true, false);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("quit");
@@ -119,8 +127,9 @@ public sealed class SessionLoopTests
         repository.SaveTreeAsync(Arg.Any<Thing>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask)
             .AndDoes(x => parentAtSaveTime = ((Thing)x[0]).Parent);
+        var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
 
-        await SessionLoop.RunAsync(world, parser, registry, session, player, repository, TestContext.Current.CancellationToken);
+        await sessionLoop.RunAsync(session, player, TestContext.Current.CancellationToken);
 
         parentAtSaveTime.Should().Be(room);
     }

@@ -1,12 +1,23 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
+using SharpMud.Hosting;
 
-namespace SharpMud.Host.Tests;
+namespace SharpMud.Hosting.Tests;
 
 public sealed class LoginFlowTests
 {
     private static Thing MakeRoom() => new() { Id = ThingId.New(), Name = "Room" };
+
+    private static (LoginFlow loginFlow, IThingRepository repository) MakeLoginFlow(World world, Thing room)
+    {
+        var worldContext = new WorldContext();
+        worldContext.Initialize(world, room, room);
+        var repository = Substitute.For<IThingRepository>();
+        var playerFactory = Substitute.For<IPlayerFactory>();
+
+        return (new LoginFlow(worldContext, repository, playerFactory), repository);
+    }
 
     [Fact]
     public async Task RunAsync_ResumesCharacter_WhenLinkdeadAndPasswordCorrect()
@@ -23,12 +34,12 @@ public sealed class LoginFlowTests
         room.Add(player);
         world.Register(player);
 
-        var repository = Substitute.For<IThingRepository>();
+        var (loginFlow, _) = MakeLoginFlow(world, room);
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
 
-        var result = await LoginFlow.RunAsync(session, world, repository, room, TestContext.Current.CancellationToken);
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
 
         result.Should().Be(player);
         playerBehavior.ConnectionState.Should().Be(ConnectionState.Playing);
@@ -52,7 +63,7 @@ public sealed class LoginFlowTests
         room.Add(player);
         world.Register(player);
 
-        var repository = Substitute.For<IThingRepository>();
+        var (loginFlow, _) = MakeLoginFlow(world, room);
         var session = Substitute.For<ISession>();
         // First loop iteration: correct password but rejected -> RunAsync
         // checks IsConnected before looping again; simulate the client
@@ -60,7 +71,7 @@ public sealed class LoginFlowTests
         session.IsConnected.Returns(true, false);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
 
-        var result = await LoginFlow.RunAsync(session, world, repository, room, TestContext.Current.CancellationToken);
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
         playerBehavior.ConnectionState.Should().Be(ConnectionState.Playing);
@@ -82,12 +93,12 @@ public sealed class LoginFlowTests
         room.Add(player);
         world.Register(player);
 
-        var repository = Substitute.For<IThingRepository>();
+        var (loginFlow, _) = MakeLoginFlow(world, room);
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true, false);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
 
-        var result = await LoginFlow.RunAsync(session, world, repository, room, TestContext.Current.CancellationToken);
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
         playerBehavior.ConnectionState.Should().Be(ConnectionState.Linkdead);
@@ -114,12 +125,12 @@ public sealed class LoginFlowTests
         // lookup and this password check.
         room.Remove(player);
 
-        var repository = Substitute.For<IThingRepository>();
+        var (loginFlow, _) = MakeLoginFlow(world, room);
         var session = Substitute.For<ISession>();
         session.IsConnected.Returns(true, false);
         session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
 
-        var result = await LoginFlow.RunAsync(session, world, repository, room, TestContext.Current.CancellationToken);
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
 
         result.Should().BeNull();
         await session.Received(1).WriteLineAsync("That session has expired. Please log in again.", Arg.Any<CancellationToken>());

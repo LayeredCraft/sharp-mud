@@ -13,6 +13,15 @@
     <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.9" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <!-- SharpMud.Hosting's composition-root builder wraps this directly -
+         see docs/adr/0006-nuget-package-distribution.md. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <!-- SharpMud.Persistence.DynamoDb - pinned to the confirmed-stable
+         EF Core 10 build, not a preview EF Core 11 build - see ADR-0006. -->
+    <PackageVersion Include="EntityFrameworkCore.DynamoDb" Version="10.0.0" />
+    <!-- NuGet package metadata (Directory.Build.props) - matches
+         optimized-enums'/structured-logging's shape. -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
     <!-- Logging: Serilog + LayeredCraft.StructuredLogging call-site extensions,
          per .agents/skills/engineering-workflow/references/coding-standards.md.
          Console sink only - this repo runs in Docker (docs/deployment.md),

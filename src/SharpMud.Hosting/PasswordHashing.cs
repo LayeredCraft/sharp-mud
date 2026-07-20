@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace SharpMud.Host;
+namespace SharpMud.Hosting;
 
 // Wraps Microsoft.Extensions.Identity.Core's PasswordHasher<TUser> - PBKDF2
-// with a random salt, versioned hash format. Lives in Host, not Engine -
+// with a random salt, versioned hash format. Lives in Hosting, not Engine -
 // this is login-flow infrastructure, not game logic, and pulling in an
 // Identity package into Engine would be an unwarranted dependency for
 // something only the networked login flow needs (docs/accounts-auth.md).
