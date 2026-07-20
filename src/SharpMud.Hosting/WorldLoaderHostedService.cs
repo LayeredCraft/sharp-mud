@@ -18,19 +18,31 @@ internal sealed class WorldLoaderHostedService : IHostedService
     private readonly IThingRepository _repository;
     private readonly IWorldBuilder _worldBuilder;
     private readonly WorldContext _worldContext;
+    private readonly IEnumerable<IStorageInitializer> _storageInitializers;
     private readonly ILogger<WorldLoaderHostedService> _logger;
 
     public WorldLoaderHostedService(
-        IThingRepository repository, IWorldBuilder worldBuilder, WorldContext worldContext, ILogger<WorldLoaderHostedService> logger)
+        IThingRepository repository,
+        IWorldBuilder worldBuilder,
+        WorldContext worldContext,
+        IEnumerable<IStorageInitializer> storageInitializers,
+        ILogger<WorldLoaderHostedService> logger)
     {
         _repository = repository;
         _worldBuilder = worldBuilder;
         _worldContext = worldContext;
+        _storageInitializers = storageInitializers;
         _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Run before the load below, regardless of hosted-service
+        // registration order between the Hosting/Persistence packages -
+        // see IStorageInitializer.
+        foreach (var initializer in _storageInitializers)
+            await initializer.InitializeAsync(cancellationToken);
+
         var loadedRoot = await _repository.LoadTreeAsync(_worldBuilder.RootId, cancellationToken);
 
         if (loadedRoot is not null)

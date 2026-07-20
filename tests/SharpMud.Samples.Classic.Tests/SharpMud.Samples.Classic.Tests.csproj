@@ -40,7 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SharpMud.Ruleset.Classic\SharpMud.Ruleset.Classic.csproj" />
+    <ProjectReference Include="..\..\samples\SharpMud.Samples.Classic\SharpMud.Samples.Classic.csproj" />
   </ItemGroup>
 
 </Project>

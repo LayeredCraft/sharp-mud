@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SharpMud.Engine.Ticking;
 
@@ -14,17 +15,29 @@ namespace SharpMud.Hosting;
 internal sealed class GameLoopHostedService : BackgroundService
 {
     private readonly IGameLoop _gameLoop;
-    private readonly IEnumerable<ITickable> _tickables;
+    private readonly IServiceProvider _serviceProvider;
 
-    public GameLoopHostedService(IGameLoop gameLoop, IEnumerable<ITickable> tickables)
+    // IServiceProvider, not IEnumerable<ITickable> directly - the generic
+    // host resolves every registered IHostedService (constructing all of
+    // them) before calling any of their StartAsync methods, so a
+    // constructor-injected IEnumerable<ITickable> would resolve
+    // WanderManager/LinkdeadSweeper/a consumer's CombatManager - all of
+    // which read WorldContext.World/.StartingRoom - before
+    // WorldLoaderHostedService.StartAsync has actually populated it.
+    // Deferring resolution to ExecuteAsync (which only runs after
+    // StartAsync, sequenced after WorldLoaderHostedService per
+    // registration order) avoids that. This is the legitimate
+    // "resolving something at runtime" exception to the no-service-locator
+    // rule in coding-standards.md.
+    public GameLoopHostedService(IGameLoop gameLoop, IServiceProvider serviceProvider)
     {
         _gameLoop = gameLoop;
-        _tickables = tickables;
+        _serviceProvider = serviceProvider;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        foreach (var tickable in _tickables)
+        foreach (var tickable in _serviceProvider.GetServices<ITickable>())
             _gameLoop.Register(tickable);
 
         return _gameLoop.RunAsync(stoppingToken);

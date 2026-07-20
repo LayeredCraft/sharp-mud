@@ -2,10 +2,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <!-- Transport wiring lives here, not in SharpMud.Hosting - Hosting must
+         not reference a specific transport, see
+         docs/adr/0006-nuget-package-distribution.md. -->
+    <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="LayeredCraft.StructuredLogging" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
@@ -17,7 +22,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net11.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

@@ -6,12 +6,15 @@ namespace SharpMud.Hosting;
 // (SHARPMUD_MODE/SHARPMUD_TELNET_PORT/--telnet) is not part of this type -
 // it moved to the consumer's own composition root, since Hosting must not
 // know which transport(s) a consumer wants (docs/adr/0006-nuget-package-distribution.md).
-public sealed record HostOptions(string DbPath)
+// Named SharpMudHostOptions, not HostOptions - the latter collides with
+// Microsoft.Extensions.Hosting.HostOptions, a real BCL type every consumer
+// of this package will also have in scope.
+public sealed record SharpMudHostOptions(string DbPath)
 {
-    public static HostOptions Parse(IReadOnlyDictionary<string, string?> env)
+    public static SharpMudHostOptions Parse(IReadOnlyDictionary<string, string?> env)
     {
         var dbPath = env.GetValueOrDefault("SHARPMUD_DB_PATH") ?? "./sharpmud.db";
 
-        return new HostOptions(dbPath);
+        return new SharpMudHostOptions(dbPath);
     }
 }

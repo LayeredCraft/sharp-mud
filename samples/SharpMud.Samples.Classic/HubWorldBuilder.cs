@@ -1,14 +1,13 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
-using SharpMud.Ruleset.Classic;
 
-namespace SharpMud.Host;
+namespace SharpMud.Ruleset.Classic;
 
 // Content, not engine or ruleset - mirrors WheelMUD's separate "Universe"
-// project (docs/research/wheelmud-findings.md). References Ruleset.Classic
-// directly since the cave rat/sword need ruleset-specific behaviors
-// (CombatantBehavior, WearableBehavior's EquipSlot) - only Host is allowed
-// to know about a specific ruleset (docs/engine-vs-ruleset.md).
+// project (docs/research/wheelmud-findings.md). Lives alongside the ruleset
+// code in this sample rather than a separate project, per ADR-0006 - a
+// consumer's own world content and their ruleset are the two things that
+// make their game theirs, both belong in their one project.
 public static class HubWorldBuilder
 {
     // Fixed, not ThingId.New() - so a fresh boot can ask the repository

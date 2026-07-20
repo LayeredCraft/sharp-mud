@@ -16,16 +16,19 @@ public static class ServiceCollectionExtensions
     /// etc.) - a consumer's <paramref name="registerRuleset"/> callback
     /// only ever needs to add their own ruleset's commands on top, never
     /// has to remember to call <c>BuiltinCommands.RegisterAll</c> itself.
+    /// The callback also receives the built <see cref="IServiceProvider"/>
+    /// so ruleset-specific command dependencies (e.g. a combat manager)
+    /// can be resolved from DI.
     /// </summary>
-    public static IServiceCollection AddSharpMudRuleset(this IServiceCollection services, Action<ICommandRegistry> registerRuleset)
+    public static IServiceCollection AddSharpMudRuleset(this IServiceCollection services, Action<IServiceProvider, ICommandRegistry> registerRuleset)
     {
         ArgumentNullException.ThrowIfNull(registerRuleset);
 
-        services.AddSingleton<ICommandRegistry>(_ =>
+        services.AddSingleton<ICommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
             BuiltinCommands.RegisterAll(registry);
-            registerRuleset(registry);
+            registerRuleset(sp, registry);
             return registry;
         });
 
@@ -70,9 +73,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITickable>(sp => new WanderManager(sp.GetRequiredService<WorldContext>().World, sp.GetRequiredService<IRandomSource>()));
         services.AddSingleton<ITickable>(sp => new LinkdeadSweeper(sp.GetRequiredService<WorldContext>().World, sp.GetRequiredService<IThingRepository>()));
 
-        services.AddTransient<SessionLoop>();
-        services.AddTransient<LoginFlow>();
-        services.AddTransient<PlayerLogin>();
+        // Singleton, not per-connection Transient/Scoped - all three hold
+        // no per-connection state, only injected singleton dependencies
+        // (WorldContext/parser/registry/repository/factory), so one shared
+        // instance is equivalent and avoids a DI-scope dance in every
+        // transport's connection-accept loop.
+        services.AddSingleton<SessionLoop>();
+        services.AddSingleton<LoginFlow>();
+        services.AddSingleton<PlayerLogin>();
 
         services.AddHostedService<WorldLoaderHostedService>();
         services.AddHostedService<GameLoopHostedService>();

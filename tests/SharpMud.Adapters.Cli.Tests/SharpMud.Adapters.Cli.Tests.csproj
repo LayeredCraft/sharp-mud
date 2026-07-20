@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SharpMud.Adapters.Telnet.Tests</RootNamespace>
+    <RootNamespace>SharpMud.Adapters.Cli.Tests</RootNamespace>
     <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -34,7 +34,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SharpMud.Adapters.Telnet\SharpMud.Adapters.Telnet.csproj" />
+    <ProjectReference Include="..\..\src\SharpMud.Adapters.Cli\SharpMud.Adapters.Cli.csproj" />
   </ItemGroup>
 
 </Project>
