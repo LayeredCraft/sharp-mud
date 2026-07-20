@@ -5,6 +5,12 @@ the genre's feel while built on current .NET architecture: the .NET generic
 host, EF Core, and a `Thing`/`Behavior` composition model instead of a
 hardcoded class hierarchy.
 
+!!! warning "Alpha — not yet stable"
+    sharp-mud is pre-1.0: no SemVer compatibility guarantees between releases
+    yet, and APIs/package boundaries/persisted-data shape can all still
+    change. It's also currently built against a preview .NET 11 SDK. Use it,
+    but expect breaking changes between versions.
+
 sharp-mud ships as a set of NuGet packages you compose into your own game:
 
 - **`SharpMud.Engine`** — `Thing`/`Behavior`, the event system, generic

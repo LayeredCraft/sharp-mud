@@ -1,5 +1,9 @@
 # sharp-mud — Design Spec
 
+**Status: alpha, pre-1.0.** No SemVer compatibility guarantees between
+releases yet — APIs, package boundaries, and persisted-data shape can all
+still change.
+
 A modern C# reimagining of a classic MUD. Faithful to the genre's feel (verb-first
 commands, room-based navigation, persistent world) while using current .NET
 architecture patterns instead of the C/C++ codebases (Diku/Circle/LP-family) that

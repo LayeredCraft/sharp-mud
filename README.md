@@ -3,6 +3,12 @@
 A modern C#/.NET reimagining of a classic MUD (Multi-User Dungeon) — faithful
 to the genre's feel while built with current .NET architecture.
 
+> **Alpha — not yet stable.** Pre-1.0, no SemVer compatibility guarantees
+> between releases yet; APIs, package boundaries, and persisted-data shape can
+> all still change. Also currently pinned to a preview .NET 11 SDK (see
+> `global.json`) — accept that risk, or build against `net10.0` only until a
+> stable release lands. Use it, but expect breaking changes.
+
 - **`SPEC.md`** — vision and high-level decisions (start here).
 - **`docs/`** — detailed per-subsystem design docs. Start with
   `docs/engine-vs-ruleset.md` for the entity model (`Thing`/`Behavior`

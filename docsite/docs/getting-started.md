@@ -8,18 +8,24 @@ For a full worked example with stats, combat, and a Telnet transport, see
 [`SharpMud.Samples.Classic`](https://github.com/LayeredCraft/sharp-mud/tree/main/samples/SharpMud.Samples.Classic)
 in the sharp-mud repo.
 
+!!! warning "Alpha — not yet stable"
+    sharp-mud is pre-1.0: no SemVer compatibility guarantees between
+    releases yet, and only prerelease packages are published so far - expect
+    breaking changes between versions.
+
 ## Install
 
 ```bash
-dotnet add package SharpMud
-dotnet add package SharpMud.Persistence.Sqlite
-dotnet add package SharpMud.Adapters.Cli
+dotnet add package SharpMud --prerelease
+dotnet add package SharpMud.Persistence.Sqlite --prerelease
+dotnet add package SharpMud.Adapters.Cli --prerelease
 ```
 
 `SharpMud` is a meta-package pulling in `SharpMud.Engine`, `SharpMud.Hosting`,
 `SharpMud.Persistence`, and both adapter packages — you still pick a
 persistence *provider* (`.Sqlite` or `.DynamoDb`) and a transport
 (`SharpMud.Adapters.Cli` and/or `SharpMud.Adapters.Telnet`) explicitly.
+`--prerelease` is required until a stable 1.0 release ships.
 
 ## Build the world
 
