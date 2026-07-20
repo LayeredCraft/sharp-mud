@@ -105,7 +105,7 @@ Every package ID matches its project/assembly name 1:1 already, so no
 | `SharpMud.Persistence.DynamoDb` | same shape, wraps `EntityFrameworkCore.DynamoDb` | DynamoDB — pin `EntityFrameworkCore.DynamoDb 10.0.0`, the current stable/non-preview release (see the stability note below the table). Targets EF Core 10, not EF Core 11 — see Target frameworks below for why sharp-mud packages multi-target `net10.0;net11.0` rather than `net11.0` alone, which is exactly what makes this pin usable now instead of blocked on an EF Core 11 build. |
 | `SharpMud.Adapters.Telnet` | unchanged, plus a new `AddSharpMudTelnetTransport(...)` DI extension (see `SharpMud.Hosting` shape below for why transport wiring lives *here*, not in `Hosting` itself) | none |
 | `SharpMud.Adapters.Cli` | unchanged, plus a new `AddSharpMudCliTransport(...)` DI extension, same reasoning | none |
-| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below), `SharpMudOptions` (trimmed to `DbPath` only — see below), plus `SessionLoop`/`PasswordHashing`/`PlayerLogin`/`LoginFlow` moved in from today's `src/SharpMud.Host` **after decoupling `LoginFlow`/`PlayerLogin` from `HubWorldBuilder.CreatePlayer`** (see below — they are not ruleset-agnostic as currently written) | `Microsoft.Extensions.Hosting` **and** `Microsoft.Extensions.Identity.Core` — `PasswordHashing.cs` uses `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>`, supplied by that package (caught in PR review: an earlier version of this table said "none beyond `Microsoft.Extensions.Hosting`," which was wrong). **Not** `Adapters.Telnet`/`Adapters.Cli` (see below). |
+| `SharpMud.Hosting` | **new** — `SharpMudApplicationBuilder`/`SharpMudApplication` (see below; no separate `SharpMudOptions` type — see below for why), plus `SessionLoop` (parameter-object/service-class refactored — see below)/`PasswordHashing`/`PlayerLogin`/`LoginFlow`/`HostOptions` (trimmed to `DbPath`) moved in from today's `src/SharpMud.Host` **after decoupling `LoginFlow`/`PlayerLogin` from `HubWorldBuilder.CreatePlayer`** (see below — they are not ruleset-agnostic as currently written) | `Microsoft.Extensions.Hosting` **and** `Microsoft.Extensions.Identity.Core` — `PasswordHashing.cs` uses `Microsoft.AspNetCore.Identity`'s `PasswordHasher<TUser>`, supplied by that package (caught in PR review: an earlier version of this table said "none beyond `Microsoft.Extensions.Hosting`," which was wrong). **Not** `Adapters.Telnet`/`Adapters.Cli` (see below). |
 | `SharpMud` | **new**, meta-package — no code, `ProjectReference`s (not `PackageReference`s — see the meta-package note below) to everything above | — |
 
 **On `EntityFrameworkCore.DynamoDb 10.0.0`'s stability, since this has now
@@ -207,11 +207,43 @@ Consumer's `Program.cs`:
 ```csharp
 var builder = SharpMudApplication.CreateBuilder(args);
 builder.Services.AddSharpMudRuleset(registry => MyRulesetCommands.RegisterAll(registry, ...));
-builder.Services.AddSharpMudTelnetTransport(port: 4000); // from SharpMud.Adapters.Telnet
+builder.Services.AddSingleton<ITickable, MyCombatManager>(); // ruleset-specific game-loop work
+
+if (useTelnet) // parsed from SHARPMUD_MODE/--telnet, same precedence as today — see below
+    builder.Services.AddSharpMudTelnetTransport(port: telnetPort);
+else
+    builder.Services.AddSharpMudCliTransport();
 
 var mud = builder.Build();
 await mud.RunAsync();
 ```
+
+**`AddSharpMudRuleset` must register engine built-ins itself, flagged in PR
+review.** Today's `Program.cs` calls `BuiltinCommands.RegisterAll(registry)`
+*before* `ClassicCommands.RegisterAll(...)` — that's where `look`/`move`/
+`quit`/inventory and the rest of the core verbs come from. An earlier
+version of this ADR's example only showed the ruleset callback running,
+which would mean a consumer following this pattern gets a `Huh?` for every
+built-in command. `AddSharpMudRuleset` registers `BuiltinCommands` itself
+(engine-level, not ruleset-specific — `Hosting` already depends on
+`Engine`) before invoking the consumer's callback, so a consumer only ever
+adds *their* ruleset's commands on top, never has to remember to call
+`BuiltinCommands.RegisterAll` themselves.
+
+**Ruleset `ITickable`s need a registration path too, flagged in PR
+review.** Command registration alone doesn't reproduce today's wiring —
+`Program.cs` also constructs `CombatManager` (implements `ITickable`) and
+registers it with `GameLoop` so `kill`-started combat actually advances
+each tick; `WanderManager`/`LinkdeadSweeper` are the engine-level
+equivalent, already `Hosting`'s to register directly since neither is
+ruleset-specific. Rather than inventing a second registration callback
+alongside `AddSharpMudRuleset` (a growing, ad hoc list of "and also
+register X" hooks), `SharpMud.Hosting`'s `GameLoop` `BackgroundService`
+constructor-injects `IEnumerable<ITickable>` and registers whatever's
+resolved at startup — the consumer just does ordinary DI
+(`services.AddSingleton<ITickable, MyCombatManager>()`), the same pattern
+already used for `IPlayerFactory` above. No dedicated tickable-registration
+API needed; this is what DI resolving a collection of an interface is for.
 
 `GameLoop` becomes an ordinary `BackgroundService` registration inside
 `SharpMud.Hosting` rather than a hand-rolled `await`ed call, so shutdown
@@ -257,11 +289,27 @@ registers a `BackgroundService` doing what `HostRunner.RunTelnetAsync`/the
 CLI branch do today, built on `Hosting`'s shared `SessionLoop`/`LoginFlow`.
 A consumer calls whichever extension matches the package(s) they actually
 referenced; nothing in `Hosting` itself knows Telnet or CLI exist.
-`SharpMudOptions` keeps only genuinely transport-agnostic settings
-(`DbPath`, etc.) — the `TransportMode` enum idea from an earlier draft of
-this ADR is dropped, since "which transport(s) run" is now just "which
-adapter extension(s) got called," not something `Hosting` branches on
-internally.
+The `TransportMode` enum idea from an earlier draft of this ADR is dropped
+entirely, since "which transport(s) run" is now just "which adapter
+extension(s) got called," not something `Hosting` branches on internally.
+
+**`SharpMudOptions` is removed from this ADR's scope, flagged in PR
+review.** An earlier draft had both `SharpMudOptions` and the trimmed
+`HostOptions` owning `DbPath`, with no stated precedence between them —
+two sources of truth for the same setting, exactly the kind of drift risk
+`security.md` already argues against for deployment config. Once
+`TransportMode` is gone (moved to adapter extensions, above) and `DbPath`
+is gone (redundant with `HostOptions.Parse`, below), there's nothing left
+that actually needs a code-configured `IOptions<T>` binding at the
+`Hosting` level today — so `SharpMudOptions` isn't introduced as a concrete
+type in this plan at all, rather than inventing an empty placeholder class
+now and papering over the precedence question. `HostOptions.Parse`
+(env-var/CLI-arg driven) stays the single source of truth for `DbPath`,
+per `security.md`'s existing reasoning for keeping deployment config
+manual rather than `IOptions<T>`-bound. If a genuine code-configured
+setting emerges during implementation, that's the time to introduce
+`SharpMudOptions` for real — not before there's an actual second setting
+to justify the type existing.
 
 This is the first sanctioned instance of a DI-extension/builder composition
 pattern in this repo — `coding-standards.md`'s DI/composition section
@@ -342,6 +390,16 @@ from `Hosting`. Split:
   options type, implementation's call) — not something `Hosting` parses on
   the adapter's behalf.
 
+This has a concrete consequence flagged in PR review: `Dockerfile` still
+sets `SHARPMUD_MODE=telnet`/`SHARPMUD_TELNET_PORT` and expects them to
+control which transport actually starts. Since that decision now lives in
+the sample's `Program.cs`, the sample must actually parse those same
+variables (and `--telnet`, matching today's arg-wins-over-env precedence)
+and call `AddSharpMudTelnetTransport`/`AddSharpMudCliTransport`
+accordingly — this isn't automatic just because `HostOptions` used to
+parse them. Skipping this would mean the container's documented default
+silently stops starting the Telnet server.
+
 **`TelnetHostContext` needs a home, flagged in PR review.** This record
 (`src/SharpMud.Host/TelnetHostContext.cs`) exists today specifically to
 satisfy `coding-standards.md`'s 4-parameter rule for `HostRunner.RunTelnetAsync`
@@ -361,6 +419,20 @@ is the one field with no obvious DI-singleton home — it's a specific
 `BackgroundService` gets it is tied to the still-open world-builder
 registration point (see Open Items below), not resolved by this note
 alone.
+
+**`SessionLoop` needs the same parameter-object/service-class fix as
+`LoginFlow`/`PlayerLogin`, flagged in PR review — this plan already fixed
+that exact issue elsewhere and missed the sibling.** `SessionLoop.RunAsync`
+today takes six non-`CancellationToken` parameters (`World`,
+`ICommandParser`, `ICommandRegistry`, `ISession`, `Thing player`,
+`IThingRepository`), well past `coding-standards.md`'s 4-parameter limit —
+publishing it into `SharpMud.Hosting` "otherwise unchanged" would ship the
+first public `Hosting` API already violating this repo's own standard,
+for consumers to copy. Same fix as `LoginFlow`/`PlayerLogin`: `SessionLoop`
+becomes a constructor-injected service class taking `World`/
+`ICommandParser`/`ICommandRegistry`/`IThingRepository` via the constructor,
+leaving `RunAsync(ISession session, Thing player, CancellationToken ct)` —
+2 parameters plus the trailing token, under the limit.
 
 ### Repository reorganization
 
@@ -396,14 +468,18 @@ not reference `Adapters.Telnet`/`Adapters.Cli`.
 src/                                    (packaged)
   SharpMud.Engine/
   SharpMud.Hosting/                     new — SharpMudApplicationBuilder/
-                                         SharpMudApplication/SharpMudOptions
-                                         (DbPath only), plus SessionLoop/
+                                         SharpMudApplication (no separate
+                                         SharpMudOptions type), plus
+                                         SessionLoop (service-class,
+                                         parameter-count fixed)/
                                          PasswordHashing/HostOptions
                                          (trimmed to DbPath)/PlayerLogin/
                                          LoginFlow (the latter two decoupled
                                          from HubWorldBuilder.CreatePlayer,
                                          via a new IPlayerFactory) moved in
-                                         from src/SharpMud.Host. Needs
+                                         from src/SharpMud.Host. Registers
+                                         BuiltinCommands + IEnumerable<ITickable>
+                                         automatically. Needs
                                          Microsoft.Extensions.Identity.Core
                                          (PasswordHashing) in addition to
                                          Microsoft.Extensions.Hosting.
@@ -419,13 +495,30 @@ src/                                    (packaged)
 samples/                                (NOT packaged — reference implementation)
   SharpMud.Samples.Classic/             single project — merges
                                          SharpMud.Ruleset.Classic's content
-                                         (moved from src/, unchanged
-                                         internally) and only
-                                         SharpMud.Host's Program.cs
+                                         (moved from src/, its own code
+                                         unchanged internally, but the
+                                         csproj itself needs OutputType=Exe
+                                         + the package/project references
+                                         Program.cs needs — a plain library
+                                         csproj isn't runnable as-is, see
+                                         below) and only SharpMud.Host's
+                                         Program.cs + appsettings.json
                                          (rewritten against
                                          SharpMud.Hosting) — not the rest
                                          of Host, see above
 ```
+
+**The merged project's `.csproj` needs real changes, not just a `git mv`,
+flagged in PR review.** `SharpMud.Ruleset.Classic.csproj` today is a plain
+class library — no `OutputType`, no `Serilog`/config/adapter
+`PackageReference`s or `ProjectReference`s, none of which `Program.cs`
+needs until it moves in. Once merged: `OutputType` becomes `Exe`;
+`ProjectReference`s to `SharpMud.Hosting` and whichever transport
+package(s) the sample wants are added; whatever `Program.cs` still needs
+directly (logging/config packages not already pulled in transitively via
+`SharpMud.Hosting`) gets added too. Treating the merge as "just move the
+files" would leave a project that has `Program.cs` in it but doesn't
+build, let alone run.
 
 This is a genuinely different shape from today's repo, not just a rename:
 today `Ruleset.Classic` and `Host` are two separate `src/` projects (the

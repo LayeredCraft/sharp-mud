@@ -42,6 +42,19 @@ bundled into this plan's "done").
 
 - [ ] `git mv src/SharpMud.Ruleset.Classic samples/SharpMud.Samples.Classic`
       (preserve history — this becomes the single consolidated project)
+- [ ] **Update the merged project's `.csproj`, not just its file
+      contents** — caught in PR review: `SharpMud.Ruleset.Classic.csproj`
+      today is a plain class library (no `OutputType`, no `Serilog`/config/
+      adapter references) — none of what `Program.cs` needs once it moves
+      in. Add `<OutputType>Exe</OutputType>`, `ProjectReference`s to
+      `SharpMud.Hosting` and whichever transport package(s) the sample
+      wants, and whatever logging/config `PackageReference`s `Program.cs`
+      still needs directly (verify at implementation time which of these
+      `SharpMud.Hosting` already pulls in transitively vs. which the
+      sample still owns directly — e.g. Serilog is a consumer's own
+      logging-provider choice, not something `Hosting` should hardcode).
+      Skipping this leaves a project with `Program.cs` in it that doesn't
+      build.
 - [ ] **Split `src/SharpMud.Host`'s files by whether they're
       ruleset-specific or genuinely generic — don't move all of it to
       `samples/` as one block** (caught in PR review: an earlier version of
@@ -195,7 +208,16 @@ bundled into this plan's "done").
       actually collapse to a few lines, in a single project alongside the
       ruleset code it registers; if it doesn't, that's a signal the
       `Hosting` design needs revisiting before merging, not something to
-      paper over
+      paper over. **Must preserve `SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`/
+      `--telnet` parsing and the transport decision that used to live in
+      `HostOptions`** (caught in PR review): since that decision moved to
+      the sample's own composition-root logic (per the `HostOptions`
+      split), the sample has to actually parse those variables itself,
+      same arg-wins-over-env precedence as today, and call
+      `AddSharpMudTelnetTransport`/`AddSharpMudCliTransport` accordingly —
+      `Dockerfile` sets `SHARPMUD_MODE=telnet` by default and expects it to
+      work; needs a real test proving that default still starts the Telnet
+      transport post-refactor, not just an assumption.
 - [ ] **Update the actual `Dockerfile`, not just docs referencing it** —
       flagged independently in two rounds of PR review (self-review and
       Codex): it currently `COPY`s/restores/publishes
@@ -236,21 +258,31 @@ bundled into this plan's "done").
       delegates to it directly (no custom middleware/invocation pipeline —
       see ADR-0006's comparison to `minimal-lambda` for why that's
       deliberately not needed here)
-- [ ] `SharpMudOptions` — `IOptions<T>`-shaped, `DbPath` only, per
-      `coding-standards.md`'s `IOptions<T>` convention; kept as a distinct
-      concern from `HostOptions.Parse`'s env-var/secrets path even though
-      both now live in this same project — `SharpMudOptions` is code-
-      configured wiring, `HostOptions` stays the env-var/CLI-arg parsing
-      path per `security.md`'s reasoning for keeping that one manual, not
-      a second `IOptions<T>` binding for the same thing. **No
-      `TransportMode` enum/property here** (removed per PR review — see
-      the transport task below for why).
+- [ ] **No `SharpMudOptions` type** (removed per PR review — an earlier
+      draft had it duplicating `DbPath` with the trimmed `HostOptions`
+      below, two sources of truth for the same setting with no stated
+      precedence). `HostOptions.Parse`'s env-var/CLI-arg path is the single
+      source of truth for `DbPath`, per `security.md`'s existing reasoning
+      for keeping deployment config manual rather than `IOptions<T>`-bound.
+      Introduce a real `IOptions<T>`-shaped options type later only if a
+      genuine code-configured setting actually needs one.
 - [ ] `HostOptions.cs` — moved in from `src/SharpMud.Host` **trimmed to
       `DbPath` only** (per the Repository reorganization task above, not a
       straight move) — `UseTelnet`/`TelnetPort` don't come with it.
-- [ ] `SessionLoop.cs`/`PasswordHashing.cs` — moved in from
-      `src/SharpMud.Host` per the Repository reorganization task above,
-      namespace updated to `SharpMud.Hosting`, otherwise unchanged.
+- [ ] `PasswordHashing.cs` — moved in from `src/SharpMud.Host` per the
+      Repository reorganization task above, namespace updated to
+      `SharpMud.Hosting`, otherwise unchanged.
+- [ ] `SessionLoop.cs` — moved in from `src/SharpMud.Host`, **converted
+      from `public static class` to a constructor-injected service class**
+      taking `World`/`ICommandParser`/`ICommandRegistry`/`IThingRepository`
+      via the constructor instead of as method parameters — **not** a
+      straight move (caught in PR review, a second time in this plan):
+      today's `RunAsync` takes six non-`CancellationToken` parameters,
+      already past `coding-standards.md`'s 4-parameter limit, and this plan
+      already fixed the identical issue for `LoginFlow`/`PlayerLogin` while
+      missing this sibling. `RunAsync(ISession session, Thing player,
+      CancellationToken ct)` is what's left on the method itself once the
+      rest move to the constructor.
 - [ ] New `IPlayerFactory` interface: `Thing CreatePlayer(World world,
       string username, string passwordHash, Thing startingRoom)`.
 - [ ] `LoginFlow.cs`/`PlayerLogin.cs` — moved in from `src/SharpMud.Host`,
@@ -294,16 +326,36 @@ bundled into this plan's "done").
       which would force every `Hosting` consumer to take both adapter
       packages regardless of need). What `Hosting` *does* expose is
       whatever shared surface the adapter extensions below actually need
-      to call (`SessionLoop.RunAsync`, `LoginFlow.RunAsync`, `GameLoop`
+      to call (the injected `SessionLoop`/`LoginFlow` services, `GameLoop`
       registration, etc.) — see the new `SharpMud.Adapters.Telnet`/
       `SharpMud.Adapters.Cli` tasks below for where the transport-specific
       `BackgroundService`s actually get registered.
 - [ ] `AddSharpMudRuleset(Action<ICommandRegistry> register)` (or
       equivalent) extension point for the consumer's ruleset registration
-      callback, and a world-builder registration point (name/shape TBD
-      during implementation — needs to express "load persisted tree, else
-      call the consumer's builder, then save" without hardcoding
-      `HubWorldBuilder`)
+      callback — **must call `BuiltinCommands.RegisterAll(registry)` itself
+      before invoking the consumer's callback** (caught in PR review:
+      today's `Program.cs` registers built-ins before `ClassicCommands`;
+      an earlier version of this ADR's example only showed the ruleset
+      callback running, which would leave every core verb — `look`/`move`/
+      `quit`/inventory — unregistered and returning `Huh?` for any
+      consumer following the documented pattern). Also a world-builder
+      registration point (name/shape TBD during implementation — needs to
+      express "load persisted tree, else call the consumer's builder, then
+      save" without hardcoding `HubWorldBuilder`).
+- [ ] `GameLoop`'s `BackgroundService` constructor-injects
+      `IEnumerable<ITickable>` and registers whatever's resolved at
+      startup, rather than a second dedicated registration callback
+      alongside `AddSharpMudRuleset` — caught in PR review: today's
+      `Program.cs` constructs `CombatManager` (implements `ITickable`) and
+      registers it with `GameLoop` directly, and nothing in the
+      package-entry-point sketch reproduced that; without it, `kill` would
+      register as a command but never actually advance combat.
+      `WanderManager`/`LinkdeadSweeper` (engine-level, not ruleset-specific)
+      get registered the same way, by `Hosting` itself via its own DI
+      registration — a consumer only needs to
+      `services.AddSingleton<ITickable, MyCombatManager>()` for their own
+      ruleset-specific tickables, same DI pattern already established for
+      `IPlayerFactory`.
 - [ ] **Verify**: does the generic host's default `ConsoleLifetime` handle
       `SIGTERM` correctly on Unix out of the box? If yes, delete the
       hand-rolled `PosixSignalRegistration` code instead of porting it
@@ -475,6 +527,30 @@ bundled into this plan's "done").
       **Done in the design PR** (#8).
 - [ ] `README.md` (root) — update to describe the package-based consumption
       story once implemented, not before
+- [ ] **Update every subsystem doc whose current-state prose cites the old
+      `src/SharpMud.Host` paths/types, not just `engine-vs-ruleset.md`/
+      `deployment.md`** — caught in PR review, a real gap: this task
+      previously listed only two files, but a direct search turns up
+      concrete path/type references that go stale in at least:
+      - `docs/accounts-auth.md` — cites `src/SharpMud.Host/PasswordHashing.cs`,
+        `src/SharpMud.Host/LoginFlow.cs`, `HostRunner.HandleConnectionAsync`,
+        `SharpMud.Host.Tests`, and describes `LoginFlow` as "only used by
+        `HostRunner`'s Telnet path" (no longer accurate once `LoginFlow` is
+        transport-agnostic and both transports use it)
+      - `docs/networking.md` — cites `Host`'s per-connection loop as
+        `SessionLoop.RunAsync`, `HostRunner.RunTelnetAsync`
+      - `docs/persistence.md` — cites `HostOptions`
+        (`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`), `src/SharpMud.Host/Program.cs`
+      - `docs/architecture.md` — project-structure listing includes
+        `SharpMud.Host/` as "composition root"
+      - `docs/README.md` — `deployment.md`'s summary row cites `HostOptions`
+      - `SPEC.md` — cites "a shared `SessionLoop` used by every transport"
+        in a way that should still read true but is worth a pass to confirm
+      Per `documentation.md`, these get updated in the same PR as the
+      behavior change (implementation), not this design PR — but listing
+      them here now is what keeps the implementation PR from missing one,
+      the same reason `engine-vs-ruleset.md`/`deployment.md` were already
+      called out individually above.
 
 ## Critical files
 
@@ -482,11 +558,12 @@ New:
 - `docs/adr/0006-nuget-package-distribution.md`
 - `docs/plans/0006-nuget-package-distribution.md`
 - `src/SharpMud.Hosting/*` — new `SharpMudApplicationBuilder`/
-  `SharpMudApplication`/`SharpMudOptions`/`IPlayerFactory`, plus
-  `SessionLoop.cs`/`PasswordHashing.cs` (unchanged), `HostOptions.cs`
-  (trimmed to `DbPath`), and `LoginFlow.cs`/`PlayerLogin.cs` (converted to
-  constructor-injected services taking `IThingRepository`/`IPlayerFactory`)
-  moved in from `src/SharpMud.Host`
+  `SharpMudApplication`/`IPlayerFactory` (no `SharpMudOptions` type — see
+  above), plus `PasswordHashing.cs` (unchanged), `SessionLoop.cs` (static
+  class converted to constructor-injected service, per above),
+  `HostOptions.cs` (trimmed to `DbPath`), and `LoginFlow.cs`/`PlayerLogin.cs`
+  (converted to constructor-injected services taking
+  `IThingRepository`/`IPlayerFactory`) moved in from `src/SharpMud.Host`
 - `src/SharpMud.Persistence.Sqlite/*`
 - `src/SharpMud.Persistence.DynamoDb/*`
 - `src/SharpMud/SharpMud.csproj` (meta-package)
@@ -522,14 +599,17 @@ Modified:
   two rounds of PR review, a real build/deploy break if missed)
 - `SharpMud.slnx`
 - `.agents/skills/engineering-workflow/references/coding-standards.md`
-- `docs/adr/README.md`, `docs/plans/README.md`, `docs/engine-vs-ruleset.md`, `docs/deployment.md`, `README.md`
+- `docs/adr/README.md`, `docs/plans/README.md`, `docs/engine-vs-ruleset.md`,
+  `docs/deployment.md`, `docs/accounts-auth.md`, `docs/networking.md`,
+  `docs/persistence.md`, `docs/architecture.md`, `docs/README.md`,
+  `SPEC.md`, `README.md`
 
 ## Test plan
 
 - Unit tests for `SharpMud.Hosting`'s new surface
   (`SharpMudApplicationBuilder`/`SharpMudApplication` wiring,
-  `SharpMudOptions` binding) — new coverage, matching `testing.md`'s
-  conventions.
+  `BuiltinCommands`/`IEnumerable<ITickable>` auto-registration) — new
+  coverage, matching `testing.md`'s conventions.
 - Existing `SharpMud.Persistence.Tests` split/adjusted to match the
   core/`Sqlite`/`DynamoDb` project split — regression coverage, not new
   behavior.
@@ -589,11 +669,10 @@ Modified:
   is open. Resolve via the explicit verification task in the
   `SharpMud.Persistence` split section above before assuming the shared
   `Configurations/` tree works unmodified against DynamoDB.
-- Exact shape of the world-builder registration point on
-  `SharpMudOptions`/the builder (how a consumer plugs in their own
-  `HubWorldBuilder`-equivalent) isn't fully designed — implementation will
-  need to work this out concretely, it's sketched but not nailed down in
-  ADR-0006.
+- Exact shape of the world-builder registration point on the builder (how
+  a consumer plugs in their own `HubWorldBuilder`-equivalent) isn't fully
+  designed — implementation will need to work this out concretely, it's
+  sketched but not nailed down in ADR-0006.
 - Whether `GameLoop` itself should take a direct `Microsoft.Extensions.Hosting`
   dependency (become a `BackgroundService` itself) or stay hosting-agnostic
   with a thin wrapper in `SharpMud.Hosting` — implementation-time call, not
