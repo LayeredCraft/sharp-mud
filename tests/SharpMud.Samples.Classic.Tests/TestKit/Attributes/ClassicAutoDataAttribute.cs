@@ -1,7 +1,7 @@
 using AutoFixture;
 using AutoFixture.Xunit3;
 
-namespace SharpMud.Ruleset.Classic.Tests.TestKit.Attributes;
+namespace SharpMud.Samples.Classic.Tests.TestKit.Attributes;
 
 public sealed class ClassicAutoDataAttribute() : AutoDataAttribute(CreateFixture)
 {

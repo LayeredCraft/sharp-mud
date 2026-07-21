@@ -2,8 +2,9 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
+using SharpMud.Ruleset.Classic;
 
-namespace SharpMud.Ruleset.Classic.Tests.Combat;
+namespace SharpMud.Samples.Classic.Tests.Combat;
 
 public sealed class CombatManagerTests
 {

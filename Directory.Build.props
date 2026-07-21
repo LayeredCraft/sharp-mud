@@ -26,19 +26,6 @@
          doc comments per documentation.md - this only suppresses the
          warning, it doesn't relax the convention. -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <!-- AutoFixture.AutoNSubstitute 4.18.1 (latest stable, Nov 2023) caps
-         NSubstitute below 6.0.0 - NuGet correctly flags NU1608 since we're
-         outside that stated range. The integration has been validated
-         against NSubstitute 6.0.0 by this repo's own test suite (108/108
-         passing). Set unconditionally (not gated on IsTestProject) because
-         NU1608 is evaluated during restore, before IsTestProject - set by
-         an early-imported test-package .props file - is available; the
-         same restore-vs-project-body ordering gap as the IsPackable note
-         below. In practice this only ever fires where NSubstitute/
-         AutoFixture.AutoNSubstitute are referenced (test projects), so the
-         broader scope has no real effect elsewhere. Remove once
-         AutoFixture publishes an updated dependency range. -->
-    <NoWarn>$(NoWarn);NU1608</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>

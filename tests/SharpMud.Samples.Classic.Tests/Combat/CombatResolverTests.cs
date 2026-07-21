@@ -1,6 +1,7 @@
 using SharpMud.Engine.Core;
+using SharpMud.Ruleset.Classic;
 
-namespace SharpMud.Ruleset.Classic.Tests.Combat;
+namespace SharpMud.Samples.Classic.Tests.Combat;
 
 public sealed class CombatResolverTests
 {

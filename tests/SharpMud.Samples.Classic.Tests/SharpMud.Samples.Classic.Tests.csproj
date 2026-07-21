@@ -4,7 +4,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Exe</OutputType>
-    <RootNamespace>SharpMud.Ruleset.Classic.Tests</RootNamespace>
+    <RootNamespace>SharpMud.Samples.Classic.Tests</RootNamespace>
     <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
@@ -23,8 +23,8 @@
     <Using Include="AutoFixture.Xunit3" />
     <Using Include="NSubstitute" />
     <Using Include="AwesomeAssertions" />
-    <Using Include="SharpMud.Ruleset.Classic.Tests.TestKit" />
-    <Using Include="SharpMud.Ruleset.Classic.Tests.TestKit.Attributes" />
+    <Using Include="SharpMud.Samples.Classic.Tests.TestKit" />
+    <Using Include="SharpMud.Samples.Classic.Tests.TestKit.Attributes" />
   </ItemGroup>
 
   <ItemGroup>

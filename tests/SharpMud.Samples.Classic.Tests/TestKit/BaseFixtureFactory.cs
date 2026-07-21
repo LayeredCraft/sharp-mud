@@ -1,7 +1,7 @@
 using AutoFixture;
 using AutoFixture.AutoNSubstitute;
 
-namespace SharpMud.Ruleset.Classic.Tests.TestKit;
+namespace SharpMud.Samples.Classic.Tests.TestKit;
 
 public static class BaseFixtureFactory
 {
