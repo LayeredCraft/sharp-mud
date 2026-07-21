@@ -12,7 +12,7 @@ permissions:
   pull-requests: write
 jobs:
   build:
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v10.1
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v10.2
     with:
       solution: "SharpMud.slnx"
       hasTests: true
