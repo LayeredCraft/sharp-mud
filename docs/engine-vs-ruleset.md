@@ -28,23 +28,31 @@ src/
                                (Room/Area/Exit/Lockable/Player-identity/Npc-marker/
                                Wearable/Container), command pipeline, session
                                abstraction, tick loop. Zero ruleset knowledge.
-  SharpMud.Ruleset.Classic/    D&D-flavored ruleset: Race/CharacterClass, stats,
-                               CombatantBehavior, combat resolver, kill/flee
-                               commands, dice-roll character creation.
+  SharpMud.Hosting/            Generic-host composition helpers (WorldContext,
+                               IWorldBuilder, IPlayerFactory, SessionLoop/LoginFlow,
+                               AddSharpMud* extensions). Ruleset-agnostic.
+  SharpMud.Persistence/        EF Core repositories, provider-agnostic.
                                References Engine only.
-  SharpMud.Persistence/        EF Core repositories. References Engine only.
-  SharpMud.Adapters.Cli/       Local stdin/stdout ISession. References Engine only.
-  SharpMud.Host/               Composition root. References everything,
-                               including the specific ruleset(s) it wants to run,
-                               and owns the hand-built hub world content.
+  SharpMud.Adapters.Cli/       Local stdin/stdout ISession. References Hosting.
+samples/
+  SharpMud.Samples.Classic/    D&D-flavored sample ruleset: Race/CharacterClass,
+                               stats, CombatantBehavior, combat resolver, kill/flee
+                               commands, dice-roll character creation, PLUS the
+                               composition root (Program.cs) that references
+                               everything and owns the hand-built hub world content.
 ```
 
-Dependency direction is stricter than before: `Ruleset.Classic → Engine` only
-(never the reverse). `Host` is the only project allowed to know about a
-specific ruleset — this is what makes "swap the ruleset" mean something. A
-different game would be `SharpMud.Ruleset.SciFi` (or whatever), referencing
-`SharpMud.Engine` the exact same way, with its own `Host`-equivalent wiring it
-in instead of `Ruleset.Classic`.
+Dependency direction is stricter than before: a ruleset like the sample
+depends on `Engine`/`Hosting` only (never the reverse). Nothing under `src/`
+is allowed to know about a specific ruleset — this is what makes "swap the
+ruleset" mean something. A different game would be its own sample/consumer
+project (e.g. `SharpMud.Samples.SciFi`), referencing `SharpMud.Engine`/
+`SharpMud.Hosting` the exact same way, with its own composition root wiring
+it in instead of `SharpMud.Samples.Classic`. See
+[ADR-0006](adr/0006-nuget-package-distribution.md)/
+[PLAN-0006](plans/0006-nuget-package-distribution.md) for how this split is
+now distributed as NuGet packages (`SharpMud.*`) plus a sample consumer,
+rather than a single solution with one hardcoded ruleset.
 
 ## `Thing` + `Behavior`
 
@@ -192,9 +200,9 @@ exit canceling a move, a full container canceling an item pickup).
   engine-level, not ruleset-level, since it depends only on `NpcBehavior`/
   `ExitBehavior` — no combat or stat system involved. First real validation
   that the split holds for a whole feature, not just data classes:
-  `SharpMud.Ruleset.Classic.Tests` never had to change for this to work.
+  `SharpMud.Samples.Classic.Tests` never had to change for this to work.
 
-## Ruleset-level behaviors (`SharpMud.Ruleset.Classic`)
+## Ruleset-level behaviors (`SharpMud.Samples.Classic`)
 
 - `StatsBehavior` — the D&D-style attributes (`Strength`...`Charisma`),
   `Race`, `CharacterClass`, `Level`, `Experience`, `MaxHitPoints`/
@@ -214,7 +222,7 @@ exit canceling a move, a full container canceling an item pickup).
 `(Thing Actor, Thing CurrentRoom, ...)`. Commands that need ruleset data
 (`AttackCommand` needing `CombatantBehavior`) do `ctx.Actor.FindBehavior<...>()`
 and fail gracefully if absent — this is the actual mechanism that keeps
-`AttackCommand` in `Ruleset.Classic` rather than `Engine`: it's the first
+`AttackCommand` in the sample ruleset rather than `Engine`: it's the first
 command to depend on a ruleset-specific behavior type.
 
 Adopted from WheelMUD (see findings doc §3): a lightweight `CommandGuards`
@@ -257,10 +265,9 @@ revisit if guard logic keeps growing.
   serialize `Thing`+`Behavior` graphs; the JSON shape isn't designed yet.
 - No `AssemblyLoadContext`-based dynamic ruleset loading — see `SPEC.md`
   Deferred/Open Items.
-- How an actual external consumer gets `SharpMud.Engine` at all (not just
-  how this repo's own `Host`/`Ruleset.Classic` are split) is resolved by
-  [ADR-0006](adr/0006-nuget-package-distribution.md), not yet implemented —
-  see [PLAN-0006](plans/0006-nuget-package-distribution.md).
-  `SharpMud.Ruleset.Classic` and this repo's own `Host` move to `samples/`
-  under that plan; this doc's project-structure listing above still
-  describes their current `src/` locations until that plan executes.
+- How an actual external consumer gets `SharpMud.Engine` at all is resolved
+  by [ADR-0006](adr/0006-nuget-package-distribution.md)/
+  [PLAN-0006](plans/0006-nuget-package-distribution.md): `SharpMud.*` NuGet
+  packages plus `SharpMud.Samples.Classic` as a reference consumer under
+  `samples/`. Implemented — this doc's project-structure listing above
+  reflects the current layout.

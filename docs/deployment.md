@@ -7,11 +7,12 @@ server this containerizes.
 ## Container
 
 `Dockerfile` (repo root) is a multi-stage build: `mcr.microsoft.com/dotnet/sdk`
-restores/publishes `SharpMud.Host` (which pulls in every project it
-references — Engine, Ruleset.Classic, Persistence, both adapters), then the
-published output is copied into a much smaller `mcr.microsoft.com/dotnet/runtime`
-Alpine image. Both stages are pinned to the exact SDK/runtime version in
-`global.json` (`11.0.100-preview.5`) — confirmed to exist on MCR as of this
+restores/publishes `SharpMud.Samples.Classic` (which pulls in every project it
+references — Engine, Hosting, Persistence + Persistence.Sqlite, both
+adapters), then the published output is copied into a much smaller
+`mcr.microsoft.com/dotnet/runtime` Alpine image. Both stages are pinned to the
+exact SDK/runtime version in
+`global.json` (`11.0.100-preview.6`) — confirmed to exist on MCR as of this
 writing; see [architecture.md](architecture.md) Open Items for the .NET 10
 LTS fallback plan if that ever stops being true.
 
@@ -22,7 +23,9 @@ docker run -p 4000:4000 sharpmud
 
 ## Runtime Configuration
 
-`HostOptions.Parse` (`src/SharpMud.Host/HostOptions.cs`) resolves the run
+`SharpMudHostOptions.Parse` (`src/SharpMud.Hosting/SharpMudHostOptions.cs`)
+resolves the DB path from an env var; the sample's `Program.cs`
+(`samples/SharpMud.Samples.Classic/Program.cs`) separately resolves the run
 mode from, in precedence order: CLI args, then environment variables, then a
 default (CLI/local mode). This is what lets the same image work both as
 `docker run sharpmud` (telnet, via the Dockerfile's `ENV` defaults) and
@@ -31,9 +34,9 @@ debugging inside the container) without rebuilding.
 
 | Setting | CLI arg | Env var | Default |
 |---|---|---|---|
-| Mode | `--telnet` (first positional arg) | `SHARPMUD_MODE=telnet` | CLI (local single-player) |
-| Telnet port | second positional arg after `--telnet` | `SHARPMUD_TELNET_PORT` | `4000` |
-| SQLite DB path | — | `SHARPMUD_DB_PATH` | `./sharpmud.db` (`/data/sharpmud.db` in the container image) |
+| Mode | `--telnet` (anywhere in args) | `SHARPMUD_MODE=telnet` | CLI (local single-player) |
+| Telnet port | `--telnet <port>` (looked up by index, not positional - can combine with `--db-path` in either order) | `SHARPMUD_TELNET_PORT` | `4000` |
+| SQLite DB path | `--db-path <path>` | `SHARPMUD_DB_PATH` | `./sharpmud.db` (`/data/sharpmud.db` in the container image) |
 
 The Dockerfile sets `SHARPMUD_MODE=telnet`, `SHARPMUD_TELNET_PORT=4000`, and
 `SHARPMUD_DB_PATH=/data/sharpmud.db` as image defaults, plus `EXPOSE 4000`
@@ -46,9 +49,10 @@ discarded along with the container itself on `docker rm`/replace (a restart
 of the *same* container without removal would still happen to work, but that
 is not the real redeploy scenario and shouldn't be relied on).
 
-Graceful shutdown (both `SIGINT` and `SIGTERM`, via `PosixSignalRegistration`
-— see [persistence.md](persistence.md)'s Write Frequency section for why
-`Console.CancelKeyPress` was wrong for this) is what makes `docker stop`
+Graceful shutdown (both `SIGINT` and `SIGTERM`, via the .NET generic host's
+own shutdown sequence — see [persistence.md](persistence.md)'s Write
+Frequency section for why `Console.CancelKeyPress` was wrong for this) is
+what makes `docker stop`
 actually save state before the container exits; see Verified below for a
 real `docker stop` → container removed → fresh container from the same
 image → data still there test.

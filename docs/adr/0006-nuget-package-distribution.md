@@ -745,6 +745,10 @@ own composition root the way today's `SharpMud.Host` does.
 - [docs/research/wheelmud-findings.md](../research/wheelmud-findings.md) —
   WheelMUD prior art and license citation
 - [PLAN-0006](../plans/0006-nuget-package-distribution.md)
+- [ADR-0007](0007-narrow-meta-package-scope.md) — narrows this ADR's
+  meta-package package set (Engine + Hosting + Persistence only, not
+  persistence providers or transport adapters); the rest of this ADR is
+  unchanged
 - `coding-standards.md`'s DI/composition section (corrected in this change)
 - WheelMUD license: <https://github.com/DavidRieman/WheelMUD/blob/main/src/LICENSE.txt>
   (MS-PL — see License and naming above for why this doesn't constrain

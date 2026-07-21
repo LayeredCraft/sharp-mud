@@ -4,7 +4,7 @@ namespace SharpMud.Engine.Commands.Builtin;
 
 // Ruleset-agnostic commands only - kill/attack/flee (and anything else that
 // depends on a ruleset-specific behavior) register themselves separately;
-// see SharpMud.Ruleset.Classic's equivalent registration method, called by
+// see SharpMud.Samples.Classic's equivalent registration method, called by
 // Host alongside this one.
 public static class BuiltinCommands
 {

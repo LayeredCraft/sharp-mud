@@ -10,33 +10,45 @@ tooling/library support proves too immature). Nullable reference types enabled,
 implicit usings on, file-scoped namespaces throughout.
 
 ```
-sharp-mud.sln
+SharpMud.slnx
   src/
-    SharpMud.Engine/           # Thing/Behavior, event system, generic behaviors,
-                                # command pipeline, session abstraction, tick loop.
-                                # Zero deps on Adapters, Persistence, or any ruleset.
-    SharpMud.Ruleset.Classic/  # D&D-flavored ruleset: stats, combat, kill/flee.
-                                # References Engine only - see engine-vs-ruleset.md.
-    SharpMud.Persistence/      # EF Core DbContext + repository implementations.
-                                # References Engine (for domain types / repo interfaces).
-    SharpMud.Adapters.Cli/     # local stdin/stdout ISession implementation.
-    SharpMud.Adapters.Telnet/  # raw TCP ISession + listener - see networking.md.
-    SharpMud.Adapters.Ssh/     # (later)
-    SharpMud.Adapters.WebSocket/ # (later)
-    SharpMud.Host/             # composition root: DI wiring (Microsoft.Extensions.
-                                # DependencyInjection), config, process entry point.
-                                # The only project allowed to know about a specific
-                                # ruleset, and owns the hand-built hub world content.
+    SharpMud.Engine/              # Thing/Behavior, event system, generic behaviors,
+                                   # command pipeline, session abstraction, tick loop.
+                                   # Zero deps on Adapters, Persistence, or any ruleset.
+    SharpMud.Hosting/              # generic-host composition helpers: WorldContext,
+                                   # IWorldBuilder, IPlayerFactory, SessionLoop/LoginFlow,
+                                   # AddSharpMud* extension methods. Ruleset-agnostic -
+                                   # samples/rulesets plug in via those extension points.
+    SharpMud.Persistence/         # EF Core DbContext + repository interfaces, provider-agnostic.
+                                   # References Engine (for domain types / repo interfaces).
+    SharpMud.Persistence.Sqlite/  # SQLite provider package: UseSqlite + IStorageInitializer.
+    SharpMud.Persistence.DynamoDb/ # DynamoDB provider package: UseDynamo (net10.0 only).
+    SharpMud.Adapters.Cli/        # local stdin/stdout ISession implementation.
+    SharpMud.Adapters.Telnet/     # raw TCP ISession + listener - see networking.md.
+    SharpMud.Adapters.Ssh/        # (later)
+    SharpMud.Adapters.WebSocket/  # (later)
+    SharpMud/                     # meta-package: Engine + Hosting + Persistence only -
+                                   # provider/transport packages always explicit (ADR-0007).
+  samples/
+    SharpMud.Samples.Classic/     # D&D-flavored sample ruleset + composition root
+                                   # (Program.cs). References everything; the only
+                                   # place that knows about a specific ruleset and
+                                   # owns the hand-built hub world content.
   tests/
-    SharpMud.Engine.Tests/     # xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions
-    SharpMud.Ruleset.Classic.Tests/
+    SharpMud.Engine.Tests/        # xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions
+    SharpMud.Hosting.Tests/
     SharpMud.Persistence.Tests/
+    SharpMud.Adapters.Cli.Tests/
+    SharpMud.Adapters.Telnet.Tests/
+    SharpMud.Samples.Classic.Tests/
 ```
 
 **Dependency direction (strict, enforced by project references):**
-`Ruleset.Classic → Engine`, `Adapters.* → Engine`, `Persistence → Engine`,
-`Host → everything`. Engine never references Adapters, Persistence, or any
-ruleset — see [engine-vs-ruleset.md](engine-vs-ruleset.md) for the full
+`Adapters.* → Hosting + Engine` (both are direct references, not purely
+transitive through Hosting), `Persistence.* → Persistence + Engine` (same —
+direct references to both, not just Persistence), `Samples.Classic →
+everything`. Engine never references Adapters, Persistence,
+or any ruleset — see [engine-vs-ruleset.md](engine-vs-ruleset.md) for the full
 rationale (this is the actual mechanism behind the "engine, not just a game"
 goal in `SPEC.md`, not just the transport/persistence swappability described
 below). This is also what makes transports (see [networking.md](networking.md))
@@ -61,24 +73,27 @@ Single server-wide heartbeat (per SPEC.md) that calls `OnTickAsync` on every
 registered `ITickable` — combat rounds in progress, NPC AI, regen. Player
 commands (movement, look, chat) are NOT gated by the tick; they execute
 immediately via the command pipeline (see [commands.md](commands.md)).
-`Host` now starts `GameLoop.RunAsync` as a background task alongside the
-session's read loop, since `CombatManager` (see [combat.md](combat.md)) is
-the first real `ITickable` consumer.
+`GameLoopHostedService` (in `SharpMud.Hosting`) runs `IGameLoop.RunAsync` as a
+`BackgroundService` alongside the session read loop, since `CombatManager`
+(see [combat.md](combat.md)) is the first real `ITickable` consumer.
 
 ## Dependency Injection
 
-`Microsoft.Extensions.DependencyInjection`, standard container. `Host` is the
-only project that composes the graph: registers the chosen `IPlayerRepository`/
-`IRoomRepository` implementations (see [persistence.md](persistence.md)),
-the chosen `ISession`-producing adapter (see [networking.md](networking.md)),
-and engine services (`IGameLoop`, `ICommandRegistry`, `ICombatResolver`, etc).
+`Microsoft.Extensions.DependencyInjection`, standard container, wired via the
+.NET generic host (`Microsoft.Extensions.Hosting`). `SharpMud.Hosting`
+provides the `AddSharpMud*` extension methods every project composes with;
+the sample composition root (`samples/SharpMud.Samples.Classic/Program.cs`)
+is the only place that assembles the full graph — the chosen persistence
+provider (see [persistence.md](persistence.md)), the chosen transport
+(see [networking.md](networking.md)), and engine services (`IGameLoop`,
+`ICommandRegistry`, `ICombatResolver`, etc).
 
 ## Testing & Observability
 
 - **Unit tests** (xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions,
   per the `dotnet-unit-testing-patterns` skill conventions) required for:
   `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (now in
-  `SharpMud.Ruleset.Classic.Tests`), `Thing`/`BehaviorManager`/`ThingEvents`
+  `SharpMud.Samples.Classic.Tests`), `Thing`/`BehaviorManager`/`ThingEvents`
   propagation, stat-derivation formulas. These are pure/deterministic enough
   to test without a live session or tick loop — `ISession` and repositories
   are mocked via NSubstitute.

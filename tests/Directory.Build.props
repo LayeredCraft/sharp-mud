@@ -1,0 +1,22 @@
+<Project>
+  <!-- A nested Directory.Build.props doesn't automatically chain to the
+       repo-root one - MSBuild imports only the nearest one found walking
+       up from the project directory. Import the root one explicitly so
+       every setting there (package metadata, DebugType, the IsTestProject
+       IsPackable rule, SourceLink, CS1591 suppression) still applies to
+       everything under tests/. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- NSubstitute 6.0.0 vs AutoFixture.AutoNSubstitute 4.18.1's <6.0.0
+         constraint - see Directory.Packages.props's NSubstitute comment.
+         Scoped to tests/ via this nested props file (not the repo-root
+         one) since only test projects reference either package, and
+         directory-based discovery here needs no IsTestProject condition -
+         unlike a condition in the root Directory.Build.props, which can't
+         see IsTestProject at the point NU1608 is evaluated during restore
+         (it's set by an early-imported test-package .props file that
+         isn't available yet). -->
+    <NoWarn>$(NoWarn);NU1608</NoWarn>
+  </PropertyGroup>
+</Project>

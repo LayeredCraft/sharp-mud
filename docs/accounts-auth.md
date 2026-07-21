@@ -18,7 +18,7 @@ simplest model that still has real auth. Classic small-MUD convention (no
 "alts"); revisit if multi-character-per-login is ever actually wanted.
 
 The local CLI stays login-free, per `SPEC.md` — `LoginFlow` is only used by
-`HostRunner`'s Telnet path.
+`TelnetTransportBackgroundService`'s Telnet path.
 
 ## Identity Model
 
@@ -38,9 +38,9 @@ has been deleted. `Thing.Name` (the display name shown to other players) is
 set equal to `Username` at character creation — there's no separate
 "character name" concept, matching the "no alts" simplification above.
 
-Password hashing: `PasswordHashing` (`src/SharpMud.Host/PasswordHashing.cs`)
+Password hashing: `PasswordHashing` (`src/SharpMud.Hosting/PasswordHashing.cs`)
 wraps `Microsoft.Extensions.Identity.Core`'s `PasswordHasher<TUser>` — PBKDF2
-with a random salt, versioned hash format. Lives in `SharpMud.Host`, not
+with a random salt, versioned hash format. Lives in `SharpMud.Hosting`, not
 Engine — this is login-flow infrastructure, not game logic, and Engine
 shouldn't pick up an Identity package dependency for something only the
 networked login flow needs. `TUser` is unused by the default hasher's
@@ -60,8 +60,9 @@ whether that ever changes).
 
 ## Terminal Login Flow
 
-Implemented in `src/SharpMud.Host/LoginFlow.cs`, called from
-`HostRunner.HandleConnectionAsync` (replacing the old name-only placeholder):
+Implemented in `src/SharpMud.Hosting/LoginFlow.cs`, called from
+`TelnetTransportBackgroundService.HandleConnectionAsync` (replacing the old
+name-only placeholder):
 
 1. `"Username: "`, read a line. Empty input disconnects.
 2. Look up the username — first among currently-live/online players in
@@ -89,7 +90,8 @@ Implemented in `src/SharpMud.Host/LoginFlow.cs`, called from
    anything but `y`) loops back to the username prompt. `y` → `"Password: "`
    / `"Confirm password: "`, both echo-suppressed; mismatch or empty →
    `"Passwords didn't match."`, loop back to username. Match → hash, create
-   the character via `HubWorldBuilder.CreatePlayer`, and
+   the character via `IPlayerFactory.CreatePlayer` (the sample's
+   `ClassicPlayerFactory` wraps `HubWorldBuilder.CreatePlayer`), and
    `IThingRepository.SaveTreeAsync` it immediately (not waiting for the
    eventual disconnect-triggered save) so a crash right after creation
    doesn't lose the new login.
@@ -117,8 +119,8 @@ tradeoff this project already accepted for v1).
 
 ## Verified
 
-Live, over real TCP against `HostRunner`'s Telnet listener, not just unit
-tests: a brand-new username creates a character (confirmed the `IAC
+Live, over real TCP against `TelnetTransportBackgroundService`'s Telnet
+listener, not just unit tests: a brand-new username creates a character (confirmed the `IAC
 WILL/WONT ECHO` bytes are actually sent, visible as raw bytes to a
 non-compliant test client); 3 consecutive wrong-password attempts are all
 rejected with the generic message and the flow loops back to the username
@@ -130,7 +132,7 @@ confirmed the password hash itself survives a real process restart against
 the same SQLite file — not just an in-memory check — by creating an account,
 restarting the server, and logging in again with the same credentials.
 
-`PasswordHashingTests` (`SharpMud.Host.Tests`) covers: correct password
+`PasswordHashingTests` (`SharpMud.Hosting.Tests`) covers: correct password
 verifies, wrong password fails, and two hashes of the same password are
 never byte-identical (confirms the random salt is actually being used, not
 silently skipped).

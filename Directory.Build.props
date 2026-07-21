@@ -1,0 +1,54 @@
+<Project>
+  <PropertyGroup>
+    <!-- No VersionPrefix - release-drafter resolves the version from
+         conventional-commit PR titles, see
+         docs/adr/0006-nuget-package-distribution.md's Versioning and CI
+         section and .github/workflows/publish-preview.yaml/
+         publish-release.yaml. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/LayeredCraft/sharp-mud</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Authors>Nick Cipollina</Authors>
+    <PackageProjectUrl>https://github.com/LayeredCraft/sharp-mud</PackageProjectUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591 (missing XML doc comment on a public member) is suppressed
+         repo-wide, not fixed here - documentation.md already tracks the
+         zero-XML-doc-comments gap as separate, open backfill work; turning
+         on GenerateDocumentationFile for packaging shouldn't silently turn
+         that into hundreds of build warnings as a side effect of this
+         change. New/substantially-changed public members still get real
+         doc comments per documentation.md - this only suppresses the
+         warning, it doesn't relax the convention. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DebugType>embedded</DebugType>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <LangVersion>latest</LangVersion>
+    <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <!-- Samples/tests never get packed - only src/ packages are consumer-facing. -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)icon.png')" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="" Visible="false" Condition="Exists('$(MSBuildThisFileDirectory)README.md')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <PackageReference Include="Microsoft.SourceLink.GitHub">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

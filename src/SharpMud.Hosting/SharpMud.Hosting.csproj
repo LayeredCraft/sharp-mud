@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SharpMudApplicationBuilder/SharpMudApplication wrap this directly -
+         see docs/adr/0006-nuget-package-distribution.md. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!-- PasswordHashing wraps PasswordHasher<TUser> from this package -
+         see docs/accounts-auth.md / security.md. -->
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="LayeredCraft.StructuredLogging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WorldContext.Initialize is internal - tests need to populate it
+         directly rather than running the full WorldLoaderHostedService. -->
+    <InternalsVisibleTo Include="SharpMud.Hosting.Tests" />
+    <!-- NSubstitute proxies internal interfaces via Castle DynamicProxy,
+         which needs this grant on any assembly whose internal types it
+         mocks - not a real consumer, just how NSubstitute works. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>.NET generic host composition helpers for SharpMud: WorldContext, IWorldBuilder, IPlayerFactory, the login/session flow, and the AddSharpMud* DI extensions.</Description>
+  </PropertyGroup>
+
+</Project>

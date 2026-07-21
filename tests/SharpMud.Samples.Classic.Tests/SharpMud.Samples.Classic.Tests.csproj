@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SharpMud.Samples.Classic.Tests</RootNamespace>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Microsoft Testing Platform (MTP) runner, not VSTest -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="AutoFixture" />
+    <Using Include="AutoFixture.Xunit3" />
+    <Using Include="NSubstitute" />
+    <Using Include="AwesomeAssertions" />
+    <Using Include="SharpMud.Samples.Classic.Tests.TestKit" />
+    <Using Include="SharpMud.Samples.Classic.Tests.TestKit.Attributes" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Testing.Platform" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="AutoFixture" />
+    <PackageReference Include="AutoFixture.Xunit3" />
+    <PackageReference Include="AutoFixture.AutoNSubstitute" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="AwesomeAssertions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\SharpMud.Samples.Classic\SharpMud.Samples.Classic.csproj" />
+  </ItemGroup>
+
+</Project>

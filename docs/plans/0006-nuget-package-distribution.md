@@ -2,7 +2,7 @@
 
 **Implements:** [ADR-0006](../adr/0006-nuget-package-distribution.md)
 
-**Status:** Not Started
+**Status:** Done
 
 **Last updated:** 2026-07-20
 
@@ -40,9 +40,9 @@ bundled into this plan's "done").
 
 ### Repository reorganization
 
-- [ ] `git mv src/SharpMud.Ruleset.Classic samples/SharpMud.Samples.Classic`
+- [x] `git mv src/SharpMud.Ruleset.Classic samples/SharpMud.Samples.Classic`
       (preserve history — this becomes the single consolidated project)
-- [ ] **Update the merged project's `.csproj`, not just its file
+- [x] **Update the merged project's `.csproj`, not just its file
       contents** — caught in PR review: `SharpMud.Ruleset.Classic.csproj`
       today is a plain class library (no `OutputType`, no `Serilog`/config/
       adapter references) — none of what `Program.cs` needs once it moves
@@ -55,7 +55,7 @@ bundled into this plan's "done").
       logging-provider choice, not something `Hosting` should hardcode).
       Skipping this leaves a project with `Program.cs` in it that doesn't
       build.
-- [ ] **Split `src/SharpMud.Host`'s files by whether they're
+- [x] **Split `src/SharpMud.Host`'s files by whether they're
       ruleset-specific or genuinely generic — don't move all of it to
       `samples/` as one block** (caught in PR review: an earlier version of
       this task sent everything to `samples/`, which would strand
@@ -143,17 +143,17 @@ bundled into this plan's "done").
         (the sample), referencing `SharpMud.Hosting` and whichever
         transport package(s) it wants, not one project referencing another
         app project.
-- [ ] Move `HubWorldBuilder` (and any other hand-built hub content) into
+- [x] Move `HubWorldBuilder` (and any other hand-built hub content) into
       the consolidated project — it's sample content per ADR-0006, not
       engine
-- [ ] `git mv src/SharpMud.Host/appsettings.json
+- [x] `git mv src/SharpMud.Host/appsettings.json
       samples/SharpMud.Samples.Classic/appsettings.json`, and add the same
       `<Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />`
       item (per ADR-0003) to the new sample's `.csproj` — caught in PR
       review: `Program.cs` loads it with `optional: false`, so without
       this the sample fails at startup, not just at some later config
       lookup.
-- [ ] **Move each test project to follow its production code, not as one
+- [x] **Move each test project to follow its production code, not as one
       block** — mirrors the split above, not the "everything to `samples/`"
       version this task previously described:
       - `git mv tests/SharpMud.Ruleset.Classic.Tests
@@ -202,7 +202,7 @@ bundled into this plan's "done").
       in PR review) — but `HostOptionsTests`/`LoginFlowTests` specifically
       need real edits, not just a `git mv`, because the signatures/types
       they test are changing.
-- [ ] Rewrite `samples/SharpMud.Samples.Classic/Program.cs` against
+- [x] Rewrite `samples/SharpMud.Samples.Classic/Program.cs` against
       `SharpMud.Hosting`'s builder — this is the concrete proof that the
       ~130 lines of generic plumbing identified in ADR-0006's Context
       actually collapse to a few lines, in a single project alongside the
@@ -218,7 +218,7 @@ bundled into this plan's "done").
       `Dockerfile` sets `SHARPMUD_MODE=telnet` by default and expects it to
       work; needs a real test proving that default still starts the Telnet
       transport post-refactor, not just an assumption.
-- [ ] **Update the actual `Dockerfile`, not just docs referencing it** —
+- [x] **Update the actual `Dockerfile`, not just docs referencing it** —
       flagged independently in two rounds of PR review (self-review and
       Codex): it currently `COPY`s/restores/publishes
       `src/SharpMud.Host/SharpMud.Host.csproj` and
@@ -238,27 +238,27 @@ bundled into this plan's "done").
       lines stay as-is — they're still consumed by the sample's
       `Program.cs`, which per the `HostOptions` split above is exactly
       where transport-mode selection now lives.
-- [ ] Update `docs/engine-vs-ruleset.md`'s project-structure listing and
+- [x] Update `docs/engine-vs-ruleset.md`'s project-structure listing and
       `docs/deployment.md`'s Dockerfile references to the new paths
 
 ### `SharpMud.Hosting` (new project)
 
-- [ ] `src/SharpMud.Hosting/SharpMud.Hosting.csproj` — `PackageReference`s
+- [x] `src/SharpMud.Hosting/SharpMud.Hosting.csproj` — `PackageReference`s
       to `Microsoft.Extensions.Hosting` **and**
       `Microsoft.Extensions.Identity.Core` (needed by `PasswordHashing.cs`
       — caught in PR review, an earlier version of this plan/ADR-0006's
       package table said `Hosting` needed nothing beyond
       `Microsoft.Extensions.Hosting`)
-- [ ] `SharpMudApplicationBuilder : IHostApplicationBuilder` — wraps
+- [x] `SharpMudApplicationBuilder : IHostApplicationBuilder` — wraps
       `Host.CreateApplicationBuilder(args)`, delegates
       `Services`/`Configuration`/`Environment`/`Logging`/`Metrics`/
       `Properties`/`ConfigureContainer` straight through; static
       `SharpMudApplication.CreateBuilder(args)` factory
-- [ ] `SharpMudApplication : IHost` — wraps the built `IHost`; `RunAsync`
+- [x] `SharpMudApplication : IHost` — wraps the built `IHost`; `RunAsync`
       delegates to it directly (no custom middleware/invocation pipeline —
       see ADR-0006's comparison to `minimal-lambda` for why that's
       deliberately not needed here)
-- [ ] **No `SharpMudOptions` type** (removed per PR review — an earlier
+- [x] **No `SharpMudOptions` type** (removed per PR review — an earlier
       draft had it duplicating `DbPath` with the trimmed `HostOptions`
       below, two sources of truth for the same setting with no stated
       precedence). `HostOptions.Parse`'s env-var/CLI-arg path is the single
@@ -266,13 +266,13 @@ bundled into this plan's "done").
       for keeping deployment config manual rather than `IOptions<T>`-bound.
       Introduce a real `IOptions<T>`-shaped options type later only if a
       genuine code-configured setting actually needs one.
-- [ ] `HostOptions.cs` — moved in from `src/SharpMud.Host` **trimmed to
+- [x] `HostOptions.cs` — moved in from `src/SharpMud.Host` **trimmed to
       `DbPath` only** (per the Repository reorganization task above, not a
       straight move) — `UseTelnet`/`TelnetPort` don't come with it.
-- [ ] `PasswordHashing.cs` — moved in from `src/SharpMud.Host` per the
+- [x] `PasswordHashing.cs` — moved in from `src/SharpMud.Host` per the
       Repository reorganization task above, namespace updated to
       `SharpMud.Hosting`, otherwise unchanged.
-- [ ] `SessionLoop.cs` — moved in from `src/SharpMud.Host`, **converted
+- [x] `SessionLoop.cs` — moved in from `src/SharpMud.Host`, **converted
       from `public static class` to a constructor-injected service class**
       taking `World`/`ICommandParser`/`ICommandRegistry`/`IThingRepository`
       via the constructor instead of as method parameters — **not** a
@@ -283,9 +283,9 @@ bundled into this plan's "done").
       missing this sibling. `RunAsync(ISession session, Thing player,
       CancellationToken ct)` is what's left on the method itself once the
       rest move to the constructor.
-- [ ] New `IPlayerFactory` interface: `Thing CreatePlayer(World world,
+- [x] New `IPlayerFactory` interface: `Thing CreatePlayer(World world,
       string username, string passwordHash, Thing startingRoom)`.
-- [ ] `LoginFlow.cs`/`PlayerLogin.cs` — moved in from `src/SharpMud.Host`,
+- [x] `LoginFlow.cs`/`PlayerLogin.cs` — moved in from `src/SharpMud.Host`,
       **converted from `public static class` to constructor-injected
       service classes taking `IThingRepository`/`IPlayerFactory`** (per the
       Repository reorganization task above) — not a straight move and
@@ -295,15 +295,15 @@ bundled into this plan's "done").
       a consumer's login/session handling work out of the package instead
       of requiring copied sample code — the concrete gap caught in PR
       review.
-- [ ] Register `LoginFlow`/`PlayerLogin` in `SharpMud.Hosting`'s DI setup
+- [x] Register `LoginFlow`/`PlayerLogin` in `SharpMud.Hosting`'s DI setup
       (whatever shape that takes — `AddSharpMud(...)`-style extension or
       direct `Services.AddScoped<LoginFlow>()`/etc., implementation's
       call).
-- [ ] `GameLoop` registered as a `BackgroundService` (or a thin
+- [x] `GameLoop` registered as a `BackgroundService` (or a thin
       `BackgroundService` wrapper around it, if `GameLoop` itself shouldn't
       take a direct `Microsoft.Extensions.Hosting` dependency — decide
       during implementation which project should own that coupling)
-- [ ] **Explicit owner for the shutdown-time whole-world save** — caught in
+- [x] **Explicit owner for the shutdown-time whole-world save** — caught in
       PR review: today's `Program.cs` does `await
       repository.SaveTreeAsync(hubArea, CancellationToken.None)` after the
       session loop/listener wind down but before the final `gameLoopTask`
@@ -319,7 +319,7 @@ bundled into this plan's "done").
       `SharpMud.Hosting`, not left as only a Verification-section check —
       needs the world root/hub `Thing` reference, which ties to the
       still-open world-builder registration point (see Open Questions).
-- [ ] **No transport wiring lives here** — `Hosting` must not reference
+- [x] **No transport wiring lives here** — `Hosting` must not reference
       `SharpMud.Adapters.Telnet`/`SharpMud.Adapters.Cli` (caught in PR
       review: an earlier version of this task had `Hosting` itself
       instantiate `TelnetListener` and branch on a `TransportMode` enum,
@@ -330,7 +330,7 @@ bundled into this plan's "done").
       registration, etc.) — see the new `SharpMud.Adapters.Telnet`/
       `SharpMud.Adapters.Cli` tasks below for where the transport-specific
       `BackgroundService`s actually get registered.
-- [ ] `AddSharpMudRuleset(Action<ICommandRegistry> register)` (or
+- [x] `AddSharpMudRuleset(Action<ICommandRegistry> register)` (or
       equivalent) extension point for the consumer's ruleset registration
       callback — **must call `BuiltinCommands.RegisterAll(registry)` itself
       before invoking the consumer's callback** (caught in PR review:
@@ -342,7 +342,7 @@ bundled into this plan's "done").
       registration point (name/shape TBD during implementation — needs to
       express "load persisted tree, else call the consumer's builder, then
       save" without hardcoding `HubWorldBuilder`).
-- [ ] `GameLoop`'s `BackgroundService` constructor-injects
+- [x] `GameLoop`'s `BackgroundService` constructor-injects
       `IEnumerable<ITickable>` and registers whatever's resolved at
       startup, rather than a second dedicated registration callback
       alongside `AddSharpMudRuleset` — caught in PR review: today's
@@ -356,20 +356,20 @@ bundled into this plan's "done").
       `services.AddSingleton<ITickable, MyCombatManager>()` for their own
       ruleset-specific tickables, same DI pattern already established for
       `IPlayerFactory`.
-- [ ] **Verify**: does the generic host's default `ConsoleLifetime` handle
+- [x] **Verify**: does the generic host's default `ConsoleLifetime` handle
       `SIGTERM` correctly on Unix out of the box? If yes, delete the
       hand-rolled `PosixSignalRegistration` code instead of porting it
       into `Hosting` — don't re-solve an already-fixed problem blind to
       whether it's already fixed. If no, port the existing fix forward.
-- [ ] XML doc comments on every public member per `documentation.md`
+- [x] XML doc comments on every public member per `documentation.md`
 
 ### `SharpMud.Adapters.Telnet` transport wiring (new tasks on an existing project)
 
-- [ ] Add a `ProjectReference` from `SharpMud.Adapters.Telnet` to
+- [x] Add a `ProjectReference` from `SharpMud.Adapters.Telnet` to
       `SharpMud.Hosting` — the dependency direction flips relative to
       today (`Hosting` must never reference `Adapters.Telnet`, per the
       `SharpMud.Hosting` task section above).
-- [ ] Fold `HostRunner.cs`'s logic (moved in from `src/SharpMud.Host` per
+- [x] Fold `HostRunner.cs`'s logic (moved in from `src/SharpMud.Host` per
       the Repository reorganization task) into an
       `AddSharpMudTelnetTransport(int port)` DI extension — a
       `BackgroundService` constructor-injected with `World`/
@@ -384,31 +384,31 @@ bundled into this plan's "done").
       exception-isolation shape `HostRunner.HandleConnectionAsync` already
       has today. Where `StartingRoom` comes from is tied to the
       still-open world-builder registration point — see Open Questions.
-- [ ] XML doc comments per `documentation.md`.
+- [x] XML doc comments per `documentation.md`.
 
 ### `SharpMud.Adapters.Cli` transport wiring (new tasks on an existing project)
 
-- [ ] Add a `ProjectReference` from `SharpMud.Adapters.Cli` to
+- [x] Add a `ProjectReference` from `SharpMud.Adapters.Cli` to
       `SharpMud.Hosting`, same reasoning as Telnet above.
-- [ ] `AddSharpMudCliTransport()` DI extension covering what today's
+- [x] `AddSharpMudCliTransport()` DI extension covering what today's
       `Program.cs` CLI branch does inline: construct a `ConsoleSession`,
       resolve/create the player via the injected `PlayerLogin` service
       (constructor-injected `IThingRepository`/`IPlayerFactory`, not a
       `createPlayer` parameter — per the `LoginFlow`/`PlayerLogin` fix
       above), run `SessionLoop.RunAsync`.
-- [ ] XML doc comments per `documentation.md`.
+- [x] XML doc comments per `documentation.md`.
 
 ### `SharpMud.Persistence` split
 
-- [ ] Remove `Microsoft.EntityFrameworkCore.Sqlite`/
+- [x] Remove `Microsoft.EntityFrameworkCore.Sqlite`/
       `SQLitePCLRaw.lib.e_sqlite3` `PackageReference`s from
       `SharpMud.Persistence.csproj` — core stays provider-agnostic
       (`Microsoft.EntityFrameworkCore`/`.Relational` only)
-- [ ] New `src/SharpMud.Persistence.Sqlite/` — the removed package refs,
+- [x] New `src/SharpMud.Persistence.Sqlite/` — the removed package refs,
       plus `AddSharpMudSqlitePersistence(string dbPath)` extension
       wrapping today's `UseSqlite(...)` call site (moved out of
       `Program.cs`)
-- [ ] **Verify before building `SharpMud.Persistence.DynamoDb`**: does
+- [x] **Verify before building `SharpMud.Persistence.DynamoDb`**: does
       `EntityFrameworkCore.DynamoDb` actually accept the shared
       `Configurations/` classes as-is? `ThingConfiguration`/
       `BehaviorConfiguration`'s `ToTable(...)` and single-property
@@ -425,43 +425,49 @@ bundled into this plan's "done").
       fails at model-validation time. This is a real go/no-go check, not a
       formality — do it before writing `SharpMud.Persistence.DynamoDb`'s
       other tasks below.
-- [ ] New `src/SharpMud.Persistence.DynamoDb/` — references
+- [x] New `src/SharpMud.Persistence.DynamoDb/` — references
       `EntityFrameworkCore.DynamoDb 10.0.0` (the current stable release,
       confirmed against NuGet directly — see ADR-0006's package table),
       targeting this project's `net10.0` TFM specifically since the
       provider is an EF Core 10 build, not EF Core 11, equivalent
       `AddSharpMudDynamoDbPersistence(...)` extension
-- [ ] Update `samples/SharpMud.Samples.Classic` to consume
+- [x] Update `samples/SharpMud.Samples.Classic` to consume
       `SharpMud.Persistence.Sqlite`'s extension instead of the inline
       `UseSqlite(...)` call
 
 ### Packaging metadata + CI
 
-- [ ] Root `Directory.Build.props` — `PackageLicenseExpression` (MIT),
+- [x] Root `Directory.Build.props` — `PackageLicenseExpression` (MIT),
       `RepositoryUrl`, `Authors`, `PackageProjectUrl`, `PackageIcon`,
       `PackageReadmeFile`, `GenerateDocumentationFile`, `DebugType=embedded`,
       `Microsoft.SourceLink.GitHub` — matching `optimized-enums`'/
       `structured-logging`'s shape exactly; no `VersionPrefix` (release-drafter
       resolves the version, per ADR-0006)
-- [ ] Root `icon.png`
-- [ ] Root `LICENSE` (MIT)
-- [ ] `NOTICE.md` (or a README section) crediting WheelMUD as design
+- [x] Root `icon.png`
+- [x] Root `LICENSE` (MIT)
+- [x] `NOTICE.md` (or a README section) crediting WheelMUD as design
       inspiration, per ADR-0006's License and naming section — not a legal
       requirement, matches this project's existing citation discipline
-- [ ] Set `IsPackable=true` (or leave default) on every `src/` project
+- [x] Set `IsPackable=true` (or leave default) on every `src/` project
       above; confirm `samples/` projects are `IsPackable=false` explicitly
       so a solution-wide `dotnet pack` never emits sample packages
-- [ ] New `src/SharpMud/SharpMud.csproj` — the meta-package: no code,
-      **`ProjectReference`s (not `PackageReference`s) to every other
-      `SharpMud.*` project** — verified experimentally: `dotnet pack`
-      automatically translates a `ProjectReference` to a packable project
-      into a `<dependency>` entry in the resulting `.nuspec`, at that
-      project's own version, with no requirement that the referenced
+- [x] New `src/SharpMud/SharpMud.csproj` — the meta-package: no code,
+      **`ProjectReference`s (not `PackageReference`s) to `SharpMud.Engine`,
+      `SharpMud.Hosting`, and `SharpMud.Persistence`** — narrowed from an
+      initial "every other `SharpMud.*` project" scope to just these three
+      per [ADR-0007](../adr/0007-narrow-meta-package-scope.md), caught in
+      later PR review: the original all-inclusive scope silently pulled in
+      an unused DynamoDB SDK dependency and Telnet listener for every
+      consumer. `ProjectReference`, not `PackageReference`, still applies
+      for the same reason either way — verified experimentally: `dotnet
+      pack` automatically translates a `ProjectReference` to a packable
+      project into a `<dependency>` entry in the resulting `.nuspec`, at
+      that project's own version, with no requirement that the referenced
       package already exist on any feed. A literal `PackageReference`
       instead would fail restore on the very first `dotnet pack
       SharpMud.slnx` — none of the sibling packages exist on any feed
       until *after* that first pack/publish — caught in PR review.
-- [ ] `.github/workflows/publish-preview.yaml` — push to `main` →
+- [x] `.github/workflows/publish-preview.yaml` — push to `main` →
       `devops-templates`' `publish-preview.yml@v10.1` +
       `LayeredCraft/devops-templates/.github/actions/nuget-push@v10.1` (the
       full `{owner}/{repo}/{path}@{ref}` reference — a bare
@@ -473,9 +479,9 @@ bundled into this plan's "done").
       packages publish as `X.Y.Z-alpha.<run_number>` while this package set
       is in its alpha stage; revisit this input once it graduates out of
       alpha
-- [ ] `.github/workflows/publish-release.yaml` — same shape, triggered on
+- [x] `.github/workflows/publish-release.yaml` — same shape, triggered on
       `release: published`
-- [ ] Multi-target `net10.0;net11.0` on every packaged `src/` project;
+- [x] Multi-target `net10.0;net11.0` on every packaged `src/` project;
       **verify** the codebase actually compiles clean against `net10.0` —
       if any `net11.0`-only API is in use, resolve via `#if` gating or
       confirm it's acceptable to require `net11.0` after all (a real
@@ -483,19 +489,19 @@ bundled into this plan's "done").
 
 ### Documentation site (GitHub Pages)
 
-- [ ] New top-level `docsite/` directory (exact name TBD) — the Zensical
+- [x] New top-level `docsite/` directory (exact name TBD) — the Zensical
       site source, kept separate from `docs/`'s existing ADR/plan/subsystem
       content per ADR-0006's Documentation site section
-- [ ] `pyproject.toml`/`uv.lock` (Zensical + `mdformat` toolchain, matching
+- [x] `pyproject.toml`/`uv.lock` (Zensical + `mdformat` toolchain, matching
       `dynamodb-efcore-provider`'s dependency set), `zensical.toml` with a
       minimal curated `nav` (Home, Getting Started to start — expand as
       real content lands)
-- [ ] `.github/workflows/docs.yaml` — PR builds (no deploy) + push-to-`main`
+- [x] `.github/workflows/docs.yaml` — PR builds (no deploy) + push-to-`main`
       build/deploy via `actions/upload-pages-artifact`/`actions/deploy-pages`,
       matching `dynamodb-efcore-provider`'s workflow shape exactly
       (`uv sync --locked --all-extras --dev` → `uv run zensical build`)
 - [ ] Enable GitHub Pages (Pages source: GitHub Actions) in repo settings
-- [ ] Minimal skeleton content: a home page and one real "Getting Started"
+- [x] Minimal skeleton content: a home page and one real "Getting Started"
       walkthrough using the actual packages this plan produces (install
       `SharpMud`, write a one-project `Ruleset` + `Program.cs`, run it) —
       enough to prove the pipeline end-to-end. A full content build-out
@@ -525,9 +531,9 @@ bundled into this plan's "done").
       see ADR-0006"), without rewriting the doc's current-state prose to
       describe unimplemented behavior as current (per `design-decisions.md`).
       **Done in the design PR** (#8).
-- [ ] `README.md` (root) — update to describe the package-based consumption
+- [x] `README.md` (root) — update to describe the package-based consumption
       story once implemented, not before
-- [ ] **Update every subsystem doc whose current-state prose cites the old
+- [x] **Update every subsystem doc whose current-state prose cites the old
       `src/SharpMud.Host` paths/types, not just `engine-vs-ruleset.md`/
       `deployment.md`** — caught in PR review, a real gap: this task
       previously listed only two files, but a direct search turns up
@@ -661,27 +667,29 @@ Modified:
 
 ## Open questions / blockers
 
-- Whether `EntityFrameworkCore.DynamoDb` supports EF Core's TPH
-  `HasDiscriminator<string>(...)` (used by `BehaviorConfiguration` for the
-  `Behavior` subtype hierarchy) is unconfirmed — flagged in PR review.
-  `ToTable(...)` and single-property `HasKey(...)` are confirmed supported
-  per the provider's own docs, but the discriminator/inheritance question
-  is open. Resolve via the explicit verification task in the
-  `SharpMud.Persistence` split section above before assuming the shared
-  `Configurations/` tree works unmodified against DynamoDB.
-- Exact shape of the world-builder registration point on the builder (how
-  a consumer plugs in their own `HubWorldBuilder`-equivalent) isn't fully
-  designed — implementation will need to work this out concretely, it's
-  sketched but not nailed down in ADR-0006.
-- Whether `GameLoop` itself should take a direct `Microsoft.Extensions.Hosting`
-  dependency (become a `BackgroundService` itself) or stay hosting-agnostic
-  with a thin wrapper in `SharpMud.Hosting` — implementation-time call, not
-  pre-decided.
-- Exact name for the docs-site source directory (`docsite/` used as a
-  placeholder throughout this plan) isn't locked in.
+All resolved during implementation:
+
+- ~~Whether `EntityFrameworkCore.DynamoDb` supports EF Core's TPH
+  `HasDiscriminator<string>(...)`~~ — **resolved: yes.** Confirmed directly
+  against the provider's own modeling docs
+  (`docs/modeling/single-table-design.md` in
+  `LayeredCraft/dynamodb-efcore-provider`), not just inferred — TPH
+  discriminators are supported, so the shared `Configurations/` tree works
+  unmodified against DynamoDB.
+- ~~Exact shape of the world-builder registration point~~ — **resolved:
+  implemented as `IWorldBuilder`/`IPlayerFactory` (`SharpMud.Hosting`),
+  populating `WorldContext` via `WorldLoaderHostedService`.** See
+  `docs/engine-vs-ruleset.md`.
+- ~~Whether `GameLoop` should take a direct `Microsoft.Extensions.Hosting`
+  dependency~~ — **resolved: stays hosting-agnostic.**
+  `GameLoopHostedService` (`SharpMud.Hosting`) wraps it as a thin
+  `BackgroundService`; `SharpMud.Engine` never references
+  `Microsoft.Extensions.Hosting`.
+- ~~Exact name for the docs-site source directory~~ — **resolved:
+  `docsite/`,** as used throughout this plan.
 - Full docs-site content (per-package configuration reference, a
   data-modeling-equivalent guide, samples walkthroughs beyond the one
-  Getting Started page) is real, separate writing work — not scheduled
-  against this plan, needs its own follow-up plan once the package
-  mechanics this plan covers are actually done and stable enough to
-  document accurately.
+  Getting Started page) is real, separate writing work — still not
+  scheduled against this plan, needs its own follow-up plan once the
+  package mechanics this plan covers have had time to prove out in
+  practice.

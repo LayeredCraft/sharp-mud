@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned to the stable EF Core 10 build, not an EF Core 11 preview -
+         see docs/adr/0006-nuget-package-distribution.md's package table
+         for how this was confirmed. -->
+    <PackageReference Include="EntityFrameworkCore.DynamoDb" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- EntityFrameworkCore.DynamoDb targets EF Core 10 - this project
+         stays net10.0-only rather than multi-targeting net11.0 like its
+         siblings, since the provider isn't available for EF Core 11 yet. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>DynamoDB provider for SharpMud.Persistence - AddSharpMudDynamoDbPersistence(...) via the EntityFrameworkCore.DynamoDb provider.</Description>
+  </PropertyGroup>
+
+</Project>

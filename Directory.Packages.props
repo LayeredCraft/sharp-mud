@@ -5,14 +5,26 @@
   <ItemGroup>
     <!-- App -->
     <PackageVersion Include="LayeredCraft.OptimizedEnums" Version="1.4.2" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
     <!-- Pin past the transitive SQLitePCLRaw.lib.e_sqlite3 2.1.11 that
          Microsoft.Data.Sqlite.Core 10.0.9 pulls in - flagged NU1903 high
          severity (GHSA-2m69-gcr7-jv3q). -->
-    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.9" />
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
+    <!-- SharpMud.Persistence.DynamoDb - pinned to the stable EF Core 10
+         build, not the net11.0 preview build, per ADR-0006. A net11.0
+         build does exist (11.0.1-preview.93), but as of this writing it
+         depends on Microsoft.EntityFrameworkCore 11.0.0-preview.5.26302.115
+         - one preview behind the preview.6 line pinned below - so taking
+         it now would mean this project alone downgrading off preview.6.
+         Revisit once the provider catches up. Persistence.DynamoDb only
+         ever targets net10.0, so this is never conditional on
+         TargetFramework the way the other EF Core/Microsoft.Extensions.*
+         packages below are. -->
+    <PackageVersion Include="EntityFrameworkCore.DynamoDb" Version="10.0.0" />
+    <!-- NuGet package metadata (Directory.Build.props). Build-time-only
+         tool, versioned in lockstep with the .NET SDK preview builds here -
+         pinned to match global.json's SDK pin, same as the
+         Microsoft.Extensions.*/EF Core net11.0 group below. -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.6.26359.118" />
     <!-- Logging: Serilog + LayeredCraft.StructuredLogging call-site extensions,
          per .agents/skills/engineering-workflow/references/coding-standards.md.
          Console sink only - this repo runs in Docker (docs/deployment.md),
@@ -24,9 +36,30 @@
     <!-- Configuration: appsettings.json + env vars feeding Serilog.Settings.Configuration
          and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
+  </ItemGroup>
+  <!-- Microsoft.Extensions.*/EF Core packages ship parallel net10.0 (stable)
+       and net11.0 (preview) build lines - pin each per-TargetFramework
+       rather than floating one version across both, matching
+       structured-logging's Directory.Packages.props shape. The net11.0
+       preview version is pinned to match global.json's SDK pin
+       (11.0.100-preview.6.26359.118) - bump both together. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+    <!-- SharpMud.Hosting's composition-root builder wraps this directly -
+         see docs/adr/0006-nuget-package-distribution.md. -->
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0-preview.6.26359.118" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test Framework: xUnit v3 on Microsoft.Testing.Platform v2 (MTP v2), per docs/architecture.md.
@@ -34,17 +67,24 @@
          xunit.v3.core.mtp-v1, whose Microsoft.Testing.Platform version is incompatible with
          a directly-referenced/newer Microsoft.Testing.Platform and throws TypeLoadException
          (IDataConsumer) at test-host startup. -->
-    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.3.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.3.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <!-- AutoFixture -->
     <PackageVersion Include="AutoFixture" Version="4.18.1" />
     <PackageVersion Include="AutoFixture.Xunit3" Version="4.19.0" />
     <PackageVersion Include="AutoFixture.AutoNSubstitute" Version="4.18.1" />
-    <!-- Mocking -->
-    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <!-- Mocking. NSubstitute 6.0.0 is outside AutoFixture.AutoNSubstitute
+         4.18.1's stated <6.0.0 range (NU1608) - only unreleased
+         AutoFixture.AutoNSubstitute previews declare support for 6.x so
+         far. Suppressed narrowly for test projects in Directory.Build.props
+         rather than staying on 5.3.0, since the integration has been
+         validated against 6.0.0 by this repo's own test suite. Revisit
+         (and drop the suppression) once AutoFixture.AutoNSubstitute
+         publishes a stable release supporting NSubstitute 6.x. -->
+    <PackageVersion Include="NSubstitute" Version="6.0.0" />
     <!-- Assertions -->
-    <PackageVersion Include="AwesomeAssertions" Version="9.4.0" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
   </ItemGroup>
 </Project>

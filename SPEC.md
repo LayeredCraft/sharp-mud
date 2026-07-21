@@ -1,5 +1,9 @@
 # sharp-mud — Design Spec
 
+**Status: alpha, pre-1.0.** No SemVer compatibility guarantees between
+releases yet — APIs, package boundaries, and persisted-data shape can all
+still change.
+
 A modern C# reimagining of a classic MUD. Faithful to the genre's feel (verb-first
 commands, room-based navigation, persistent world) while using current .NET
 architecture patterns instead of the C/C++ codebases (Diku/Circle/LP-family) that
@@ -22,8 +26,10 @@ persistent public MUD.
   the prior art this is adapted from and
   [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md) for the concrete
   design. The game we're actually building (classic D&D-flavored stats/combat,
-  the hand-built hub) lives in a separate `SharpMud.Ruleset.Classic` project
-  that consumes the engine the same way a third party's game would.
+  the hand-built hub) lives in `samples/SharpMud.Samples.Classic`, a reference
+  consumer of the published `SharpMud.*` NuGet packages
+  ([ADR-0006](docs/adr/0006-nuget-package-distribution.md)) that consumes the
+  engine the same way a third party's game would.
 
 ## Architecture
 
@@ -38,7 +44,7 @@ optionally a `LockableBehavior`). This is adapted directly from WheelMUD (see
 [docs/research/wheelmud-findings.md](docs/research/wheelmud-findings.md)) and
 is the mechanism that makes the engine/ruleset split real: `SharpMud.Engine`
 ships generic, ruleset-agnostic behaviors (rooms, exits, containment,
-identity); `SharpMud.Ruleset.Classic` adds the D&D-flavored ones (stats,
+identity); `SharpMud.Samples.Classic` adds the D&D-flavored ones (stats,
 combat, dice-roll character creation) purely by composing more `Behavior`s
 onto the same `Thing`s — the engine never references ruleset types. Full
 design in [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md).
@@ -133,7 +139,7 @@ derivatives separate "instant" commands from round-based combat resolution.
 3. **Inventory & items**: pick up/drop/wear/wield, carry weight or slots.
 4. **Engine/ruleset split** (retrofit, done now rather than deferred): convert
    the entity model built in phases 1–3 to `Thing`/`Behavior` composition and
-   extract the D&D-specific stat/combat rules into `SharpMud.Ruleset.Classic`,
+   extract the D&D-specific stat/combat rules into `SharpMud.Samples.Classic`,
    per [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md). Doing this
    before NPCs/networking/accounts land means those phases are built against
    the real engine boundary instead of needing their own retrofit later.

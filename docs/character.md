@@ -6,7 +6,7 @@ and [persistence.md](persistence.md) for how a Player is stored.
 
 **Superseded by [engine-vs-ruleset.md](engine-vs-ruleset.md)**: `Player` below
 is no longer a dedicated class — it's a `Thing` composed from an engine-level
-`PlayerBehavior` (identity only) plus a `SharpMud.Ruleset.Classic`
+`PlayerBehavior` (identity only) plus a `SharpMud.Samples.Classic`
 `StatsBehavior` (everything on this page). This doc still describes the
 correct stat shape; engine-vs-ruleset.md describes which project owns which
 piece and why.

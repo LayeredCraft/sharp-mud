@@ -5,14 +5,19 @@ subsystem docs. See [engine-vs-ruleset.md](engine-vs-ruleset.md) for `Thing`/
 `Behavior`, the entities being persisted.
 
 **Implemented and verified**: `IThingRepository` (`SharpMud.Engine.Core`) and
-its EF Core/SQLite implementation `ThingRepository` (`SharpMud.Persistence`)
-exist and are wired into `Host` — see Verified below for what was actually
+its EF Core implementation `ThingRepository` (`SharpMud.Persistence`, provider-
+agnostic) exist, with `SharpMud.Persistence.Sqlite`/`SharpMud.Persistence.DynamoDb`
+providing the actual `AddSharpMud*Persistence` DI registration + provider
+selection (`UseSqlite`/`UseDynamo`) — see Verified below for what was actually
 exercised end-to-end, not just unit-tested.
 
 ## Strategy
 
-EF Core + SQLite, behind a single repository interface in `SharpMud.Engine`
-(`IThingRepository`), implemented in `SharpMud.Persistence`. Game logic
+EF Core, behind a single repository interface in `SharpMud.Engine`
+(`IThingRepository`), implemented once in `SharpMud.Persistence` against a
+provider-agnostic `GameDbContext`. Provider selection (SQLite today, DynamoDB
+via `SharpMud.Persistence.DynamoDb`) happens at the DI registration call site
+in the provider-specific package, not in `GameDbContext` itself. Game logic
 depends only on the interface — never on EF Core, SQLite, or SQL directly
 (see [architecture.md](architecture.md) for the enforced dependency
 direction).
@@ -40,7 +45,7 @@ column serializing the whole behavior list. TPH gets real relational columns
 per behavior type (queryable, no deserialize-to-filter), at the cost of every
 `Behavior` subclass needing an EF Core mapping. Since `Behavior` subclasses
 span two assemblies that must not reference each other the wrong way
-(`SharpMud.Ruleset.Classic` behaviors must not be known to `SharpMud.Engine`
+(sample/ruleset behaviors must not be known to `SharpMud.Engine`
 or `SharpMud.Persistence`), mapping registration is itself split:
 
 ```csharp
@@ -51,16 +56,16 @@ public interface IBehaviorMappingContributor
 ```
 
 `SharpMud.Persistence` maps Engine's own behavior types directly (it already
-references `SharpMud.Engine`); `SharpMud.Ruleset.Classic` provides
-`ClassicBehaviorMappingContributor`, which requires a new `Ruleset.Classic →
-Persistence` project reference (approved as part of this design — Persistence
-still never references back). `Host` registers both via DI
+references `SharpMud.Engine`); `SharpMud.Samples.Classic` provides
+`ClassicBehaviorMappingContributor`, which requires a `Samples.Classic →
+Persistence` project reference (Persistence still never references back). The
+composition root registers both via DI
 (`IEnumerable<IBehaviorMappingContributor>` constructor injection into
 `GameDbContext`). Adding a second ruleset later means writing one new
 contributor class, not touching `Persistence`.
 
 Each entity/behavior type gets its own `IEntityTypeConfiguration<T>` class
-(`SharpMud.Persistence/Configurations/`, `SharpMud.Ruleset.Classic/Configurations/`)
+(`SharpMud.Persistence/Configurations/`, `SharpMud.Samples.Classic/Configurations/`)
 rather than one large inline `OnModelCreating` — `GameDbContext` just calls
 `modelBuilder.ApplyConfigurationsFromAssembly(...)` over its own assembly,
 and each contributor does the same over its own; adding a new behavior type
@@ -140,12 +145,20 @@ publish) for this purpose, visible to `SharpMud.Persistence` via
 
 ## SQLite Path
 
-`SHARPMUD_DB_PATH` env var, following the same precedence pattern as
-`HostOptions` (`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`) — CLI arg, then env
-var, then a default of `./sharpmud.db`. Deploying the Docker container with
-this pointed at a mounted volume is required for the container's data to
-actually survive a redeploy — not solved here, flagged in
-[deployment.md](deployment.md).
+`--db-path <path>` CLI arg, then `SHARPMUD_DB_PATH` env var, then a default
+of `./sharpmud.db` — same precedence pattern as the sample's transport
+selection (`--telnet`/`SHARPMUD_MODE`/`SHARPMUD_TELNET_PORT`), resolved in
+the sample's own `Program.cs`, not in `SharpMudHostOptions.Parse` itself
+(which only ever takes the already-resolved env dict — see
+[architecture.md](architecture.md)/[ADR-0006](adr/0006-nuget-package-distribution.md)
+for why CLI-arg resolution stays a consumer concern, not `SharpMud.Hosting`'s).
+`SqliteStorageInitializer`
+(`SharpMud.Persistence.Sqlite`, an `IStorageInitializer`) runs `EnsureCreatedAsync`
+before the world loader reads/writes anything, so the schema always exists
+first regardless of registration order across packages. Deploying the Docker
+container with `SHARPMUD_DB_PATH` pointed at a mounted volume is required for
+the container's data to actually survive a redeploy — not solved here,
+flagged in [deployment.md](deployment.md).
 
 ## Write Frequency (revised scope)
 
@@ -170,7 +183,11 @@ what `docker stop`/Kubernetes send on a graceful shutdown, i.e. the actual
 scenario this whole design exists for. This was caught during live testing,
 not code review: `CancelKeyPress` was also observed not firing reliably
 without a TTY attached (relevant since a container has none), independent of
-the `SIGTERM` gap. See `src/SharpMud.Host/Program.cs`.
+the `SIGTERM` gap. Now handled by the .NET generic host's own shutdown
+sequence (`IHostApplicationLifetime`) rather than a hand-rolled
+`PosixSignalRegistration` — `ShutdownSaveHostedService`
+(`SharpMud.Hosting`) does the whole-world save in its `StopAsync`. See
+`samples/SharpMud.Samples.Classic/Program.cs`.
 
 ## Verified
 
@@ -192,7 +209,7 @@ suite).
 
 Also: `ThingRepositoryTests` (`SharpMud.Persistence.Tests`) round-trips a
 room+exit pair, a player with `StatsBehavior`/`CombatantBehavior`/a carried
-item (exercises the cross-assembly Ruleset.Classic mapping contributor), a
+item (exercises the cross-assembly Samples.Classic mapping contributor), a
 locked exit with a required key (nullable `Thing` reference resolution),
 `FindPlayerByUsernameAsync` (including that it correctly ignores non-player
 `Thing`s with a matching name), and that a second `SaveTreeAsync` call for

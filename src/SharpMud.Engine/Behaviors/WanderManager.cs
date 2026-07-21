@@ -5,7 +5,7 @@ using SharpMud.Engine.Ticking;
 namespace SharpMud.Engine.Behaviors;
 
 // Registered once with IGameLoop (mirrors CombatManager in
-// SharpMud.Ruleset.Classic) rather than one ITickable per wandering NPC -
+// SharpMud.Samples.Classic) rather than one ITickable per wandering NPC -
 // simpler Host wiring, and it keeps Behaviors free of a dependency on
 // IGameLoop for self-registration.
 public sealed class WanderManager(IWorld world, IRandomSource random) : ITickable

@@ -1,0 +1,166 @@
+using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Core;
+using SharpMud.Engine.Sessions;
+
+namespace SharpMud.Hosting;
+
+// Classic MUD login prompt (docs/accounts-auth.md) - used by every
+// networked transport (Telnet, SSH/WebSocket later); local CLI stays
+// login-free per SPEC.md and never calls this.
+public sealed class LoginFlow
+{
+    // Not yet tuned - docs/accounts-auth.md Open Items flags the exact
+    // retry/lockout policy as still undecided; this is a concrete default,
+    // not a considered final answer.
+    private const int MaxPasswordAttempts = 3;
+
+    private readonly WorldContext _worldContext;
+    private readonly IThingRepository _repository;
+    private readonly IPlayerFactory _playerFactory;
+
+    public LoginFlow(WorldContext worldContext, IThingRepository repository, IPlayerFactory playerFactory)
+    {
+        _worldContext = worldContext;
+        _repository = repository;
+        _playerFactory = playerFactory;
+    }
+
+    // Returns null if the connection should be dropped (empty input,
+    // disconnect mid-flow) - a failed login attempt on its own loops back to
+    // the username prompt rather than dropping the connection.
+    public async Task<Thing?> RunAsync(ISession session, CancellationToken ct)
+    {
+        while (true)
+        {
+            await session.WriteAsync("Username: ", ct);
+            var username = (await session.ReadLineAsync(ct))?.Trim();
+            if (string.IsNullOrWhiteSpace(username))
+                return null;
+
+            var existing = await FindAndAttachExistingAsync(username, ct);
+
+            var player = existing is not null
+                ? await LoginExistingAsync(session, existing, ct)
+                : await MaybeCreateAsync(session, username, ct);
+
+            if (player is not null)
+                return player;
+
+            if (!session.IsConnected)
+                return null;
+        }
+    }
+
+    private async Task<Thing?> FindAndAttachExistingAsync(string username, CancellationToken ct)
+    {
+        var world = _worldContext.World;
+
+        var alreadyLive = world.AllWithBehavior<PlayerBehavior>()
+            .FirstOrDefault(p => p.FindBehavior<PlayerBehavior>()!.Username == username);
+        if (alreadyLive is not null)
+            return alreadyLive;
+
+        var loaded = await _repository.FindPlayerByUsernameAsync(username, ct);
+        if (loaded is null)
+            return null;
+
+        // loaded.Parent is a freshly-reconstructed standalone Thing from
+        // this DB call, not the live room other players are actually in -
+        // attach into the real live room instead (falls back to the hub if
+        // that room no longer exists). See docs/persistence.md.
+        var liveRoom = loaded.Parent is { } lastRoom ? world.GetThing(lastRoom.Id) ?? _worldContext.StartingRoom : _worldContext.StartingRoom;
+        liveRoom.Add(loaded);
+        PlayerLogin.RegisterSubtree(world, loaded);
+        return loaded;
+    }
+
+    private static async Task<Thing?> LoginExistingAsync(ISession session, Thing existing, CancellationToken ct)
+    {
+        var playerBehavior = existing.FindBehavior<PlayerBehavior>()!;
+
+        for (var attempt = 1; attempt <= MaxPasswordAttempts; attempt++)
+        {
+            await session.WriteAsync("Password: ", ct);
+            await session.SetEchoAsync(false, ct);
+            var password = await session.ReadLineAsync(ct);
+            await session.SetEchoAsync(true, ct);
+            await session.WriteLineAsync(string.Empty, ct); // newline the client's own echo-off didn't provide
+
+            if (password is null)
+                return null;
+
+            if (!PasswordHashing.Verify(playerBehavior.PasswordHash, password))
+            {
+                // Generic message regardless of what went wrong - don't
+                // reveal whether the username existed, per docs/accounts-auth.md.
+                await session.WriteLineAsync("Login incorrect.", ct);
+                continue;
+            }
+
+            // Unchanged from before ADR-0004: still actively Playing with a
+            // live session means someone else is using this character right
+            // now - reject, don't steal the session.
+            if (playerBehavior.ConnectionState == ConnectionState.Playing && playerBehavior.Session is { IsConnected: true })
+            {
+                await session.WriteLineAsync("That character is already logged in.", ct);
+                return null;
+            }
+
+            // Linkdead means this character disconnected (not "quit") within
+            // ReconnectPolicy.GraceWindow and is still live in its room -
+            // resume it instead of treating this as a fresh login (ADR-0004).
+            // Re-check the grace window here (not just ConnectionState) -
+            // password entry takes real wall-clock time, so the window can
+            // expire (or LinkdeadSweeper can already have removed this Thing
+            // from the world, leaving it parentless) between the earlier
+            // lookup and this point (PR #1 review).
+            if (playerBehavior.ConnectionState == ConnectionState.Linkdead)
+            {
+                var linkdeadFor = DateTimeOffset.UtcNow - playerBehavior.LinkdeadSinceUtc!.Value;
+                if (linkdeadFor >= ReconnectPolicy.GraceWindow || existing.Parent is null)
+                {
+                    await session.WriteLineAsync("That session has expired. Please log in again.", ct);
+                    return null;
+                }
+
+                playerBehavior.Reconnect();
+                await session.WriteLineAsync("Welcome back.", ct);
+            }
+
+            return existing;
+        }
+
+        return null;
+    }
+
+    private async Task<Thing?> MaybeCreateAsync(ISession session, string username, CancellationToken ct)
+    {
+        await session.WriteAsync("Create a new character? (y/n) ", ct);
+        var confirm = (await session.ReadLineAsync(ct))?.Trim();
+        if (!string.Equals(confirm, "y", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        await session.WriteAsync("Password: ", ct);
+        await session.SetEchoAsync(false, ct);
+        var password = await session.ReadLineAsync(ct);
+        await session.WriteAsync("\r\nConfirm password: ", ct);
+        var confirmPassword = await session.ReadLineAsync(ct);
+        await session.SetEchoAsync(true, ct);
+        await session.WriteLineAsync(string.Empty, ct);
+
+        if (string.IsNullOrEmpty(password) || password != confirmPassword)
+        {
+            await session.WriteLineAsync("Passwords didn't match.", ct);
+            return null;
+        }
+
+        var player = _playerFactory.CreatePlayer(_worldContext.World, username, PasswordHashing.Hash(password), _worldContext.StartingRoom);
+
+        // Persist immediately, not just on the eventual disconnect-triggered
+        // save - a crash before this player's first disconnect shouldn't
+        // lose a freshly created login.
+        await _repository.SaveTreeAsync(player, ct);
+
+        return player;
+    }
+}

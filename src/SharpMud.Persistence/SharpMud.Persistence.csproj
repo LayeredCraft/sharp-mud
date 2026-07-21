@@ -5,15 +5,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Provider-agnostic - no provider PackageReference here. A specific
+         provider (SharpMud.Persistence.Sqlite/.DynamoDb) supplies the
+         UseXxx(...) extension a consumer's DbContextOptions configuration
+         needs - see docs/adr/0006-nuget-package-distribution.md. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net11.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>Provider-agnostic EF Core repository (IThingRepository/GameDbContext) for SharpMud. Pair with SharpMud.Persistence.Sqlite or .DynamoDb for an actual storage provider.</Description>
   </PropertyGroup>
 
 </Project>
