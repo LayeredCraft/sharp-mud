@@ -9,9 +9,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [ main ]
-    paths:
-      - 'docsite/**'
-      - '.github/workflows/docs.yaml'
 
 permissions:
   contents: read
@@ -22,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    name: docs
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
 
     runs-on: ubuntu-latest
@@ -34,23 +32,41 @@ jobs:
         with:
           fetch-depth: 0
 
+      # No paths: filter on the pull_request trigger (unlike push, above) so this
+      # job always runs and can be a required status check without permanently
+      # blocking merge on PRs that never touch docsite/ — see relevant-changes gate below.
+      - name: Check for relevant changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" | grep -qE '^(docsite/|\.github/workflows/docs\.yaml)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install pngquant
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: sudo apt-get update && sudo apt-get install -y pngquant
 
       - name: Setup Python
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         uses: actions/setup-python@v6.3.0
         with:
           python-version-file: "docsite/pyproject.toml"
 
       - name: Install uv
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
       - name: Install the project
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: uv sync --locked --all-extras --dev
 
       - name: Build documentation
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: uv run zensical build -f zensical.toml --clean
 
       - name: Upload artifact
