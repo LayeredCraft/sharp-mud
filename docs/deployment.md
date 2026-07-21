@@ -34,8 +34,8 @@ debugging inside the container) without rebuilding.
 
 | Setting | CLI arg | Env var | Default |
 |---|---|---|---|
-| Mode | `--telnet` (first positional arg) | `SHARPMUD_MODE=telnet` | CLI (local single-player) |
-| Telnet port | second positional arg after `--telnet` | `SHARPMUD_TELNET_PORT` | `4000` |
+| Mode | `--telnet` (anywhere in args) | `SHARPMUD_MODE=telnet` | CLI (local single-player) |
+| Telnet port | `--telnet <port>` (looked up by index, not positional - can combine with `--db-path` in either order) | `SHARPMUD_TELNET_PORT` | `4000` |
 | SQLite DB path | `--db-path <path>` | `SHARPMUD_DB_PATH` | `./sharpmud.db` (`/data/sharpmud.db` in the container image) |
 
 The Dockerfile sets `SHARPMUD_MODE=telnet`, `SHARPMUD_TELNET_PORT=4000`, and

@@ -452,11 +452,17 @@ bundled into this plan's "done").
       above; confirm `samples/` projects are `IsPackable=false` explicitly
       so a solution-wide `dotnet pack` never emits sample packages
 - [x] New `src/SharpMud/SharpMud.csproj` — the meta-package: no code,
-      **`ProjectReference`s (not `PackageReference`s) to every other
-      `SharpMud.*` project** — verified experimentally: `dotnet pack`
-      automatically translates a `ProjectReference` to a packable project
-      into a `<dependency>` entry in the resulting `.nuspec`, at that
-      project's own version, with no requirement that the referenced
+      **`ProjectReference`s (not `PackageReference`s) to `SharpMud.Engine`,
+      `SharpMud.Hosting`, and `SharpMud.Persistence`** — narrowed from an
+      initial "every other `SharpMud.*` project" scope to just these three
+      per [ADR-0007](../adr/0007-narrow-meta-package-scope.md), caught in
+      later PR review: the original all-inclusive scope silently pulled in
+      an unused DynamoDB SDK dependency and Telnet listener for every
+      consumer. `ProjectReference`, not `PackageReference`, still applies
+      for the same reason either way — verified experimentally: `dotnet
+      pack` automatically translates a `ProjectReference` to a packable
+      project into a `<dependency>` entry in the resulting `.nuspec`, at
+      that project's own version, with no requirement that the referenced
       package already exist on any feed. A literal `PackageReference`
       instead would fail restore on the very first `dotnet pack
       SharpMud.slnx` — none of the sibling packages exist on any feed

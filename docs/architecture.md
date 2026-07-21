@@ -38,12 +38,16 @@ SharpMud.slnx
     SharpMud.Engine.Tests/        # xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions
     SharpMud.Hosting.Tests/
     SharpMud.Persistence.Tests/
+    SharpMud.Adapters.Cli.Tests/
+    SharpMud.Adapters.Telnet.Tests/
     SharpMud.Samples.Classic.Tests/
 ```
 
 **Dependency direction (strict, enforced by project references):**
-`Adapters.* → Hosting → Engine`, `Persistence.* → Persistence → Engine`,
-`Samples.Classic → everything`. Engine never references Adapters, Persistence,
+`Adapters.* → Hosting + Engine` (both are direct references, not purely
+transitive through Hosting), `Persistence.* → Persistence + Engine` (same —
+direct references to both, not just Persistence), `Samples.Classic →
+everything`. Engine never references Adapters, Persistence,
 or any ruleset — see [engine-vs-ruleset.md](engine-vs-ruleset.md) for the full
 rationale (this is the actual mechanism behind the "engine, not just a game"
 goal in `SPEC.md`, not just the transport/persistence swappability described
