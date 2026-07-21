@@ -43,6 +43,15 @@
        structured-logging's Directory.Packages.props shape. The net11.0
        preview version is pinned to match global.json's SDK pin
        (11.0.100-preview.6.26359.118) - bump both together. -->
+  <!-- Upper bound is plain (no prerelease marker) here because nothing in
+       this range references a prerelease - NuGet only considers prerelease
+       versions for a package ID if something in the graph explicitly
+       requests one, so a bare 11.0.0 upper bound already excludes all
+       11.0.0 previews on its own (confirmed empirically: an isolated
+       restore against a same-shaped range stayed on the latest stable
+       version even though a same-major-number prerelease outranks it
+       numerically). Contrast with the net11.0 group below, whose lower
+       bound IS a prerelease and therefore needs the -a marker. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="[10.0.10, 11.0.0)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="[10.0.10, 11.0.0)" />
@@ -53,6 +62,20 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="[10.0.10, 11.0.0)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="[10.0.9, 11.0.0)" />
   </ItemGroup>
+  <!-- Lower bound here is itself a prerelease, which flips NuGet's "consider
+       prereleases for this package ID" switch on for the whole dependency
+       graph - so a bare 12.0.0 upper bound would NOT reliably exclude
+       12.0.0 previews once anything else in a consumer's graph requests
+       one (confirmed empirically via a forced version-conflict test: it
+       silently resolved past a bare next-major bound to a same-shaped
+       preview). The -a suffix is an otherwise-meaningless marker chosen
+       only because it sorts below every real prerelease label Microsoft
+       uses (preview, rc, beta, alpha) - 'a' < those alphabetically - so
+       the exclusive upper bound sits below all of them, not just below
+       12.0.0 stable. Bare "-0" is the more common idiom for this (and is
+       what NuGet's own dependency-resolution docs use), but nuget.org's
+       push validator rejects a purely-numeric prerelease label as an
+       invalid Version - this letter-led marker sidesteps that. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
