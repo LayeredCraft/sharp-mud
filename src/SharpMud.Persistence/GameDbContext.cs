@@ -21,7 +21,7 @@ public sealed class GameDbContext(
         // Picks up every IEntityTypeConfiguration<T> in this assembly -
         // Thing, the base Behavior TPH mapping, and every engine-level
         // behavior type. Ruleset-level behaviors register via contributors
-        // (SharpMud.Ruleset.Classic's own ApplyConfigurationsFromAssembly
+        // (SharpMud.Samples.Classic's own ApplyConfigurationsFromAssembly
         // call over its own assembly).
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GameDbContext).Assembly);
 

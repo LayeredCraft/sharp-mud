@@ -1,6 +1,6 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // The D&D-style attribute/derived-stat block from docs/character.md. Attached
 // to whichever Things the ruleset wants to be a "character" - a Thing with

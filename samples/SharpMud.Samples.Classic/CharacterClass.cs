@@ -1,6 +1,6 @@
 using LayeredCraft.OptimizedEnums;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 public sealed partial class CharacterClass : OptimizedEnum<CharacterClass, int>
 {

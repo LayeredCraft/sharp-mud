@@ -1,5 +1,4 @@
 using SharpMud.Engine.Core;
-using SharpMud.Ruleset.Classic;
 
 namespace SharpMud.Samples.Classic.Tests.Combat;
 

@@ -1,7 +1,7 @@
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // Called by Host alongside SharpMud.Engine.Commands.Builtin.BuiltinCommands.RegisterAll -
 // these commands depend on ruleset-specific behaviors (CombatantBehavior),

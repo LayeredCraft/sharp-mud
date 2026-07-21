@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using SharpMud.Ruleset.Classic;
+using SharpMud.Samples.Classic;
 
 namespace SharpMud.Persistence.Tests.TestKit;
 

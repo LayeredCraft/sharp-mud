@@ -1,6 +1,6 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 public sealed record CombatRoundResult(bool Hit, int Damage, bool DefenderDefeated);
 

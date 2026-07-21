@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 public sealed class CombatEncounter
 {

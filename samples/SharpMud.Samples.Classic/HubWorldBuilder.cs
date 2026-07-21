@@ -1,7 +1,7 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // Content, not engine or ruleset - mirrors WheelMUD's separate "Universe"
 // project (docs/research/wheelmud-findings.md). Lives alongside the ruleset

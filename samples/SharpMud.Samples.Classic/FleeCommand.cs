@@ -3,7 +3,7 @@ using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 public sealed class FleeCommand(ICombatManager combatManager, IRandomSource random) : ICommand
 {

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace SharpMud.Ruleset.Classic.Configurations;
+namespace SharpMud.Samples.Classic.Configurations;
 
 public sealed class CombatantBehaviorConfiguration : IEntityTypeConfiguration<CombatantBehavior>
 {

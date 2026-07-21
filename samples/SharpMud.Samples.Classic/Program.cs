@@ -10,7 +10,7 @@ using SharpMud.Engine.Ticking;
 using SharpMud.Hosting;
 using SharpMud.Persistence;
 using SharpMud.Persistence.Sqlite;
-using SharpMud.Ruleset.Classic;
+using SharpMud.Samples.Classic;
 
 var builder = SharpMudApplication.CreateBuilder(args);
 

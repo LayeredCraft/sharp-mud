@@ -1,6 +1,6 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // What used to be the ICombatant interface Player/Npc implemented - now a
 // behavior any Thing can carry (a hostile plant, a turret - anything the

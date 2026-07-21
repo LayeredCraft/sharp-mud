@@ -5,7 +5,7 @@ using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // Registered once with IGameLoop and resolves every active encounter each
 // tick - simpler Host wiring than one ITickable per encounter, and all

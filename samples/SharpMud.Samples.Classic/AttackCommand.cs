@@ -1,7 +1,7 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 public sealed class AttackCommand(ICombatManager combatManager) : ICommand
 {

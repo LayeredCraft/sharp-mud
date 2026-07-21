@@ -8,7 +8,7 @@ namespace SharpMud.Engine.Sessions;
 /// </summary>
 /// <remarks>
 /// A <c>LayeredCraft.OptimizedEnums</c> state machine (ADR-0004), same precedent as
-/// <c>Race</c>/<c>CharacterClass</c> in <c>SharpMud.Ruleset.Classic</c> - the legal
+/// <c>Race</c>/<c>CharacterClass</c> in <c>SharpMud.Samples.Classic</c> - the legal
 /// transitions live on the enum itself via <see cref="CanTransitionTo"/> rather than being
 /// re-checked at every call site that mutates <c>PlayerBehavior.ConnectionState</c>.
 /// </remarks>

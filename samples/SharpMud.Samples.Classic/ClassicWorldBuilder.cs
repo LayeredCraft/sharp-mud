@@ -2,7 +2,7 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 using SharpMud.Hosting;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 /// <summary>The Classic ruleset's <see cref="IWorldBuilder"/> - wraps <see cref="HubWorldBuilder"/> for <see cref="SharpMud.Hosting.WorldLoaderHostedService"/>.</summary>
 public sealed class ClassicWorldBuilder : IWorldBuilder

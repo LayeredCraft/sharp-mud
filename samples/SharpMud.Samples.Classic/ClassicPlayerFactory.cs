@@ -1,7 +1,7 @@
 using SharpMud.Engine.Core;
 using SharpMud.Hosting;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 /// <summary>The Classic ruleset's <see cref="IPlayerFactory"/> - wraps <see cref="HubWorldBuilder.CreatePlayer"/>.</summary>
 public sealed class ClassicPlayerFactory : IPlayerFactory

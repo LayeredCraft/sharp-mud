@@ -1,6 +1,6 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // Diku/Circle-style d20-vs-AC roll (docs/combat.md decision). Level/skill
 // to-hit modifiers and the exact damage formula are still open items there -

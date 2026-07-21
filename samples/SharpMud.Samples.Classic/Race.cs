@@ -1,6 +1,6 @@
 using LayeredCraft.OptimizedEnums;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // LayeredCraft.OptimizedEnums instead of a plain enum specifically because
 // each race will eventually carry its own stat modifiers (docs/character.md

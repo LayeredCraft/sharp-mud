@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SharpMud.Persistence;
 
-namespace SharpMud.Ruleset.Classic;
+namespace SharpMud.Samples.Classic;
 
 // Registers this ruleset's own EF Core mapping for its behavior types
 // (StatsBehavior, CombatantBehavior) - Persistence never references
