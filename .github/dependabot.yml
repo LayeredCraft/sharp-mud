@@ -1,4 +1,15 @@
 version: 2
+
+multi-ecosystem-groups:
+  infrastructure:
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+    open-pull-requests-limit: 25
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
 updates:
   - package-ecosystem: "nuget"
     directory: "/"
@@ -23,3 +34,27 @@ updates:
           - "major"
         patterns:
           - "*"
+
+  - package-ecosystem: "dotnet-sdk"
+    directory: "/"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "uv"
+    directory: "/docsite"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
+    cooldown:
+      default-days: 7
