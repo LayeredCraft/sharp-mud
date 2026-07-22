@@ -204,8 +204,9 @@ Explicitly out of scope for v1, to revisit later:
   depends on this provider (co-developed with Jonas Ha) reaching a usable
   state; SQLite remains the dev/default backend until then.
 - **Hot-swap ruleset/plugin loading**: ruleset assemblies are loaded via a
-  compile-time project reference plus a startup assembly-scan (see
+  compile-time project reference plus explicit DI extension methods a
+  consumer calls at startup (see
   [docs/engine-vs-ruleset.md](docs/engine-vs-ruleset.md)), not a MEF-style
-  drop-a-DLL-in-a-folder mechanism. True dynamic loading
+  drop-a-DLL-in-a-folder mechanism or an attribute-scan. True dynamic loading
   (`AssemblyLoadContext`-based) is deferred until there's a real third party
   wanting to redistribute a ruleset without a sharp-mud source checkout.
