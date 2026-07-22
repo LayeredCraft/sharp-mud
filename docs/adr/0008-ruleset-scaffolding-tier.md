@@ -141,7 +141,7 @@ SharpMud.Engine            unchanged — Thing/Behavior/events, zero ruleset kno
 SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/CombatResolver,
                            ICombatManager/CombatManager, AttackCommand/FleeCommand, moved
                            in from samples/SharpMud.Samples.Classic (see Context — these
-                           five types' actual combat logic has no flavor-specific coupling
+                           these extracted types' actual combat logic has no flavor-specific coupling
                            today, but CombatManager itself carries two seams that must be
                            decoupled before the move, not moved as-is):
                            - XP-award/death-penalty touches into StatsBehavior — likely via
@@ -246,7 +246,7 @@ speculative ruleset just to prove a point.
   the "few lines in `Program.cs`, run a basic game" goal directly, without
   turning content that changes often (Classic's dice formulas, race/class
   values, hub-world content) into a versioned public API.
-- Extraction cost is lower than a fresh design would suggest — five of the
+- Extraction cost is lower than a fresh design would suggest — most of the
   scaffolding tier's core types are already flavor-agnostic in the existing
   codebase. Real design/implementation work remains, though, and shouldn't
   be minimized: decoupling `CombatManager`'s `StatsBehavior` touches and its
