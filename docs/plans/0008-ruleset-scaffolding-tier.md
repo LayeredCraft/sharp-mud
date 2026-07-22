@@ -91,8 +91,12 @@ Explicitly deferred / out of scope for this plan:
         the new packages (currently only has ADR-0008's forward-reference)
   - [ ] Update `combat.md`/`character.md` subsystem docs if their described
         "current state" changes
-  - [ ] `docs/adr/README.md`: flip ADR-0008 to `Accepted` once implementation
-        lands and matches it (or note any divergence)
+  - [ ] `docs/adr/README.md`: once implementation is complete and matches
+        ADR-0008 as written (or any divergence is reconciled), confirm the
+        ADR's `Status` reads `Accepted` — it must already be `Accepted`
+        *before* this plan moves to `In Progress` (see this plan's header
+        and `docs/plans/README.md`'s lifecycle rule); this task is a final
+        consistency check, not the acceptance step itself
 
 ## Critical files
 

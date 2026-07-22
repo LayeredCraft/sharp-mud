@@ -275,7 +275,8 @@ revisit if guard logic keeps growing.
   just its own D&D-specific content) is addressed by
   [ADR-0008](adr/0008-ruleset-scaffolding-tier.md) — a new
   `SharpMud.Ruleset.Rpg` package for the reusable scaffolding, a new minimal
-  `SharpMud.Ruleset.Basic` package as a concrete quick-start leaf, Classic
-  rebuilt on top of both as a still-unpackaged, richer sample. Not yet
-  implemented — this doc's project-structure listing above does not yet
+  `SharpMud.Ruleset.Basic` package as a concrete quick-start leaf sibling to
+  Classic — both built directly on `SharpMud.Ruleset.Rpg`, neither depending
+  on the other — with Classic staying a still-unpackaged, richer sample. Not
+  yet implemented — this doc's project-structure listing above does not yet
   reflect this.
