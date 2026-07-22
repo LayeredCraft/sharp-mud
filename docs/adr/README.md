@@ -67,3 +67,4 @@ the mechanics: numbering, status, and the index.
 | [0005](0005-security-role-model-and-moderation-commands.md) | Security Role Model + Moderation Commands | Accepted |
 | [0006](0006-nuget-package-distribution.md) | NuGet Package Distribution + Sample-Based Ruleset Extraction | Accepted |
 | [0007](0007-narrow-meta-package-scope.md) | Narrow the `SharpMud` Meta-Package to Engine + Hosting + Persistence | Accepted |
+| [0008](0008-ruleset-scaffolding-tier.md) | A Reusable RPG Scaffolding Tier Between `Engine` and Concrete Rulesets | Proposed |
