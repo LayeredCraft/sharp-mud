@@ -182,7 +182,17 @@ SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/
                            `IBehaviorMappingContributor` once `CombatantBehavior` lives in a
                            different assembly, or a saved world containing `CombatantBehavior`
                            hits an unmapped TPH discriminator subtype the moment Classic stops
-                           owning that configuration.
+                           owning that configuration. **This is a real package-boundary
+                           tradeoff, not a free move**: `IBehaviorMappingContributor` is
+                           defined in `SharpMud.Persistence`, so `SharpMud.Ruleset.Rpg` takes a
+                           dependency on `SharpMud.Persistence` to implement it — meaning a
+                           consumer who wants Rpg's combat scaffolding purely in-memory, with
+                           no EF Core involved at all, still pulls in `Persistence`. Accepted
+                           here rather than splitting persistence mapping into a separate
+                           companion package, since no consumer has asked for persistence-free
+                           combat scaffolding and speculatively splitting for a hypothetical
+                           one repeats the mistake this ADR's Considered Options already
+                           reasoned against elsewhere — revisit if that actually comes up.
 
 SharpMud.Ruleset.Basic     NEW, packaged, deliberately minimal — a concrete flavor built on
                            SharpMud.Ruleset.Rpg: a plain numeric stat block (no Race/
@@ -342,3 +352,8 @@ See Decision Outcome above.
   content bootstrap" should be corrected to reflect what it actually is
   (generic item-type behaviors) — tracked here as a known, small
   documentation debt, not blocking this ADR.
+- `SharpMud.Ruleset.Rpg` taking a dependency on `SharpMud.Persistence` (to
+  implement `IBehaviorMappingContributor` for `CombatantBehavior`) means
+  there's no persistence-free path to Rpg's combat scaffolding — accepted
+  for now (see Decision Outcome) since no consumer has asked for one;
+  revisit with a companion persistence-mapping package if that changes.

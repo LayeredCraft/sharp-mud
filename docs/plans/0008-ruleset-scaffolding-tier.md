@@ -93,12 +93,30 @@ Explicitly deferred / out of scope for this plan:
         same instance, `IBehaviorMappingContributor`, the dice service) —
         without this, `Basic`/Classic/a custom ruleset each hand-roll the
         exact scaffolding this ADR exists to provide, verbatim
+  - [ ] Define how `AttackCommand`/`FleeCommand` registration composes with
+        a consumer's own commands. `Hosting`'s `AddSharpMudRuleset(...)` takes
+        a single callback — calling it a second time (once for Rpg's commands,
+        again for `Basic`/Classic's own) registers `ICommandRegistry` as a
+        singleton twice, and DI resolution returns only the *last*
+        registration, silently dropping the first call's commands entirely.
+        This isn't optional wiring detail — without a real answer, either
+        Rpg's `attack`/`flee` or the consumer's own commands go missing.
+        Plausible shapes: `AddSharpMudRpgRuleset(...)` itself takes and
+        forwards a consumer callback (so there's still only one
+        `AddSharpMudRuleset` call total), or `ICommandRegistry` registration
+        becomes additive across multiple sources instead of one factory —
+        exact mechanism is this plan's to decide, same as the other seams
+        above
   - [ ] `csproj`: `Directory.Packages.props` entry, package metadata matching
         the existing `SharpMud.*` packages
 - [ ] New `src/SharpMud.Ruleset.Basic` project
   - [ ] Minimal concrete stats behavior (plain numeric attributes, no
         Race/CharacterClass)
-  - [ ] Default `IWorldBuilder` implementation (small, enough to walk around)
+  - [ ] Default `IWorldBuilder` implementation (small, enough to walk
+        around) — must include at least one `Thing` with `CombatantBehavior`
+        (an NPC) as a valid `attack` target, not just empty rooms; the Goal
+        above promises a fresh character can "walk around and fight
+        something," which a world with nothing to fight doesn't satisfy
   - [ ] `AddSharpMudBasicRuleset(...)` DI extension, options callback for the
         tunable numbers (starting HP, etc.)
   - [ ] Basic's new stats behavior needs its own `IEntityTypeConfiguration<>`
@@ -196,9 +214,12 @@ session/gameplay-facing (`testing.md`): run `samples/SharpMud.Samples.Classic`
 end-to-end, confirm `kill`/`attack`/`flee` behave identically to before the
 extraction. Separately, build a throwaway minimal `Program.cs` against just
 `SharpMud.Ruleset.Basic` (+ `Engine`/`Hosting`/a persistence provider/a
-transport) and confirm a fresh character can walk around and fight something
-— this is the actual "few lines, runnable basic game" claim ADR-0008 makes,
-and needs a real run, not just passing unit tests, to confirm.
+transport) and confirm a fresh character can log in, actually issue `attack`
+against the default world's NPC and see combat resolve (hit/miss/damage,
+not just "command not recognized"), and flee — this is the actual "few
+lines, runnable basic game with working combat" claim ADR-0008 makes, and
+needs a real run exercising the command-registration seam above, not just
+passing unit tests, to confirm.
 
 ## Open questions / blockers
 
