@@ -216,8 +216,12 @@ speculative ruleset just to prove a point.
   values, hub-world content) into a versioned public API.
 - Extraction cost is lower than a fresh design would suggest — five of the
   scaffolding tier's core types are already flavor-agnostic in the existing
-  codebase; the only real design work is decoupling `CombatManager`'s two
-  `StatsBehavior` touches.
+  codebase. Real design/implementation work remains, though, and shouldn't
+  be minimized: decoupling `CombatManager`'s `StatsBehavior` touches and its
+  hard-coded `hubRoom` respawn destination, moving `CombatantBehavior`'s EF
+  Core mapping into a `Ruleset.Rpg`-owned `IBehaviorMappingContributor`, and
+  building the new dice-rolling abstraction over `IRandomSource` are all real
+  work this ADR commits to, not incidental cleanup.
 - Two real consumers (`Basic`, Classic) exercise `Rpg`'s contracts before
   they're locked in, rather than one.
 

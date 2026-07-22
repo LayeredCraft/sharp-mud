@@ -94,6 +94,12 @@ Explicitly deferred / out of scope for this plan:
   - [ ] Default `IWorldBuilder` implementation (small, enough to walk around)
   - [ ] `AddSharpMudBasicRuleset(...)` DI extension, options callback for the
         tunable numbers (starting HP, etc.)
+  - [ ] Basic's new stats behavior needs its own `IEntityTypeConfiguration<>`
+        + `IBehaviorMappingContributor`, wired from `AddSharpMudBasicRuleset(...)`
+        — `GameDbContext.OnModelCreating` only discovers engine configs plus
+        registered contributors (`docs/persistence.md`), so without this a
+        Basic world/player carrying the new behavior hits the same unmapped
+        TPH subtype problem already caught for `CombatantBehavior`
 - [ ] Rebuild `samples/SharpMud.Samples.Classic`
   - [ ] Remove the now-extracted types; reference `SharpMud.Ruleset.Rpg`
         instead
@@ -111,6 +117,15 @@ Explicitly deferred / out of scope for this plan:
         the new packages (currently only has ADR-0008's forward-reference)
   - [ ] Update `combat.md`/`character.md` subsystem docs if their described
         "current state" changes
+  - [ ] Write the actual quick-start guidance the ADR's headline goal
+        promises — a README/docsite getting-started page walking through
+        `dotnet add package SharpMud.Ruleset.Basic` (+ `Engine`/`Hosting`/a
+        persistence provider/a transport adapter) through a runnable basic
+        game, plus package-consumption docs for `SharpMud.Ruleset.Rpg`
+        itself for a consumer building a different ruleset on it. Without
+        this, "few lines in `Program.cs`, run a basic game" is proven by an
+        internal manual test (see Verification) but never actually
+        documented for a real external consumer to follow.
   - [ ] `docs/adr/README.md`: once implementation is complete and matches
         ADR-0008 as written (or any divergence is reconciled), confirm the
         ADR's `Status` reads `Accepted` — it must already be `Accepted`
@@ -141,8 +156,13 @@ Unit coverage mirrors today's Classic combat tests, relocated to
 `CombatManager` encounter lifecycle (start/end/linkdead-freeze/defeat
 handling), `AttackCommand`/`FleeCommand` guard and success paths — same
 `AutoFixture`/`NSubstitute` patterns already established
-(`testing.md`). New coverage in `SharpMud.Ruleset.Basic.Tests` for the
-minimal stat block and default world builder. `SharpMud.Samples.Classic.Tests`
+(`testing.md`). The dice-rolling abstraction is new public scaffolding
+behavior in its own right, not just a `CombatResolver` implementation
+detail — it needs direct tests of its own (dice-count/sides/modifier
+math, and validation/error behavior for invalid input like zero dice or
+zero-sided dice), not incidental coverage via `CombatResolver`'s tests.
+New coverage in `SharpMud.Ruleset.Basic.Tests` for the minimal stat block,
+default world builder, and its own EF Core mapping's round-trip. `SharpMud.Samples.Classic.Tests`
 should need no *behavioral* changes, only reference/namespace updates — if
 it does need behavioral changes, that's a signal the extraction changed
 Classic's actual behavior, not just its packaging. Add a persistence
