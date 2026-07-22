@@ -18,7 +18,17 @@ directly rather than just "considered."
 
 13 assemblies. The load-bearing split: `WheelMUD.Core` (engine) is completely
 separate from `WarriorRogueMage` (a sample ruleset), and `WheelMUD.Universe`
-(default world content) is separate from both.
+is a third, independent sibling — checked directly against its actual file
+list and `.csproj`: it's a library of generic, ruleset-agnostic *item-type*
+behaviors (`WeaponBehavior`/`ArmorBehavior`/`PotionBehavior`/`ContainerBehavior`/
+`CurrencyBehavior`/`PortalBehavior`/`LocksUnlocksBehavior`/etc.), not default
+world/area content as an earlier version of this doc summarized. `Universe`
+references only `Core`/`Data`/`Effects`, never `WarriorRogueMage`, and vice
+versa; both are composed together only at `Main`. See
+[ADR-0008](../adr/0008-ruleset-scaffolding-tier.md)'s Decisions for what this
+means for sharp-mud (short version: nothing directly — sharp-mud already made
+the equivalent call at the `Engine` tier itself, via `WearableBehavior`/
+`EquippedBehavior`, rather than a separate package).
 
 ```
 src/
@@ -31,7 +41,7 @@ src/
 ├── Server/                   WheelMUD.Server — telnet networking, MCCP/MXP/NAWS
 │   └── Telnet/
 ├── Data/, Data.RavenDb/      persistence (RavenDB document store)
-├── Universe/                 default world/area content bootstrap
+├── Universe/                 generic item-type behaviors (weapon/armor/potion/container/...)
 ├── WarriorRogueMage/         sample ruleset (stats/skills/races/combat) built entirely on Core
 ├── Main/, ServerHarness/     entry point / dev harness
 └── Tests/
@@ -409,6 +419,20 @@ don't require adding new delegate pairs to a growing interface.
    hierarchy-accumulation rule, and the command set actually built are in
    [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md)/
    [PLAN-0005](../plans/0005-security-role-model-and-moderation-commands.md).
+
+5. **`Core.DiceService`/`Die`'s dice-rolling concept is adopted, its static
+   singleton is not** - see
+   [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md) for the full record.
+   WheelMUD treats "roll N-sided dice" as an engine-level concern
+   (`DiceService` lives in `WheelMUD.Core`, not `WarriorRogueMage`), which
+   sharp-mud agrees with in spirit, but `DiceService.Instance.GetDie(sides)`
+   is exactly the `XManager.Instance` static-singleton pattern §10 already
+   rejected, and has no multi-die/modifier (`2d6+3`) notation. sharp-mud
+   instead builds a small DI-registered dice-rolling abstraction ("N dice of
+   M sides plus a modifier") over the existing `IRandomSource` primitive, and
+   places it in `SharpMud.Ruleset.Rpg` rather than `SharpMud.Engine` - it's a
+   generic RPG mechanic, not bare randomness, so it doesn't belong at the
+   fully ruleset-agnostic engine tier the way WheelMUD's does.
 
 Going forward, further reconciliation against WheelMUD (moderation/admin
 tooling, session reconnect, world-building commands, and more) is tracked as

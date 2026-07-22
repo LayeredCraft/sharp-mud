@@ -54,8 +54,8 @@ validated split between `Core` and `WheelMUD.Universe`, but `Universe`
 turned out — checked directly against its actual file list and `.csproj`
 references — to be a library of generic, ruleset-agnostic *item-type*
 behaviors, `WeaponBehavior`/`PotionBehavior`/`ContainerBehavior`/etc., not
-world content as this repo's own findings doc summary previously implied;
-that summary should be corrected as a follow-up. `Universe` references only
+world content as this repo's own findings doc summary previously implied —
+corrected in the same change as this ADR. `Universe` references only
 `Core`/`Data`/`Effects`, never `WarriorRogueMage`, and vice versa — two
 independent siblings composed together only at `Main`. Sharp-mud already
 made this exact call at the `Engine` tier directly, via `WearableBehavior`/
@@ -168,9 +168,17 @@ SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/
                            ICombatManager registered as both itself and ITickable off the
                            same instance, the mapping contributor, the dice service) — Basic,
                            Classic, and a custom consumer all call this instead of each
-                           hand-rolling the same scaffolding verbatim. Not runnable/playable
-                           on its own, same as Microsoft.EntityFrameworkCore.Relational isn't
-                           a database.
+                           hand-rolling the same scaffolding verbatim. This entry point must
+                           also register AttackCommand/FleeCommand in a way that composes
+                           with Basic/Classic/a consumer's own commands, not replace them --
+                           Hosting's AddSharpMudRuleset(...) takes a single callback, so two
+                           independent calls (one for Rpg's commands, one for the consumer's)
+                           would silently clobber each other via DI's last-registration-wins
+                           resolution. Command registration is a real part of this package's
+                           public contract, not just a plan-level implementation detail; exact
+                           mechanism (forwarding callback vs. additive registry) is left to the
+                           plan. Not runnable/playable on its own, same as
+                           Microsoft.EntityFrameworkCore.Relational isn't a database.
                            **Persistence mapping moves with it**: `CombatantBehavior`'s EF
                            Core configuration (today `Configurations/
                            CombatantBehaviorConfiguration.cs`, applied via
@@ -331,10 +339,10 @@ See Decision Outcome above.
   precedent this ADR's Open Items below will need to weigh
   `Ruleset.Rpg`/`Ruleset.Basic` against
 - [wheelmud-findings.md](../research/wheelmud-findings.md) — prior art
-  reviewed for this decision; its `Universe` description needs a follow-up
-  correction (see Context), and its Decisions section should gain a note on
-  `DiceService`/`Die` (adopted in spirit — DI-based dice rolling on top of
-  `IRandomSource` — not adopted as a static singleton)
+  reviewed for this decision; corrected in the same change (its `Universe`
+  description, and a new Decisions entry for `DiceService`/`Die` — adopted
+  in spirit as DI-based dice rolling on top of `IRandomSource`, not adopted
+  as a static singleton)
 
 ## Open Items
 
@@ -348,10 +356,6 @@ See Decision Outcome above.
   logic from `StatsBehavior` (a game event through `ThingEvents`, a small
   callback interface, or something else) is left to the implementation plan,
   not fixed by this ADR.
-- `wheelmud-findings.md`'s summary of `WheelMUD.Universe` as "default world
-  content bootstrap" should be corrected to reflect what it actually is
-  (generic item-type behaviors) — tracked here as a known, small
-  documentation debt, not blocking this ADR.
 - `SharpMud.Ruleset.Rpg` taking a dependency on `SharpMud.Persistence` (to
   implement `IBehaviorMappingContributor` for `CombatantBehavior`) means
   there's no persistence-free path to Rpg's combat scaffolding — accepted

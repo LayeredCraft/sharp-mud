@@ -77,6 +77,15 @@ Explicitly deferred / out of scope for this plan:
   - [ ] Design and implement the `hubRoom`/respawn-destination decoupling —
         consider folding into the same mechanism as the `StatsBehavior`
         decoupling above rather than a second bespoke seam
+  - [ ] While touching this: today's death-penalty handling only resets
+        `StatsBehavior.CurrentHitPoints`, but `CombatResolver` actually reads
+        and writes damage against `CombatantBehavior.CurrentHitPoints` — a
+        respawned character's `CombatantBehavior` HP stays at/below 0, so the
+        very next hit lands and instantly re-triggers "defeated" regardless
+        of the roll. This is a real, pre-existing bug (not introduced by this
+        extraction), but the decoupled respawn mechanism must reset
+        `CombatantBehavior.CurrentHitPoints` too, not just carry the
+        `StatsBehavior`-only reset forward into the new package
   - [ ] Move `CombatantBehaviorConfiguration` + a new `SharpMud.Ruleset.Rpg`-
         owned `IBehaviorMappingContributor` in from
         `ClassicBehaviorMappingContributor`; verify `Basic`/Classic's own DI
@@ -184,6 +193,12 @@ Modified:
 - `Directory.Packages.props`, `SharpMud.slnx`
 - `docs/architecture.md`, `docs/engine-vs-ruleset.md`, `docs/combat.md`,
   `docs/character.md` (as needed), `docs/adr/README.md`
+- `src/SharpMud.Hosting/ServiceCollectionExtensions.cs`,
+  `tests/SharpMud.Hosting.Tests/*` — **conditional** on which
+  command-composition design (above) gets chosen: touched if
+  `ICommandRegistry` registration becomes additive across multiple sources,
+  untouched if `AddSharpMudRpgRuleset(...)` instead takes and forwards a
+  consumer callback through the existing single-registration shape
 
 ## Test plan
 
@@ -205,7 +220,15 @@ Classic's actual behavior, not just its packaging. Add a persistence
 round-trip test (save/load a `Thing` carrying `CombatantBehavior` through
 `SharpMud.Persistence`) specifically to catch the TPH-mapping seam above
 regressing — this is exactly the kind of gap that passes every unit test
-but fails at actual save/load time.
+but fails at actual save/load time. Add a defeat/respawn test asserting
+`CombatantBehavior.CurrentHitPoints` is actually reset (not just
+`StatsBehavior`'s) and the respawned character can be hit again without an
+instant re-defeat, to catch the HP-reset bug above regressing. Add a
+DI/composition test proving built-in commands, Rpg's `attack`/`flee`, and a
+consumer's own registered command all end up in the same resolved
+`ICommandRegistry` — this is the seam most likely to silently regress
+(one registration source clobbering another) without a test that would
+actually catch it.
 
 ## Verification
 
