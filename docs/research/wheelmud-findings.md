@@ -315,9 +315,10 @@ exports at priority 100 - a downstream game overriding one command exports at
 
 **Not adopted** - `System.ComponentModel.Composition` is legacy tech, largely
 superseded in modern .NET. We get the important property (ruleset assemblies
-plug into the engine without the engine referencing them) from a reflection
-scan over loaded assemblies plus standard DI registration instead - see
-Decisions.
+plug into the engine without the engine referencing them) from explicit,
+package-level DI extension methods a consumer calls at startup
+(`AddSharpMudRuleset(...)`, `AddSharpMudRpgRuleset(...)`,
+`AddSharpMudBasicRuleset(...)`) instead - see Decisions.
 
 ## 9. Combat
 

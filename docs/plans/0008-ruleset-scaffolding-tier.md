@@ -232,7 +232,11 @@ DI/composition test proving built-in commands, Rpg's `attack`/`flee`, and a
 consumer's own registered command all end up in the same resolved
 `ICommandRegistry` — this is the seam most likely to silently regress
 (one registration source clobbering another) without a test that would
-actually catch it.
+actually catch it. This coverage must prove `AttackCommand`'s actual public
+command shape survives, not just "a command exists": today `Verb` is
+`kill`, with `attack` registered as an alias, and Verification below
+promises both stay compatible — assert the resolved `ICommandRegistry`
+still resolves both `kill` and `attack`, not just one representative verb.
 
 ## Verification
 

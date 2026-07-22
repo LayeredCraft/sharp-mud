@@ -32,8 +32,8 @@ different kinds of content sitting in one project:
   `CombatResolver` (d20-vs-AC resolution, reads only `CombatantBehavior`),
   `ICombatManager`/`CombatManager` (tick-driven encounter tracking),
   `AttackCommand`/`FleeCommand`. Verified directly against the current
-  source: none of these five types reference `Race`, `CharacterClass`, or
-  any D&D-specific attribute. `CombatManager`'s only two touches of
+  source: none of these extracted types reference `Race`, `CharacterClass`,
+  or any D&D-specific attribute. `CombatManager`'s only two touches of
   `StatsBehavior` (awarding XP on a kill, applying the death-penalty XP/HP
   cut) are already `FindBehavior<StatsBehavior>()` calls guarded by
   `if (stats is not null)` — i.e. the existing code already treats
