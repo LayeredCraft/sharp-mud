@@ -5,7 +5,7 @@ plan to `In Progress` while it still reads `Proposed`)
 
 **Status:** Not Started
 
-**Last updated:** 2026-07-21
+**Last updated:** 2026-07-22
 
 ## Goal
 
@@ -28,6 +28,18 @@ In scope:
 - Decouple `CombatManager`'s XP-award/death-penalty logic from
   `StatsBehavior` (exact mechanism — game event vs. callback interface — is
   this plan's to decide, per ADR-0008's Open Items).
+- Decouple `CombatManager`'s constructor-injected `Thing hubRoom` respawn
+  destination — a Classic-specific world/respawn policy hard-coded into what
+  should be generic combat logic. Plausibly the same combat-outcome
+  mechanism above also owns "where does the loser respawn," rather than a
+  second bespoke seam — exact shape is this plan's to decide.
+- Move `CombatantBehavior`'s EF Core mapping (`CombatantBehaviorConfiguration`)
+  into an `SharpMud.Ruleset.Rpg`-owned `IBehaviorMappingContributor`, since
+  today's `ClassicBehaviorMappingContributor.ConfigureBehaviors` only scans
+  its own (Classic) assembly for `IEntityTypeConfiguration<>` types — once
+  `CombatantBehavior` lives in a different assembly, that scan silently stops
+  finding its configuration and a saved world containing it hits an unmapped
+  TPH discriminator subtype.
 - A small dice-rolling abstraction in `SharpMud.Ruleset.Rpg`, built on the
   existing `IRandomSource` (constructor-injected, DI-registered — not a
   WheelMUD-style static singleton), covering "N dice of M sides plus a
@@ -62,6 +74,14 @@ Explicitly deferred / out of scope for this plan:
         through `ThingEvents`, or a small callback interface — pick one,
         document why in a code comment per `documentation.md`'s bar for
         non-obvious decisions)
+  - [ ] Design and implement the `hubRoom`/respawn-destination decoupling —
+        consider folding into the same mechanism as the `StatsBehavior`
+        decoupling above rather than a second bespoke seam
+  - [ ] Move `CombatantBehaviorConfiguration` + a new `SharpMud.Ruleset.Rpg`-
+        owned `IBehaviorMappingContributor` in from
+        `ClassicBehaviorMappingContributor`; verify `Basic`/Classic's own DI
+        registration actually wires this contributor up (`Persistence`
+        discovers contributors via DI, per `docs/persistence.md`)
   - [ ] Dice-rolling abstraction over `IRandomSource` (DI-registered
         interface + implementation, not a static singleton — "N dice of M
         sides plus a modifier"); swap `CombatResolver`/`FleeCommand`'s raw
@@ -125,7 +145,11 @@ handling), `AttackCommand`/`FleeCommand` guard and success paths — same
 minimal stat block and default world builder. `SharpMud.Samples.Classic.Tests`
 should need no *behavioral* changes, only reference/namespace updates — if
 it does need behavioral changes, that's a signal the extraction changed
-Classic's actual behavior, not just its packaging.
+Classic's actual behavior, not just its packaging. Add a persistence
+round-trip test (save/load a `Thing` carrying `CombatantBehavior` through
+`SharpMud.Persistence`) specifically to catch the TPH-mapping seam above
+regressing — this is exactly the kind of gap that passes every unit test
+but fails at actual save/load time.
 
 ## Verification
 

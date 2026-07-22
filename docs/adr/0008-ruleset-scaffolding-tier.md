@@ -140,21 +140,42 @@ SharpMud.Engine            unchanged — Thing/Behavior/events, zero ruleset kno
 
 SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/CombatResolver,
                            ICombatManager/CombatManager, AttackCommand/FleeCommand, moved
-                           in from samples/SharpMud.Samples.Classic near-unchanged (see
-                           Context — these five types have no flavor-specific coupling
-                           today). CombatManager's XP-award/death-penalty touches into
-                           StatsBehavior are decoupled — likely via a combat-outcome game
-                           event through the existing ThingEvents pipeline (Thing.Add/Remove
-                           already use this pattern for cancellable events; the exact
-                           mechanism is a plan-level decision, not fixed here) — so this
-                           package has zero reference to any concrete ruleset's stat/race/
-                           class types. Also gains a small dice-rolling abstraction over
-                           the existing Engine-level IRandomSource (DI-registered, not a
-                           WheelMUD-style static singleton — see Context) covering the
-                           "N dice of M sides plus a modifier" shape CombatResolver/
-                           FleeCommand currently do with raw random.Next(...) calls. Not
-                           runnable/playable on its own, same as
-                           Microsoft.EntityFrameworkCore.Relational isn't a database.
+                           in from samples/SharpMud.Samples.Classic (see Context — these
+                           five types' actual combat logic has no flavor-specific coupling
+                           today, but CombatManager itself carries two seams that must be
+                           decoupled before the move, not moved as-is):
+                           - XP-award/death-penalty touches into StatsBehavior — likely via
+                             a combat-outcome game event through the existing ThingEvents
+                             pipeline (Thing.Add/Remove already use this pattern for
+                             cancellable events; exact mechanism is a plan-level decision).
+                           - CombatManager's constructor takes a concrete `Thing hubRoom` and
+                             hard-codes it as the respawn destination on defeat — a
+                             Classic-specific world/respawn policy, not generic combat logic.
+                             Needs the same kind of seam (plausibly the same combat-outcome
+                             event above also owning "where does the loser respawn," rather
+                             than a second bespoke mechanism — exact shape is a plan-level
+                             decision) so Basic/a custom ruleset aren't forced to have a
+                             "hub room" concept at all.
+                           Once both seams are decoupled, this package has zero reference to
+                           any concrete ruleset's stat/race/class/world-content types. Also
+                           gains a small dice-rolling abstraction over the existing
+                           Engine-level IRandomSource (DI-registered, not a WheelMUD-style
+                           static singleton — see Context) covering the "N dice of M sides
+                           plus a modifier" shape CombatResolver/FleeCommand currently do
+                           with raw random.Next(...) calls. Not runnable/playable on its own,
+                           same as Microsoft.EntityFrameworkCore.Relational isn't a database.
+                           **Persistence mapping moves with it**: `CombatantBehavior`'s EF
+                           Core configuration (today `Configurations/
+                           CombatantBehaviorConfiguration.cs`, applied via
+                           `ClassicBehaviorMappingContributor.ConfigureBehaviors`'s
+                           `ApplyConfigurationsFromAssembly(typeof(ClassicBehaviorMappingContributor).Assembly)`
+                           — an assembly-scan scoped to the Classic assembly only, per
+                           `docs/persistence.md`'s `IBehaviorMappingContributor` seam) has to
+                           move to an `SharpMud.Ruleset.Rpg`-owned
+                           `IBehaviorMappingContributor` once `CombatantBehavior` lives in a
+                           different assembly, or a saved world containing `CombatantBehavior`
+                           hits an unmapped TPH discriminator subtype the moment Classic stops
+                           owning that configuration.
 
 SharpMud.Ruleset.Basic     NEW, packaged, deliberately minimal — a concrete flavor built on
                            SharpMud.Ruleset.Rpg: a plain numeric stat block (no Race/
