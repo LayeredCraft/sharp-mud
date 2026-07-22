@@ -61,8 +61,6 @@ Explicitly deferred / out of scope for this plan:
 - A leveling/progression contract (`ILevelingStrategy` or similar) beyond
   whatever XP-award mechanism this plan lands on — only build it if the
   decoupling work actually needs it.
-- Correcting `wheelmud-findings.md`'s `Universe` description — small,
-  independent doc fix, pick up opportunistically.
 
 ## Tasks
 
@@ -258,3 +256,10 @@ passing unit tests, to confirm.
 - Package naming (`SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic`) is a
   working name per ADR-0008 — confirm before publishing, cheap to change
   before first release, expensive after (lockstep versioning, per ADR-0006).
+- Exact mechanism for composing `AttackCommand`/`FleeCommand` registration
+  with a consumer's own commands — `Hosting`'s `AddSharpMudRuleset(...)`
+  takes a single callback, so a naive second call for Rpg's commands
+  silently clobbers the consumer's via DI's last-registration-wins
+  resolution; either Rpg's or the consumer's commands go missing without a
+  real answer here. Just as blocking as the seams above for a usable
+  `AddSharpMudRpgRuleset(...)` entry point.

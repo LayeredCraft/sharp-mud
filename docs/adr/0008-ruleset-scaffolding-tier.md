@@ -205,7 +205,10 @@ SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/
 SharpMud.Ruleset.Basic     NEW, packaged, deliberately minimal — a concrete flavor built on
                            SharpMud.Ruleset.Rpg: a plain numeric stat block (no Race/
                            CharacterClass), simple d20-ish combat via the scaffolding's
-                           resolver, a tiny default IWorldBuilder (a room or two), and its
+                           resolver, a tiny default IWorldBuilder (a room or two, including
+                           at least one Thing with CombatantBehavior as a fightable NPC —
+                           the Goal above promises a fresh character can walk around and
+                           fight something, which empty rooms alone don't satisfy), and its
                            own IPlayerFactory (mirrors ClassicPlayerFactory) so Hosting's
                            PlayerLogin/LoginFlow can actually create a fresh CLI/Telnet
                            player — without it the quick-start fails at first login, not
@@ -356,6 +359,10 @@ See Decision Outcome above.
   logic from `StatsBehavior` (a game event through `ThingEvents`, a small
   callback interface, or something else) is left to the implementation plan,
   not fixed by this ADR.
+- The exact mechanism for decoupling `CombatManager`'s hard-coded `hubRoom`
+  respawn destination — just as blocking as the `StatsBehavior` seam above
+  for moving `CombatManager` into a generic package, and plausibly the same
+  mechanism, but left to the implementation plan, not fixed by this ADR.
 - `SharpMud.Ruleset.Rpg` taking a dependency on `SharpMud.Persistence` (to
   implement `IBehaviorMappingContributor` for `CombatantBehavior`) means
   there's no persistence-free path to Rpg's combat scaffolding — accepted
