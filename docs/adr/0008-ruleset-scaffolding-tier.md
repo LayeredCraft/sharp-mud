@@ -162,8 +162,15 @@ SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/
                            Engine-level IRandomSource (DI-registered, not a WheelMUD-style
                            static singleton — see Context) covering the "N dice of M sides
                            plus a modifier" shape CombatResolver/FleeCommand currently do
-                           with raw random.Next(...) calls. Not runnable/playable on its own,
-                           same as Microsoft.EntityFrameworkCore.Relational isn't a database.
+                           with raw random.Next(...) calls. Ships its own DI registration
+                           entry point (an AddSharpMudRpgRuleset(...)-shaped extension)
+                           reproducing today's manual Program.cs wiring (ICombatResolver,
+                           ICombatManager registered as both itself and ITickable off the
+                           same instance, the mapping contributor, the dice service) — Basic,
+                           Classic, and a custom consumer all call this instead of each
+                           hand-rolling the same scaffolding verbatim. Not runnable/playable
+                           on its own, same as Microsoft.EntityFrameworkCore.Relational isn't
+                           a database.
                            **Persistence mapping moves with it**: `CombatantBehavior`'s EF
                            Core configuration (today `Configurations/
                            CombatantBehaviorConfiguration.cs`, applied via
@@ -180,9 +187,13 @@ SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/
 SharpMud.Ruleset.Basic     NEW, packaged, deliberately minimal — a concrete flavor built on
                            SharpMud.Ruleset.Rpg: a plain numeric stat block (no Race/
                            CharacterClass), simple d20-ish combat via the scaffolding's
-                           resolver, a tiny default IWorldBuilder (a room or two). This is
-                           the actual "dotnet add package + a few Program.cs lines = a
-                           playable game" experience, analogous to UseSqlite(...).
+                           resolver, a tiny default IWorldBuilder (a room or two), and its
+                           own IPlayerFactory (mirrors ClassicPlayerFactory) so Hosting's
+                           PlayerLogin/LoginFlow can actually create a fresh CLI/Telnet
+                           player — without it the quick-start fails at first login, not
+                           just "nothing to see." This is the actual "dotnet add package +
+                           a few Program.cs lines = a playable game" experience, analogous
+                           to UseSqlite(...).
 
 samples/SharpMud.Samples.Classic   Stays a sample, unpackaged. Rebuilt on SharpMud.Ruleset.Rpg
                                    instead of owning CombatantBehavior/CombatResolver/etc.

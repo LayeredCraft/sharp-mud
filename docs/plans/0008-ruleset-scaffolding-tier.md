@@ -86,6 +86,13 @@ Explicitly deferred / out of scope for this plan:
         interface + implementation, not a static singleton — "N dice of M
         sides plus a modifier"); swap `CombatResolver`/`FleeCommand`'s raw
         `random.Next(...)` calls to use it
+  - [ ] A package-level DI registration entry point (`AddSharpMudRpgRuleset(...)`
+        or equivalent) that reproduces today's manual wiring in
+        `samples/SharpMud.Samples.Classic/Program.cs` (`ICombatResolver`,
+        `ICombatManager` registered as both itself *and* `ITickable` off the
+        same instance, `IBehaviorMappingContributor`, the dice service) —
+        without this, `Basic`/Classic/a custom ruleset each hand-roll the
+        exact scaffolding this ADR exists to provide, verbatim
   - [ ] `csproj`: `Directory.Packages.props` entry, package metadata matching
         the existing `SharpMud.*` packages
 - [ ] New `src/SharpMud.Ruleset.Basic` project
@@ -100,6 +107,13 @@ Explicitly deferred / out of scope for this plan:
         registered contributors (`docs/persistence.md`), so without this a
         Basic world/player carrying the new behavior hits the same unmapped
         TPH subtype problem already caught for `CombatantBehavior`
+  - [ ] A Basic `IPlayerFactory` implementation (mirrors `ClassicPlayerFactory`
+        wrapping `HubWorldBuilder.CreatePlayer`) that creates a `Thing` with
+        `PlayerBehavior` plus Basic's stats/combat behaviors, wired from
+        `AddSharpMudBasicRuleset(...)` via `AddSharpMudPlayerFactory<T>()` —
+        `PlayerLogin`/`LoginFlow` constructor-inject `IPlayerFactory`, so
+        without this a fresh CLI/Telnet player can't be created at all and
+        the quick-start fails at first login, not just at "no content to see"
 - [ ] Rebuild `samples/SharpMud.Samples.Classic`
   - [ ] Remove the now-extracted types; reference `SharpMud.Ruleset.Rpg`
         instead
@@ -115,6 +129,10 @@ Explicitly deferred / out of scope for this plan:
 - [ ] Docs
   - [ ] Update `engine-vs-ruleset.md`'s project-structure listing to reflect
         the new packages (currently only has ADR-0008's forward-reference)
+  - [ ] Update `architecture.md` — it owns the solution layout and
+        direct-dependency summary; the new `Ruleset.Rpg`/`Ruleset.Basic`
+        projects and their dependency direction belong there too, not just
+        in `engine-vs-ruleset.md`
   - [ ] Update `combat.md`/`character.md` subsystem docs if their described
         "current state" changes
   - [ ] Write the actual quick-start guidance the ADR's headline goal
@@ -146,8 +164,8 @@ Modified:
   `SharpMud.Ruleset.Rpg` reference
 - `tests/SharpMud.Samples.Classic.Tests/*`
 - `Directory.Packages.props`, `SharpMud.slnx`
-- `docs/engine-vs-ruleset.md`, `docs/combat.md`, `docs/character.md` (as
-  needed), `docs/adr/README.md`
+- `docs/architecture.md`, `docs/engine-vs-ruleset.md`, `docs/combat.md`,
+  `docs/character.md` (as needed), `docs/adr/README.md`
 
 ## Test plan
 
@@ -188,6 +206,11 @@ and needs a real run, not just passing unit tests, to confirm.
   (game event vs. callback interface) — first task to resolve once this
   plan moves to `In Progress`; blocks everything downstream in
   `SharpMud.Ruleset.Rpg`.
+- Exact decoupling mechanism for `CombatManager`'s hard-coded `hubRoom`
+  respawn destination — just as blocking as the `StatsBehavior` seam above
+  for moving `CombatManager` into a generic package, and plausibly resolved
+  by the same mechanism; listed here explicitly rather than only as a
+  nested task, since it's equally a blocker, not a follow-on detail.
 - Package naming (`SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic`) is a
   working name per ADR-0008 — confirm before publishing, cheap to change
   before first release, expensive after (lockstep versioning, per ADR-0006).
