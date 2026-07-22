@@ -378,17 +378,21 @@ update for the full design):
    `MultipleParentsBehavior` mechanism described in §6, since the exit Thing
    genuinely lives in both rooms' child lists at once.
 
-2. **Ruleset plugins load via assembly-scan + DI, not MEF.** We get the
-   "engine doesn't reference ruleset code" property from reflection over
-   loaded assemblies (find types tagged `[GameAction]`/`[Behavior]` and
-   register them with the DI container at startup) instead of MEF's
-   `CompositionContainer`/`DirectoryCatalog`. This keeps the extensibility
-   property WheelMUD is built for while staying on the DI story
-   `docs/architecture.md` already committed to. True hot-swap-a-DLL-without-
-   rebuilding distribution (MEF's `DirectoryCatalog`) is not implemented yet -
-   `AssemblyLoadContext`-based dynamic loading can be added later if genuine
-   third-party redistribution (not just a separate project reference) is
-   needed.
+2. **Ruleset plugins load via manual DI registration, not MEF and not
+   reflection/attribute-scanning.** We get the "engine doesn't reference
+   ruleset code" property from package-level DI extension methods a consumer
+   calls explicitly (`AddSharpMudRuleset(...)`, and per ADR-0008
+   `AddSharpMudRpgRuleset(...)`/`AddSharpMudBasicRuleset(...)`) instead of
+   MEF's `CompositionContainer`/`DirectoryCatalog` or reflection over loaded
+   assemblies for tagged types. This keeps the extensibility property
+   WheelMUD is built for while staying on the explicit, no-MEF/no-dynamic-
+   loading DI story `docs/architecture.md` already committed to. True
+   hot-swap-a-DLL-without-rebuilding distribution (MEF's `DirectoryCatalog`)
+   is not implemented and not planned — `AssemblyLoadContext`-based dynamic
+   loading could be added later if genuine third-party redistribution (not
+   just a separate project reference) is ever needed, but manual DI
+   registration is the committed approach, not an interim step toward
+   scanning.
 
 Additionally, the event system is simplified to one generic
 `Publish<TEvent>(TEvent evt, EventScope scope) where TEvent : GameEvent`
@@ -400,7 +404,7 @@ don't require adding new delegate pairs to a growing interface.
 
 3. **`Server/Telnet/`'s IAC/Q-Method negotiation is adopted, its byte-parser
    class hierarchy is not** - see
-   [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) (status: Proposed)
+   [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) (status: Accepted)
    for the full record. The RFC-1143 four-state negotiation tracking is
    adopted near-verbatim; the 5-class persistent byte-parser state machine is
    replaced with a single-call parser, since sharp-mud's read loop is already

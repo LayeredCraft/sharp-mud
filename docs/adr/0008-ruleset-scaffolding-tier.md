@@ -277,6 +277,12 @@ speculative ruleset just to prove a point.
   even with two consumers instead of one, the risk that `Rpg`'s boundary is
   drawn in the wrong place is real, just lower than designing against Classic
   alone.
+- `SharpMud.Ruleset.Rpg` taking on a `SharpMud.Persistence` dependency (see
+  Decision Outcome/Open Items) means there's no persistence-free path to
+  Rpg's combat scaffolding — a consumer who wants in-memory-only combat, no
+  EF Core involved at all, still pulls in `Persistence` transitively.
+  Accepted for now since no consumer has asked for that, but a real
+  consumer-facing cost, not a free extraction.
 
 ## Pros and Cons of the Options
 
@@ -363,6 +369,12 @@ See Decision Outcome above.
   respawn destination — just as blocking as the `StatsBehavior` seam above
   for moving `CombatManager` into a generic package, and plausibly the same
   mechanism, but left to the implementation plan, not fixed by this ADR.
+- The exact mechanism for composing `AttackCommand`/`FleeCommand`
+  registration with a consumer's own commands (a forwarding callback through
+  `AddSharpMudRpgRuleset(...)`, or an additive `ICommandRegistry`) — command
+  registration is part of `Ruleset.Rpg`'s public contract per the Decision
+  Outcome above, just as blocking as the other two seams, and left to the
+  implementation plan, not fixed by this ADR.
 - `SharpMud.Ruleset.Rpg` taking a dependency on `SharpMud.Persistence` (to
   implement `IBehaviorMappingContributor` for `CombatantBehavior`) means
   there's no persistence-free path to Rpg's combat scaffolding — accepted

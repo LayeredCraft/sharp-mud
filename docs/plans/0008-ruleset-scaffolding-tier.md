@@ -211,10 +211,16 @@ detail — it needs direct tests of its own (dice-count/sides/modifier
 math, and validation/error behavior for invalid input like zero dice or
 zero-sided dice), not incidental coverage via `CombatResolver`'s tests.
 New coverage in `SharpMud.Ruleset.Basic.Tests` for the minimal stat block,
-default world builder, and its own EF Core mapping's round-trip. `SharpMud.Samples.Classic.Tests`
-should need no *behavioral* changes, only reference/namespace updates — if
-it does need behavioral changes, that's a signal the extraction changed
-Classic's actual behavior, not just its packaging. Add a persistence
+default world builder, and its own EF Core mapping's round-trip. Also add a
+test proving `AddSharpMudBasicRuleset(...)` registers `IPlayerFactory` and
+that it produces a `Thing` with `PlayerBehavior` plus Basic's stats/combat
+behaviors — without this, a broken player factory only surfaces as a
+first-login failure, not a test failure. `SharpMud.Samples.Classic.Tests`
+should need no *behavioral* changes, only reference/namespace updates,
+**except** for the intentional `CombatantBehavior.CurrentHitPoints`
+respawn-reset fix below — that one behavioral change is expected and
+required, not a signal of an extraction regression. Any *other* behavioral
+change is still that signal. Add a persistence
 round-trip test (save/load a `Thing` carrying `CombatantBehavior` through
 `SharpMud.Persistence`) specifically to catch the TPH-mapping seam above
 regressing — this is exactly the kind of gap that passes every unit test
@@ -233,7 +239,11 @@ actually catch it.
 Manual smoke test per this repo's established pattern for anything
 session/gameplay-facing (`testing.md`): run `samples/SharpMud.Samples.Classic`
 end-to-end, confirm `kill`/`attack`/`flee` behave identically to before the
-extraction. Separately, build a throwaway minimal `Program.cs` against just
+extraction, **except** for the intentional death/respawn HP-reset fix above —
+a respawned character's `CombatantBehavior.CurrentHitPoints` should now
+actually reset, not stay at/below 0 and instantly re-trigger "defeated" on
+the next hit; the smoke test should confirm the fix, not treat the old bug
+as the expected baseline. Separately, build a throwaway minimal `Program.cs` against just
 `SharpMud.Ruleset.Basic` (+ `Engine`/`Hosting`/a persistence provider/a
 transport) and confirm a fresh character can log in, actually issue `attack`
 against the default world's NPC and see combat resolve (hit/miss/damage,
