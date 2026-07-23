@@ -1,4 +1,5 @@
 using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 using SharpMud.Persistence.Tests.TestKit;
 using SharpMud.Ruleset.Rpg;
@@ -104,6 +105,34 @@ public sealed class ThingRepositoryTests : IDisposable
         var carriedItem = loaded.Children.Should().ContainSingle().Subject;
         carriedItem.Name.Should().Be("gold coin");
         carriedItem.HasBehavior<ItemBehavior>().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveTreeAsync_ThenLoadTreeAsync_RoundTripsRolesAndMuteAndBanState()
+    {
+        var playerBehavior = new PlayerBehavior { Username = "Moderated", PasswordHash = "test-hash" };
+        playerBehavior.GrantRole(SecurityRole.FullAdmin);
+        playerBehavior.Mute();
+        playerBehavior.Ban();
+
+        var player = new Thing { Id = ThingId.New(), Name = "Moderated" };
+        player.Behaviors.Add(playerBehavior);
+
+        await _sut.SaveTreeAsync(player, TestContext.Current.CancellationToken);
+
+        var loaded = await _sut.LoadTreeAsync(player.Id, TestContext.Current.CancellationToken);
+
+        var loadedBehavior = loaded!.FindBehavior<PlayerBehavior>();
+        loadedBehavior.Should().NotBeNull();
+        loadedBehavior!.Roles.Should().HaveFlag(SecurityRole.FullAdmin);
+        loadedBehavior.Roles.Should().HaveFlag(SecurityRole.MinorAdmin);
+        loadedBehavior.Roles.Should().HaveFlag(SecurityRole.Player);
+        loadedBehavior.IsMuted.Should().BeTrue();
+        loadedBehavior.IsBanned.Should().BeTrue();
+
+        // WasBooted is transient (like Session/ConnectionState) - never
+        // meant to survive a save/load round trip.
+        loadedBehavior.WasBooted.Should().BeFalse();
     }
 
     [Fact]

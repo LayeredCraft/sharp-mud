@@ -9,14 +9,15 @@ public sealed class LoginFlowTests
 {
     private static Thing MakeRoom() => new() { Id = ThingId.New(), Name = "Room" };
 
-    private static (LoginFlow loginFlow, IThingRepository repository) MakeLoginFlow(World world, Thing room)
+    private static (LoginFlow loginFlow, IThingRepository repository) MakeLoginFlow(World world, Thing room, string? initialAdminUsername = null)
     {
         var worldContext = new WorldContext();
         worldContext.Initialize(world, room, room);
         var repository = Substitute.For<IThingRepository>();
         var playerFactory = Substitute.For<IPlayerFactory>();
+        var hostOptions = new SharpMudHostOptions("unused.db", initialAdminUsername);
 
-        return (new LoginFlow(worldContext, repository, playerFactory), repository);
+        return (new LoginFlow(worldContext, repository, playerFactory, hostOptions), repository);
     }
 
     [Fact]

@@ -9,12 +9,18 @@ namespace SharpMud.Hosting;
 // Named SharpMudHostOptions, not HostOptions - the latter collides with
 // Microsoft.Extensions.Hosting.HostOptions, a real BCL type every consumer
 // of this package will also have in scope.
-public sealed record SharpMudHostOptions(string DbPath)
+public sealed record SharpMudHostOptions(string DbPath, string? InitialAdminUsername = null)
 {
     public static SharpMudHostOptions Parse(IReadOnlyDictionary<string, string?> env)
     {
         var dbPath = env.GetValueOrDefault("SHARPMUD_DB_PATH") ?? "./sharpmud.db";
 
-        return new SharpMudHostOptions(dbPath);
+        // ADR-0005 bootstrap - the only path to a FullAdmin on a fresh
+        // deployment, since granting a role itself requires FullAdmin.
+        // Consumed by LoginFlow, not parsed/threaded through per-connection
+        // context types (see docs/plans/0005-security-role-model-and-moderation-commands.md).
+        var initialAdminUsername = env.GetValueOrDefault("SHARPMUD_INITIAL_ADMIN");
+
+        return new SharpMudHostOptions(dbPath, initialAdminUsername);
     }
 }
