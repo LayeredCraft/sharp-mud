@@ -9,7 +9,10 @@ is no longer a dedicated class — it's a `Thing` composed from an engine-level
 `PlayerBehavior` (identity only) plus a `SharpMud.Samples.Classic`
 `StatsBehavior` (everything on this page). This doc still describes the
 correct stat shape; engine-vs-ruleset.md describes which project owns which
-piece and why.
+piece and why. `SharpMud.Ruleset.Basic` ([ADR-0008](adr/0008-ruleset-scaffolding-tier.md))
+has its own, deliberately much simpler `BasicStatsBehavior` (just
+`Level`/`Experience`, no Race/Class/attributes) rather than this D&D-style
+shape — that's Classic-specific content, not something Basic promises.
 
 ## Stat System
 

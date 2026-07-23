@@ -1,5 +1,6 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
+using SharpMud.Ruleset.Rpg;
 
 namespace SharpMud.Samples.Classic;
 

@@ -1,6 +1,7 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Core;
 using SharpMud.Persistence.Tests.TestKit;
+using SharpMud.Ruleset.Rpg;
 using SharpMud.Samples.Classic;
 
 namespace SharpMud.Persistence.Tests;

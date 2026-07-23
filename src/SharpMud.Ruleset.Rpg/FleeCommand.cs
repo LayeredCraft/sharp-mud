@@ -3,16 +3,27 @@ using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Samples.Classic;
+namespace SharpMud.Ruleset.Rpg;
 
-public sealed class FleeCommand(ICombatManager combatManager, IRandomSource random) : ICommand
+public sealed class FleeCommand : ICommand
 {
+    private readonly ICombatManager _combatManager;
+    private readonly IDiceRoller _dice;
+    private readonly IRandomSource _random;
+
+    public FleeCommand(ICombatManager combatManager, IDiceRoller dice, IRandomSource random)
+    {
+        _combatManager = combatManager;
+        _dice = dice;
+        _random = random;
+    }
+
     public string Verb => "flee";
     public IReadOnlyList<string> Aliases { get; } = [];
 
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
-        if (!combatManager.TryGetEncounter(ctx.Actor.Id, out _))
+        if (!_combatManager.TryGetEncounter(ctx.Actor.Id, out _))
         {
             await ctx.Session.WriteLineAsync("You aren't fighting anything.", ct);
             return;
@@ -27,17 +38,17 @@ public sealed class FleeCommand(ICombatManager combatManager, IRandomSource rand
 
         // Success chance: DEX-influenced per docs/combat.md, but the exact
         // formula is still an open item there. Flat 60% until it's defined.
-        var success = random.Next(1, 100) <= 60;
+        var success = _dice.Roll(1, 100) <= 60;
         if (!success)
         {
             await ctx.Session.WriteLineAsync("You fail to escape!", ct);
             return;
         }
 
-        var exit = exits[random.Next(0, exits.Count - 1)];
+        var exit = exits[_random.Next(0, exits.Count - 1)];
         var destination = exit.Destination;
 
-        combatManager.EndEncounter(ctx.Actor.Id);
+        _combatManager.EndEncounter(ctx.Actor.Id);
         await ctx.Session.WriteLineAsync($"You flee {exit.Direction.ToDisplayString()}!", ct);
 
         await RoomBroadcast.ToOccupantsAsync(

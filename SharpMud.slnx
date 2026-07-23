@@ -17,6 +17,8 @@
     <Project Path="src/SharpMud.Persistence/SharpMud.Persistence.csproj" />
     <Project Path="src/SharpMud.Persistence.Sqlite/SharpMud.Persistence.Sqlite.csproj" />
     <Project Path="src/SharpMud.Persistence.DynamoDb/SharpMud.Persistence.DynamoDb.csproj" />
+    <Project Path="src/SharpMud.Ruleset.Rpg/SharpMud.Ruleset.Rpg.csproj" />
+    <Project Path="src/SharpMud.Ruleset.Basic/SharpMud.Ruleset.Basic.csproj" />
     <Project Path="src/SharpMud/SharpMud.csproj" />
   </Folder>
   <Folder Name="/samples/">
@@ -28,6 +30,8 @@
     <Project Path="tests/SharpMud.Engine.Tests/SharpMud.Engine.Tests.csproj" />
     <Project Path="tests/SharpMud.Hosting.Tests/SharpMud.Hosting.Tests.csproj" />
     <Project Path="tests/SharpMud.Persistence.Tests/SharpMud.Persistence.Tests.csproj" />
+    <Project Path="tests/SharpMud.Ruleset.Rpg.Tests/SharpMud.Ruleset.Rpg.Tests.csproj" />
+    <Project Path="tests/SharpMud.Ruleset.Basic.Tests/SharpMud.Ruleset.Basic.Tests.csproj" />
     <Project Path="tests/SharpMud.Samples.Classic.Tests/SharpMud.Samples.Classic.Tests.csproj" />
   </Folder>
 </Solution>

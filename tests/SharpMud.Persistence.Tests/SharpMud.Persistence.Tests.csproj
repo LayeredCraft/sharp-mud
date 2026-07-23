@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SharpMud.Persistence\SharpMud.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\SharpMud.Ruleset.Rpg\SharpMud.Ruleset.Rpg.csproj" />
     <ProjectReference Include="..\..\samples\SharpMud.Samples.Classic\SharpMud.Samples.Classic.csproj" />
   </ItemGroup>
 

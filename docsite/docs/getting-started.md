@@ -1,8 +1,16 @@
 # Getting Started
 
-This walks through the smallest possible sharp-mud game: one room, one
-built-in command set, no custom ruleset commands yet. It uses the CLI
-transport and SQLite persistence — the fastest loop for local iteration.
+This walks through the smallest possible sharp-mud game built directly on
+the bare engine: one room, only the built-in commands, no combat, no
+ruleset package at all. It's the right place to start if you want to
+understand `IWorldBuilder`/`IPlayerFactory` from first principles.
+
+!!! tip "Want a playable game faster?"
+    If you just want a running game with working combat, skip ahead to
+    [Rulesets](rulesets.md) — `SharpMud.Ruleset.Basic` gets you there in a
+    few lines, with no `IWorldBuilder`/`IPlayerFactory` of your own to
+    write. Come back here when you want to understand what that package is
+    doing for you under the hood.
 
 For a full worked example with stats, combat, and a Telnet transport, see
 [`SharpMud.Samples.Classic`](https://github.com/LayeredCraft/sharp-mud/tree/main/samples/SharpMud.Samples.Classic)

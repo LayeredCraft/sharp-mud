@@ -1,10 +1,17 @@
 using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 
-namespace SharpMud.Samples.Classic;
+namespace SharpMud.Ruleset.Rpg;
 
-public sealed class AttackCommand(ICombatManager combatManager) : ICommand
+public sealed class AttackCommand : ICommand
 {
+    private readonly ICombatManager _combatManager;
+
+    public AttackCommand(ICombatManager combatManager)
+    {
+        _combatManager = combatManager;
+    }
+
     public string Verb => "kill";
     public IReadOnlyList<string> Aliases { get; } = ["attack"];
 
@@ -13,7 +20,7 @@ public sealed class AttackCommand(ICombatManager combatManager) : ICommand
         if (await CommandGuards.RequireArgsAsync(ctx, "Kill what?", ct))
             return;
 
-        if (combatManager.IsInCombat(ctx.Actor.Id))
+        if (_combatManager.IsInCombat(ctx.Actor.Id))
         {
             await ctx.Session.WriteLineAsync("You are already fighting!", ct);
             return;
@@ -31,7 +38,7 @@ public sealed class AttackCommand(ICombatManager combatManager) : ICommand
             return;
         }
 
-        combatManager.StartEncounter(ctx.Actor, target);
+        _combatManager.StartEncounter(ctx.Actor, target);
         await ctx.Session.WriteLineAsync($"You attack {target.Name}!", ct);
     }
 }

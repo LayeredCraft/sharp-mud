@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
+    <!-- IBehaviorMappingContributor lives in Persistence - see
+         docs/adr/0008-ruleset-scaffolding-tier.md's Decision Outcome for why
+         this is an accepted package-boundary tradeoff (no persistence-free
+         path to this package's combat scaffolding today). -->
+    <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Reusable RPG scaffolding between SharpMud.Engine and a concrete ruleset - CombatantBehavior, combat resolution/encounter tracking, attack/flee commands, and a dice-rolling abstraction over IRandomSource.</Description>
+  </PropertyGroup>
+
+</Project>

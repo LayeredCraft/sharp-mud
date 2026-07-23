@@ -23,15 +23,24 @@ sharp-mud ships as a set of NuGet packages you compose into your own game:
   repositories behind a provider-agnostic `IThingRepository`.
 - **`SharpMud.Adapters.Cli`** / **`SharpMud.Adapters.Telnet`** — transport
   implementations of `ISession`.
+- **`SharpMud.Ruleset.Rpg`** / **`SharpMud.Ruleset.Basic`** — optional
+  reusable combat/encounter scaffolding, and a small runnable game built on
+  it. See [Rulesets](rulesets.md).
 - **`SharpMud`** — a meta-package pulling in `SharpMud.Engine`,
   `SharpMud.Hosting`, and `SharpMud.Persistence`. You always add a
   persistence provider and a transport explicitly — the meta-package
   doesn't include either (see [ADR-0007](https://github.com/LayeredCraft/sharp-mud/blob/main/docs/adr/0007-narrow-meta-package-scope.md)).
 
 Your own game — stats, combat rules, world content, commands — is a separate
-project that references these packages the same way `SharpMud.Samples.Classic`
-(the D&D-flavored reference sample in the
+project that references these packages, either built on
+`SharpMud.Ruleset.Rpg`'s combat scaffolding or entirely from scratch, the
+same way `SharpMud.Samples.Classic` (the D&D-flavored reference sample in the
 [sharp-mud repo](https://github.com/LayeredCraft/sharp-mud/tree/main/samples/SharpMud.Samples.Classic))
 does.
 
-Start with [Getting Started](getting-started.md).
+The fastest way to a running game is [Rulesets](rulesets.md) — `dotnet add
+package SharpMud.Ruleset.Basic` and a few lines gets you a playable game with
+combat, no ruleset code of your own required. [Getting Started](getting-started.md)
+instead walks through the bare engine with no ruleset at all, which is worth
+reading if you want to understand the fundamentals before adopting a
+ruleset package.

@@ -1,11 +1,13 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Samples.Classic;
+namespace SharpMud.Ruleset.Rpg;
 
-// What used to be the ICombatant interface Player/Npc implemented - now a
-// behavior any Thing can carry (a hostile plant, a turret - anything the
-// ruleset wants to be able to fight), independent of StatsBehavior so an NPC
-// doesn't need a full character sheet just to throw a punch.
+/// <summary>
+/// HP/armor-class/damage-range/XP-reward - a <see cref="Behavior"/> any
+/// <see cref="Thing"/> can carry (a hostile plant, a turret - anything the
+/// ruleset wants to be able to fight), independent of any stats behavior so
+/// an NPC doesn't need a full character sheet just to throw a punch.
+/// </summary>
 public sealed class CombatantBehavior : Behavior
 {
     public int MaxHitPoints { get; set; }

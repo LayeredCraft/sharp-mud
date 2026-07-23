@@ -5,15 +5,29 @@ using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
 
-namespace SharpMud.Samples.Classic;
+namespace SharpMud.Ruleset.Rpg;
 
 // Registered once with IGameLoop and resolves every active encounter each
 // tick - simpler Host wiring than one ITickable per encounter, and all
 // world-state mutation happens on the single game-loop "thread" (sequential
 // awaits in GameLoop.RunAsync), so there's no concurrent-mutation risk.
-public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICombatManager, ITickable
+//
+// Combat-outcome side effects (XP awards, death penalties, respawn
+// destination) are delegated to ICombatOutcomeHandler rather than touching a
+// concrete ruleset's stats behavior or a hard-coded room directly - this
+// package has zero reference to any concrete ruleset's types (see
+// docs/adr/0008-ruleset-scaffolding-tier.md's Decision Outcome).
+public sealed class CombatManager : ICombatManager, ITickable
 {
+    private readonly ICombatResolver _resolver;
+    private readonly ICombatOutcomeHandler _outcomeHandler;
     private readonly Dictionary<ThingId, CombatEncounter> _encounters = [];
+
+    public CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
+    {
+        _resolver = resolver;
+        _outcomeHandler = outcomeHandler;
+    }
 
     public bool IsInCombat(ThingId thingId) => _encounters.ContainsKey(thingId);
 
@@ -52,7 +66,7 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
             // Not Linkdead (checked above), so Session is the live, connected session.
             var session = attackerBehavior.Session!;
 
-            var attackResult = resolver.ResolveRound(encounter.Attacker, encounter.Defender);
+            var attackResult = _resolver.ResolveRound(encounter.Attacker, encounter.Defender);
             await session.WriteLineAsync(
                 attackResult.Hit
                     ? $"You hit {encounter.Defender.Name} for {attackResult.Damage} damage."
@@ -66,7 +80,7 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
             }
 
             // Classic mutual combat: the defender strikes back the same round.
-            var counterResult = resolver.ResolveRound(encounter.Defender, encounter.Attacker);
+            var counterResult = _resolver.ResolveRound(encounter.Defender, encounter.Attacker);
             await session.WriteLineAsync(
                 counterResult.Hit
                     ? $"{encounter.Defender.Name} hits you for {counterResult.Damage} damage."
@@ -82,13 +96,7 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
     {
         await session.WriteLineAsync($"You have slain {encounter.Defender.Name}!", ct);
 
-        var combatant = encounter.Defender.FindBehavior<CombatantBehavior>()!;
-        var stats = encounter.Attacker.FindBehavior<StatsBehavior>();
-        if (stats is not null)
-        {
-            stats.Experience += combatant.ExperienceReward;
-            await session.WriteLineAsync($"You gain {combatant.ExperienceReward} experience.", ct);
-        }
+        await _outcomeHandler.OnVictoryAsync(encounter.Attacker, encounter.Defender, ct);
 
         encounter.Defender.Parent?.Remove(encounter.Defender);
         _encounters.Remove(encounter.Attacker.Id);
@@ -97,28 +105,27 @@ public sealed class CombatManager(ICombatResolver resolver, Thing hubRoom) : ICo
     private async Task HandleAttackerDefeatedAsync(CombatEncounter encounter, ISession session, CancellationToken ct)
     {
         var attacker = encounter.Attacker;
-        var stats = attacker.FindBehavior<StatsBehavior>();
 
-        // XP-loss death penalty (docs/combat.md decision) - exact percentage
-        // is still an open item; 10% is a placeholder.
-        long xpLoss = 0;
-        if (stats is not null)
-        {
-            xpLoss = (long)(stats.Experience * 0.10);
-            stats.Experience = Math.Max(0, stats.Experience - xpLoss);
+        // Real, pre-existing bug fixed here: CombatResolver reads/writes
+        // damage against CombatantBehavior.CurrentHitPoints, not any
+        // ruleset-specific stats behavior. A respawn that only reset the
+        // latter left CombatantBehavior.CurrentHitPoints at/below 0, so the
+        // very next hit instantly re-triggered "defeated" regardless of the
+        // roll. This reset is generic (CombatantBehavior is this package's
+        // own type) so it happens here, unconditionally, before the
+        // ruleset-specific outcome handler runs.
+        var combatant = attacker.FindBehavior<CombatantBehavior>()!;
+        combatant.CurrentHitPoints = combatant.MaxHitPoints;
 
-            // Respawn HP fraction is also an open item; 50% is a placeholder.
-            stats.CurrentHitPoints = Math.Max(1, stats.MaxHitPoints / 2);
-        }
+        var destination = await _outcomeHandler.OnDefeatAsync(attacker, encounter.Defender, ct);
 
         await session.WriteLineAsync($"{encounter.Defender.Name} has slain you!", ct);
-        await session.WriteLineAsync($"You lose {xpLoss} experience and awaken back in town.", ct);
 
         _encounters.Remove(attacker.Id);
 
         attacker.Parent?.Remove(attacker);
-        hubRoom.Add(attacker);
+        destination.Add(attacker);
 
-        await LookCommand.SendRoomDescriptionAsync(attacker, hubRoom, ct);
+        await LookCommand.SendRoomDescriptionAsync(attacker, destination, ct);
     }
 }

@@ -34,12 +34,28 @@ src/
   SharpMud.Persistence/        EF Core repositories, provider-agnostic.
                                References Engine only.
   SharpMud.Adapters.Cli/       Local stdin/stdout ISession. References Hosting.
+  SharpMud.Ruleset.Rpg/        Reusable RPG scaffolding tier (ADR-0008): CombatantBehavior,
+                               ICombatResolver/CombatResolver, ICombatManager/CombatManager,
+                               ICombatOutcomeHandler (a ruleset's XP-award/death-penalty/
+                               respawn hook), AttackCommand/FleeCommand, IDiceRoller over
+                               IRandomSource, AddSharpMudRpgRuleset(...). References
+                               Engine/Hosting/Persistence. No ruleset-flavor knowledge
+                               (no Race/CharacterClass/stat blocks) - not runnable on its
+                               own, same as Microsoft.EntityFrameworkCore.Relational isn't
+                               a database.
+  SharpMud.Ruleset.Basic/      Minimal concrete leaf ruleset built on SharpMud.Ruleset.Rpg
+                               (ADR-0008): a plain numeric BasicStatsBehavior (no Race/
+                               CharacterClass), BasicWorldBuilder (a small default world
+                               with a fightable NPC), BasicPlayerFactory,
+                               BasicCombatOutcomeHandler, AddSharpMudBasicRuleset(...).
+                               The actual "dotnet add package, few lines in Program.cs,
+                               run a basic game" quick-start.
 samples/
-  SharpMud.Samples.Classic/    D&D-flavored sample ruleset: Race/CharacterClass,
-                               stats, CombatantBehavior, combat resolver, kill/flee
-                               commands, dice-roll character creation, PLUS the
-                               composition root (Program.cs) that references
-                               everything and owns the hand-built hub world content.
+  SharpMud.Samples.Classic/    D&D-flavored sample ruleset: Race/CharacterClass, stats,
+                               dice-roll character creation, hand-built hub world content,
+                               plus the composition root (Program.cs) that references
+                               everything. Built on SharpMud.Ruleset.Rpg for combat/
+                               encounter scaffolding rather than owning it directly.
 ```
 
 Dependency direction is stricter than before: a ruleset like the sample
@@ -272,11 +288,12 @@ revisit if guard logic keeps growing.
   `samples/`. Implemented — this doc's project-structure listing above
   reflects the current layout.
 - `SharpMud.Samples.Classic` owning combat/stats scaffolding directly (not
-  just its own D&D-specific content) is addressed by
-  [ADR-0008](adr/0008-ruleset-scaffolding-tier.md) — a new
+  just its own D&D-specific content) was addressed by
+  [ADR-0008](adr/0008-ruleset-scaffolding-tier.md)/
+  [PLAN-0008](plans/0008-ruleset-scaffolding-tier.md): a new
   `SharpMud.Ruleset.Rpg` package for the reusable scaffolding, a new minimal
   `SharpMud.Ruleset.Basic` package as a concrete quick-start leaf sibling to
   Classic — both built directly on `SharpMud.Ruleset.Rpg`, neither depending
-  on the other — with Classic staying a still-unpackaged, richer sample. Not
-  yet implemented — this doc's project-structure listing above does not yet
-  reflect this.
+  on the other — with Classic staying a still-unpackaged, richer sample.
+  Implemented — this doc's project-structure listing above reflects the
+  current layout.

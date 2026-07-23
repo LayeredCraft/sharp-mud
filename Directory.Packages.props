@@ -9,17 +9,6 @@
          Microsoft.Data.Sqlite.Core 10.0.9 pulls in - flagged NU1903 high
          severity (GHSA-2m69-gcr7-jv3q). -->
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
-    <!-- SharpMud.Persistence.DynamoDb - pinned to the stable EF Core 10
-         build, not the net11.0 preview build, per ADR-0006. A net11.0
-         build does exist (11.0.1-preview.93), but as of this writing it
-         depends on Microsoft.EntityFrameworkCore 11.0.0-preview.5.26302.115
-         - one preview behind the preview.6 line pinned below - so taking
-         it now would mean this project alone downgrading off preview.6.
-         Revisit once the provider catches up. Persistence.DynamoDb only
-         ever targets net10.0, so this is never conditional on
-         TargetFramework the way the other EF Core/Microsoft.Extensions.*
-         packages below are. -->
-    <PackageVersion Include="EntityFrameworkCore.DynamoDb" Version="10.0.0" />
     <!-- NuGet package metadata (Directory.Build.props). Build-time-only
          tool, versioned in lockstep with the .NET SDK preview builds here -
          pinned to match global.json's SDK pin, same as the
@@ -37,52 +26,78 @@
          and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
   </ItemGroup>
-  <!-- Microsoft.Extensions.*/EF Core packages ship parallel net10.0 (stable)
-       and net11.0 (preview) build lines - pin each per-TargetFramework
-       rather than floating one version across both, matching
-       structured-logging's Directory.Packages.props shape. The net11.0
-       preview version is pinned to match global.json's SDK pin
-       (11.0.100-preview.6.26359.118) - bump both together. -->
-  <!-- Upper bound is plain (no prerelease marker) here because nothing in
-       this range references a prerelease - NuGet only considers prerelease
-       versions for a package ID if something in the graph explicitly
-       requests one, so a bare 11.0.0 upper bound already excludes all
-       11.0.0 previews on its own (confirmed empirically: an isolated
-       restore against a same-shaped range stayed on the latest stable
-       version even though a same-major-number prerelease outranks it
-       numerically). Contrast with the net11.0 group below, whose lower
-       bound IS a prerelease and therefore needs the -a marker. -->
+  <!-- Microsoft.EntityFrameworkCore.*/Microsoft.Extensions.* packages ship
+       parallel net10.0 (stable) and net11.0 (preview) build lines and are
+       all pinned in lockstep to the same version per TargetFramework - one
+       property instead of repeating the same range on every PackageVersion,
+       same pattern as dynamodb-efcore-provider's Directory.Packages.props
+       EFCoreVersion property. The net11.0 value is pinned to match
+       global.json's SDK pin (11.0.100-preview.6.26359.118) - bump both
+       conditions together when the SDK pin moves.
+       Upper bound is plain (no prerelease marker) in the net10.0 branch
+       because nothing in that range references a prerelease - NuGet only
+       considers prerelease versions for a package ID if something in the
+       graph explicitly requests one, so a bare 11.0.0 upper bound already
+       excludes all 11.0.0 previews on its own (confirmed empirically: an
+       isolated restore against a same-shaped range stayed on the latest
+       stable version even though a same-major-number prerelease outranks it
+       numerically). Contrast with the net11.0 branch, whose lower bound IS
+       a prerelease and therefore needs the -a marker: that lower bound
+       flips NuGet's "consider prereleases for this package ID" switch on
+       for the whole dependency graph, so a bare 12.0.0 upper bound would
+       NOT reliably exclude 12.0.0 previews once anything else in a
+       consumer's graph requests one (confirmed empirically via a forced
+       version-conflict test: it silently resolved past a bare next-major
+       bound to a same-shaped preview). The -a suffix is an otherwise-
+       meaningless marker chosen only because it sorts below every real
+       prerelease label Microsoft uses (preview, rc, beta, alpha) - 'a' <
+       those alphabetically - so the exclusive upper bound sits below all of
+       them, not just below 12.0.0 stable. Bare "-0" is the more common
+       idiom for this (and is what NuGet's own dependency-resolution docs
+       use), but nuget.org's push validator rejects a purely-numeric
+       prerelease label as an invalid Version - this letter-led marker
+       sidesteps that. -->
+  <!-- Property Condition (rather than the ItemGroup Condition below) is
+       deliberately NOT used to gate these values per-TargetFramework: NuGet's
+       static-graph restore evaluates Directory.Packages.props at least once
+       without $(TargetFramework) set (the outer, TFM-agnostic pass used to
+       build the project closure), and a property whose every Condition
+       branch depends on $(TargetFramework) resolves empty in that pass. An
+       empty Version on an unconditioned PackageVersion item is a real bug,
+       not just a warning - confirmed empirically: it silently resolved
+       Microsoft.EntityFrameworkCore.Sqlite to 1.0.0 in one project instead of
+       floating warning-free to latest-per-range. Keeping the Condition on
+       the ItemGroup itself means the PackageVersion items simply don't exist
+       during the TFM-agnostic pass, which is the same safe shape this file
+       already used before these properties existed. -->
+  <PropertyGroup Label="Microsoft.* package version selection">
+    <MicrosoftPackagesVersionNet10>[10.0.10, 11.0.0)</MicrosoftPackagesVersionNet10>
+    <MicrosoftPackagesVersionNet11>[11.0.0-preview.6.26359.118, 12.0.0-a)</MicrosoftPackagesVersionNet11>
+  </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="[10.0.10, 11.0.0)" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="[10.0.10, 11.0.0)" />
-    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="[10.0.10, 11.0.0)" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="[10.0.10, 11.0.0)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftPackagesVersionNet10)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(MicrosoftPackagesVersionNet10)" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="$(MicrosoftPackagesVersionNet10)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftPackagesVersionNet10)" />
     <!-- SharpMud.Hosting's composition-root builder wraps this directly -
          see docs/adr/0006-nuget-package-distribution.md. -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="[10.0.10, 11.0.0)" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="[10.0.9, 11.0.0)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftPackagesVersionNet10)" />
+    <!-- Previously pinned to [10.0.9, 11.0.0) on net10.0 - one patch behind
+         the rest of this lockstep group. Folded into the shared property
+         (floor now 10.0.10) since nothing pins it lower deliberately. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftPackagesVersionNet10)" />
+    <!-- Not a Microsoft.* package and doesn't track the same version numbers
+         as the group above - stays on its own explicit range. See ADR-0006. -->
+    <PackageVersion Include="EntityFrameworkCore.DynamoDb" Version="[10.0.0, 11.0.0)" />
   </ItemGroup>
-  <!-- Lower bound here is itself a prerelease, which flips NuGet's "consider
-       prereleases for this package ID" switch on for the whole dependency
-       graph - so a bare 12.0.0 upper bound would NOT reliably exclude
-       12.0.0 previews once anything else in a consumer's graph requests
-       one (confirmed empirically via a forced version-conflict test: it
-       silently resolved past a bare next-major bound to a same-shaped
-       preview). The -a suffix is an otherwise-meaningless marker chosen
-       only because it sorts below every real prerelease label Microsoft
-       uses (preview, rc, beta, alpha) - 'a' < those alphabetically - so
-       the exclusive upper bound sits below all of them, not just below
-       12.0.0 stable. Bare "-0" is the more common idiom for this (and is
-       what NuGet's own dependency-resolution docs use), but nuget.org's
-       push validator rejects a purely-numeric prerelease label as an
-       invalid Version - this letter-led marker sidesteps that. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
-    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="[11.0.0-preview.6.26359.118, 12.0.0-a)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="Microsoft.Extensions.Identity.Core" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftPackagesVersionNet11)" />
+    <PackageVersion Include="EntityFrameworkCore.DynamoDb" Version="[11.0.0-preview.91, 12.0.0-a)" />
   </ItemGroup>
   <ItemGroup>
     <!-- Test Framework: xUnit v3 on Microsoft.Testing.Platform v2 (MTP v2), per docs/architecture.md.

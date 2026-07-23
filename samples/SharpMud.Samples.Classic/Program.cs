@@ -5,11 +5,10 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using SharpMud.Adapters.Cli;
 using SharpMud.Adapters.Telnet;
-using SharpMud.Engine.Core;
-using SharpMud.Engine.Ticking;
 using SharpMud.Hosting;
 using SharpMud.Persistence;
 using SharpMud.Persistence.Sqlite;
+using SharpMud.Ruleset.Rpg;
 using SharpMud.Samples.Classic;
 
 var builder = SharpMudApplication.CreateBuilder(args);
@@ -57,14 +56,13 @@ builder.Services.AddSingleton<IBehaviorMappingContributor, ClassicBehaviorMappin
 builder.Services.AddSharpMudWorld<ClassicWorldBuilder>();
 builder.Services.AddSharpMudPlayerFactory<ClassicPlayerFactory>();
 
-builder.Services.AddSingleton<ICombatResolver, CombatResolver>();
-// Registered once as ICombatManager and once as ITickable, same underlying
-// instance - CombatManager both drives the kill/flee commands and advances
-// active encounters each tick.
-builder.Services.AddSingleton<ICombatManager>(sp => new CombatManager(sp.GetRequiredService<ICombatResolver>(), sp.GetRequiredService<WorldContext>().StartingRoom));
-builder.Services.AddSingleton(sp => (ITickable)sp.GetRequiredService<ICombatManager>());
-builder.Services.AddSharpMudRuleset((sp, registry) =>
-    ClassicCommands.RegisterAll(registry, sp.GetRequiredService<ICombatManager>(), sp.GetRequiredService<IRandomSource>()));
+// SharpMud.Ruleset.Rpg's combat scaffolding (ICombatResolver, ICombatManager
+// as both itself and ITickable, the dice service, its own
+// IBehaviorMappingContributor, and the kill/attack/flee commands) - see
+// docs/adr/0008-ruleset-scaffolding-tier.md. Classic has no commands of its
+// own beyond what Rpg already provides, so no registerConsumerCommands
+// callback is needed here.
+builder.Services.AddSharpMudRpgRuleset<ClassicCombatOutcomeHandler>();
 
 // Transport mode: SHARPMUD_MODE/SHARPMUD_TELNET_PORT/--telnet, same
 // precedence as before (CLI arg wins over env var) - this is now the

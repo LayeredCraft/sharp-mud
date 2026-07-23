@@ -18,6 +18,12 @@
     <!-- WorldContext.Initialize is internal - tests need to populate it
          directly rather than running the full WorldLoaderHostedService. -->
     <InternalsVisibleTo Include="SharpMud.Hosting.Tests" />
+    <!-- Same reason as above - ICombatOutcomeHandler implementations
+         (ClassicCombatOutcomeHandler, BasicCombatOutcomeHandler) read
+         WorldContext.StartingRoom directly, so their tests need to
+         populate it too. -->
+    <InternalsVisibleTo Include="SharpMud.Samples.Classic.Tests" />
+    <InternalsVisibleTo Include="SharpMud.Ruleset.Basic.Tests" />
     <!-- NSubstitute proxies internal interfaces via Castle DynamicProxy,
          which needs this grant on any assembly whose internal types it
          mocks - not a real consumer, just how NSubstitute works. -->

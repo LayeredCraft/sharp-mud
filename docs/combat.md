@@ -6,11 +6,25 @@ subsystem docs. See [character.md](character.md) for Player stats and
 this system hooks into.
 
 **Superseded by [engine-vs-ruleset.md](engine-vs-ruleset.md)**: everything on
-this page now lives in `SharpMud.Samples.Classic`, not `SharpMud.Engine` -
-combat is ruleset-specific by design (see the findings doc's §9). `ICombatant`
-becomes `CombatantBehavior`, attached to whichever `Thing`s the ruleset wants
-to be able to fight; `Player`/`Npc` references below mean "a `Thing` with the
-relevant behaviors."
+this page now lives in `SharpMud.Ruleset.Rpg`, not `SharpMud.Engine` - combat
+is ruleset-shaped, not ruleset-agnostic, by design (see the findings doc's
+§9). `ICombatant` becomes `CombatantBehavior`, attached to whichever `Thing`s
+the ruleset wants to be able to fight; `Player`/`Npc` references below mean "a
+`Thing` with the relevant behaviors."
+
+**Further split by [ADR-0008](adr/0008-ruleset-scaffolding-tier.md)**:
+`CombatantBehavior`/`ICombatResolver`/`ICombatManager`/`AttackCommand`/
+`FleeCommand` moved out of `SharpMud.Samples.Classic` into the packaged
+`SharpMud.Ruleset.Rpg` tier, since none of that logic actually depended on
+any Classic-specific type. The two touches that *did* need a concrete
+ruleset - awarding XP into a stats behavior, and choosing a respawn room -
+are no longer direct `CombatManager` code; they go through
+`ICombatOutcomeHandler`, a per-ruleset hook (Classic's
+`ClassicCombatOutcomeHandler`, Basic's `BasicCombatOutcomeHandler`)
+registered alongside `AddSharpMudRpgRuleset<TCombatOutcomeHandler>(...)`.
+`CombatManager` itself only knows "call the resolver, then call the outcome
+handler" - it has zero reference to `StatsBehavior`, `Race`, or any concrete
+world content.
 
 ## Model
 
@@ -42,10 +56,23 @@ public interface ICombatManager
     bool TryGetEncounter(PlayerId playerId, out CombatEncounter? encounter);
 }
 
-public sealed class CombatManager(IWorld world, ICombatResolver resolver, RoomId hubRoomId)
+public sealed class CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
     : ICombatManager, ITickable
 {
     public Task OnTickAsync(TickContext ctx, CancellationToken ct) { /* see below */ }
+}
+```
+
+No `hubRoomId`/`IWorld` constructor parameter any more - `CombatManager` has
+no respawn-destination or world-lookup concept of its own. `ICombatOutcomeHandler`
+(implemented per-ruleset) owns both the XP-award/death-penalty side effects
+and the respawn destination:
+
+```csharp
+public interface ICombatOutcomeHandler
+{
+    Task OnVictoryAsync(Thing victor, Thing defeated, CancellationToken ct);
+    Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken ct);
 }
 ```
 
@@ -129,39 +156,64 @@ Resumption for the full `Linkdead` mechanism):
 Verified live over real Telnet as part of ADR-0004/PLAN-0004 (see
 [networking.md](networking.md)) that a disconnect mid-session leaves the
 character (and by extension any encounter) resumable; the encounter-freeze
-path itself is covered by `CombatManagerTests`
+path itself is covered by `SharpMud.Ruleset.Rpg.Tests`' `CombatManagerTests`
 (`OnTickAsync_FreezesEncounter_WhenAttackerLinkdeadWithinGraceWindow`,
 `OnTickAsync_AbandonsEncounter_WhenAttackerLinkdeadPastGraceWindow`), not a
 separate live combat-specific manual test.
 
 ## Death & Respawn
 
-Classic-stakes model, implemented in `CombatManager`:
+Classic-stakes model, split between `CombatManager` (generic) and
+`ICombatOutcomeHandler` (per-ruleset):
 
-- **NPC death**: attacker's `Player.Experience` increases by
-  `Npc.ExperienceReward`, the NPC is removed from the world via
-  `IWorld.RemoveNpc` (which also removes it from its room's occupant list —
-  see [world-model.md](world-model.md)), the encounter ends. Loot drops are
-  **not implemented** — the item system itself is a later build-order phase,
-  so there's nothing to drop yet.
-- **Player death**: `Player.Experience` is reduced by a flat **10%**
-  (placeholder — exact percentage is still an open item), `CurrentHitPoints`
-  is reset to `MaxHitPoints / 2` (placeholder — exact fraction is still an
-  open item, minimum 1), `CurrentRoomId` is reset to the hub room, and the
-  hub's description is sent via `LookCommand.SendRoomDescriptionAsync`. No
+- **NPC death**: `CombatManager` sends the "You have slain ..." message and
+  removes the NPC from the world, then calls `OnVictoryAsync` - Classic's
+  handler increases `StatsBehavior.Experience` by
+  `CombatantBehavior.ExperienceReward`; Basic's does the same against
+  `BasicStatsBehavior`. Loot drops are **not implemented** — the item system
+  itself is a later build-order phase, so there's nothing to drop yet.
+- **Player death**: `CombatManager` unconditionally resets the loser's own
+  `CombatantBehavior.CurrentHitPoints` to `MaxHitPoints` (see the bug note
+  below), then calls `OnDefeatAsync`, which returns the respawn `Thing` and
+  applies whatever ruleset-specific penalty it wants — Classic's handler
+  reduces `StatsBehavior.Experience` by a flat **10%** (placeholder — exact
+  percentage is still an open item) and resets `StatsBehavior.CurrentHitPoints`
+  to `MaxHitPoints / 2` (placeholder, minimum 1), returning `WorldContext
+  .StartingRoom` (Classic's hub). `CombatManager` moves the attacker there and
+  sends the room description via `LookCommand.SendRoomDescriptionAsync`. No
   item loss and no corpse-run.
+
+  **Bug fixed during the ADR-0008 extraction**: `CombatResolver` reads/writes
+  damage against `CombatantBehavior.CurrentHitPoints`, not any ruleset stats
+  behavior. Respawn previously only reset the stats behavior's HP, leaving
+  `CombatantBehavior.CurrentHitPoints` at/below 0 - the very next hit
+  instantly re-triggered "defeated" regardless of the roll. `CombatManager`
+  now resets `CombatantBehavior.CurrentHitPoints` itself, unconditionally,
+  before the outcome handler runs.
 
 ## Flee
 
-Implemented in `FleeCommand`. Requires an active encounter
-(`ICombatManager.TryGetEncounter`) and at least one exit in the current room.
-Success chance is currently a **flat 60%** via `IRandomSource.Next(1, 100)`
-— the real DEX-differential formula from the original design is still an
-open item, and `Npc`/`ICombatant` doesn't carry Dexterity, so there's nothing
-to differential against yet. On success, a random exit is chosen
-(`IRandomSource.Next` over `Room.Exits`), the encounter ends, and
-`IWorld.MovePlayerAsync` runs exactly as a normal move (see
-[commands.md](commands.md)).
+Implemented in `FleeCommand` (`SharpMud.Ruleset.Rpg`). Requires an active
+encounter (`ICombatManager.TryGetEncounter`) and at least one exit in the
+current room. Success chance is currently a **flat 60%** via
+`IDiceRoller.Roll(1, 100)` — the real DEX-differential formula from the
+original design is still an open item, and `Npc`/`ICombatant` doesn't carry
+Dexterity, so there's nothing to differential against yet. On success, a
+random exit is chosen (`IRandomSource.Next` over the room's exits — index
+selection isn't dice notation, so it stays a direct `IRandomSource` call, not
+`IDiceRoller`), the encounter ends, and the actor moves exactly as a normal
+move (see [commands.md](commands.md)).
+
+## Dice-Rolling Abstraction
+
+`IDiceRoller`/`DiceRoller` (`SharpMud.Ruleset.Rpg`) wraps `IRandomSource` with
+"N dice of M sides plus a modifier" — `Roll(diceCount, sides, modifier)`.
+`CombatResolver`'s to-hit roll and `FleeCommand`'s success check use it;
+damage rolls stay direct `IRandomSource.Next(min, max)` calls, since a
+damage range (e.g. 2-6) isn't 1-based dice notation and forcing it through
+`IDiceRoller` would misrepresent the roll. DI-registered
+(`AddSharpMudRpgRuleset(...)`), not a WheelMUD-style static singleton — see
+[ADR-0008](adr/0008-ruleset-scaffolding-tier.md).
 
 ## Open Items
 

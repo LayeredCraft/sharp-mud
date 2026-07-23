@@ -5,6 +5,7 @@
     <ProjectReference Include="..\..\src\SharpMud.Hosting\SharpMud.Hosting.csproj" />
     <ProjectReference Include="..\..\src\SharpMud.Persistence\SharpMud.Persistence.csproj" />
     <ProjectReference Include="..\..\src\SharpMud.Persistence.Sqlite\SharpMud.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\SharpMud.Ruleset.Rpg\SharpMud.Ruleset.Rpg.csproj" />
     <ProjectReference Include="..\..\src\SharpMud.Adapters.Telnet\SharpMud.Adapters.Telnet.csproj" />
     <ProjectReference Include="..\..\src\SharpMud.Adapters.Cli\SharpMud.Adapters.Cli.csproj" />
   </ItemGroup>

@@ -3,21 +3,20 @@ using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
 
-namespace SharpMud.Samples.Classic.Tests.Combat;
+namespace SharpMud.Ruleset.Rpg.Tests.Combat;
 
 public sealed class CombatManagerTests
 {
     [Fact]
-    public async Task OnTickAsync_AwardsXpAndEndsEncounter_WhenPlayerDefeatsNpc()
+    public async Task OnTickAsync_NotifiesOutcomeHandlerAndEndsEncounter_WhenPlayerDefeatsNpc()
     {
         var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
         var session = Substitute.For<ISession>();
-        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
         player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
-        player.Behaviors.Add(new StatsBehavior());
         room.Add(player);
 
         var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
@@ -27,28 +26,29 @@ public sealed class CombatManagerTests
 
         resolver.ResolveRound(player, npc).Returns(new CombatRoundResult(true, 6, true));
 
-        var sut = new CombatManager(resolver, hubRoom);
+        var sut = new CombatManager(resolver, outcomeHandler);
         sut.StartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
-        player.FindBehavior<StatsBehavior>()!.Experience.Should().Be(10);
+        await outcomeHandler.Received(1).OnVictoryAsync(player, npc, TestContext.Current.CancellationToken);
         room.Children.Should().NotContain(npc);
         resolver.DidNotReceive().ResolveRound(npc, player);
         sut.IsInCombat(player.Id).Should().BeFalse();
     }
 
     [Fact]
-    public async Task OnTickAsync_RespawnsPlayerWithXpLoss_WhenNpcDefeatsPlayer()
+    public async Task OnTickAsync_ResetsCombatantHitPointsAndRespawnsAtHandlerDestination_WhenNpcDefeatsPlayer()
     {
         var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
         var session = Substitute.For<ISession>();
         var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
         player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
-        player.Behaviors.Add(new StatsBehavior { Experience = 100, MaxHitPoints = 20 });
+        player.Behaviors.Add(new CombatantBehavior { MaxHitPoints = 20, CurrentHitPoints = -5 });
         room.Add(player);
 
         var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
@@ -58,14 +58,18 @@ public sealed class CombatManagerTests
 
         resolver.ResolveRound(player, npc).Returns(new CombatRoundResult(false, 0, false));
         resolver.ResolveRound(npc, player).Returns(new CombatRoundResult(true, 999, true));
+        outcomeHandler.OnDefeatAsync(player, npc, TestContext.Current.CancellationToken).Returns(hubRoom);
 
-        var sut = new CombatManager(resolver, hubRoom);
+        var sut = new CombatManager(resolver, outcomeHandler);
         sut.StartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
-        player.FindBehavior<StatsBehavior>()!.Experience.Should().Be(90);
-        player.FindBehavior<StatsBehavior>()!.CurrentHitPoints.Should().Be(10);
+        // Regression coverage for the pre-existing bug: a respawned
+        // character's CombatantBehavior.CurrentHitPoints must actually
+        // reset, not stay at/below 0 and instantly re-trigger "defeated" on
+        // the next hit.
+        player.FindBehavior<CombatantBehavior>()!.CurrentHitPoints.Should().Be(20);
         player.Parent.Should().Be(hubRoom);
         sut.IsInCombat(player.Id).Should().BeFalse();
     }
@@ -74,8 +78,8 @@ public sealed class CombatManagerTests
     public async Task OnTickAsync_FreezesEncounter_WhenAttackerLinkdeadWithinGraceWindow()
     {
         var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
         var session = Substitute.For<ISession>();
-        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
@@ -89,7 +93,7 @@ public sealed class CombatManagerTests
         npc.Behaviors.Add(new CombatantBehavior { ExperienceReward = 10, CurrentHitPoints = 6 });
         room.Add(npc);
 
-        var sut = new CombatManager(resolver, hubRoom);
+        var sut = new CombatManager(resolver, outcomeHandler);
         sut.StartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
@@ -103,8 +107,8 @@ public sealed class CombatManagerTests
     public async Task OnTickAsync_AbandonsEncounter_WhenAttackerLinkdeadPastGraceWindow()
     {
         var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
         var session = Substitute.For<ISession>();
-        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
@@ -118,7 +122,7 @@ public sealed class CombatManagerTests
         npc.Behaviors.Add(new CombatantBehavior { ExperienceReward = 10, CurrentHitPoints = 6 });
         room.Add(npc);
 
-        var sut = new CombatManager(resolver, hubRoom);
+        var sut = new CombatManager(resolver, outcomeHandler);
         sut.StartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);

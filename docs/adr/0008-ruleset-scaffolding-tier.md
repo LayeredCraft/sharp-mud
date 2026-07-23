@@ -1,6 +1,6 @@
 # [ADR-0008] A Reusable RPG Scaffolding Tier Between `Engine` and Concrete Rulesets
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-07-21
 

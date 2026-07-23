@@ -1,20 +1,21 @@
 using SharpMud.Engine.Core;
 
-namespace SharpMud.Samples.Classic.Tests.Combat;
+namespace SharpMud.Ruleset.Rpg.Tests.Combat;
 
 public sealed class CombatResolverTests
 {
     [Fact]
     public void ResolveRound_AppliesDamageAndReportsHit_WhenToHitRollMeetsArmorClass()
     {
+        var dice = Substitute.For<IDiceRoller>();
         var random = Substitute.For<IRandomSource>();
-        random.Next(1, 20).Returns(10);
+        dice.Roll(1, 20).Returns(10);
         random.Next(2, 5).Returns(3);
 
         var attacker = MakeCombatant("Attacker", damageMin: 2, damageMax: 5);
         var defender = MakeCombatant("Defender", armorClass: 10, hitPoints: 10);
 
-        var sut = new CombatResolver(random);
+        var sut = new CombatResolver(dice, random);
 
         var result = sut.ResolveRound(attacker, defender);
 
@@ -27,13 +28,14 @@ public sealed class CombatResolverTests
     [Fact]
     public void ResolveRound_ReportsMissAndAppliesNoDamage_WhenToHitRollIsBelowArmorClass()
     {
+        var dice = Substitute.For<IDiceRoller>();
         var random = Substitute.For<IRandomSource>();
-        random.Next(1, 20).Returns(5);
+        dice.Roll(1, 20).Returns(5);
 
         var attacker = MakeCombatant("Attacker");
         var defender = MakeCombatant("Defender", armorClass: 10, hitPoints: 10);
 
-        var sut = new CombatResolver(random);
+        var sut = new CombatResolver(dice, random);
 
         var result = sut.ResolveRound(attacker, defender);
 
@@ -45,14 +47,15 @@ public sealed class CombatResolverTests
     [Fact]
     public void ResolveRound_ReportsDefenderDefeated_WhenDamageDropsHitPointsToZeroOrBelow()
     {
+        var dice = Substitute.For<IDiceRoller>();
         var random = Substitute.For<IRandomSource>();
-        random.Next(1, 20).Returns(20);
+        dice.Roll(1, 20).Returns(20);
         random.Next(1, 4).Returns(4);
 
         var attacker = MakeCombatant("Attacker", damageMin: 1, damageMax: 4);
         var defender = MakeCombatant("Defender", armorClass: 10, hitPoints: 3);
 
-        var sut = new CombatResolver(random);
+        var sut = new CombatResolver(dice, random);
 
         var result = sut.ResolveRound(attacker, defender);
 
