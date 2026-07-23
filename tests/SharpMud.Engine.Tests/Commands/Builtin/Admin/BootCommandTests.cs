@@ -59,7 +59,7 @@ public sealed class BootCommandTests
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         target.FindBehavior<PlayerBehavior>()!.WasBooted.Should().BeFalse();
-        await targetSession.DidNotReceiveWithAnyArgs().DisconnectAsync(default!, default);
+        await targetSession.DidNotReceiveWithAnyArgs().DisconnectAsync(default!, Arg.Any<CancellationToken>());
         await adminSession.Received(1).WriteLineAsync("Target is not online.", Arg.Any<CancellationToken>());
     }
 

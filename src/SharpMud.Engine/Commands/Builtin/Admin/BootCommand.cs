@@ -14,8 +14,7 @@ public sealed class BootCommand : ICommand
             return;
 
         var username = string.Join(' ', ctx.Args);
-        var target = ctx.World.AllWithBehavior<PlayerBehavior>()
-            .FirstOrDefault(p => string.Equals(p.FindBehavior<PlayerBehavior>()!.Username, username, StringComparison.OrdinalIgnoreCase));
+        var target = AdminCommandHelpers.FindLiveTarget(ctx.World, username);
 
         if (target is null || !AdminCommandHelpers.IsOnline(target))
         {

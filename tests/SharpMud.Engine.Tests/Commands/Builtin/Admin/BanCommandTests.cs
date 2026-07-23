@@ -27,7 +27,7 @@ public sealed class BanCommandTests
 
         adminBehavior.IsBanned.Should().BeFalse();
         await adminSession.Received(1).WriteLineAsync("You cannot ban yourself.", Arg.Any<CancellationToken>());
-        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, default);
+        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, Arg.Any<CancellationToken>());
     }
 
     [Fact]

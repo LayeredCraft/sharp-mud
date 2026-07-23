@@ -28,7 +28,7 @@ public sealed class RoleRevokeCommandTests
 
         adminBehavior.Roles.Should().HaveFlag(SecurityRole.FullAdmin);
         await adminSession.Received(1).WriteLineAsync("You cannot revoke your own FullAdmin.", Arg.Any<CancellationToken>());
-        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, default);
+        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class RoleRevokeCommandTests
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         targetBehavior.Roles.Should().HaveFlag(SecurityRole.MinorAdmin);
-        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, default);
+        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, Arg.Any<CancellationToken>());
         await adminSession.Received(1).WriteLineAsync(
             Arg.Is<string>(s => s!.Contains("FullAdmin")), Arg.Any<CancellationToken>());
     }

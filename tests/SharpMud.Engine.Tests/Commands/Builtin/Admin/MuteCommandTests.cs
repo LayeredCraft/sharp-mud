@@ -74,6 +74,6 @@ public sealed class MuteCommandTests
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await adminSession.Received(1).WriteLineAsync("No player named Ghost was found.", Arg.Any<CancellationToken>());
-        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, default);
+        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, Arg.Any<CancellationToken>());
     }
 }

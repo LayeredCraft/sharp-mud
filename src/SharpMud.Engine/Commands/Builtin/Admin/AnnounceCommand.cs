@@ -20,10 +20,10 @@ public sealed class AnnounceCommand : ICommand
         // (ADR-0004), which would attempt a write to their stale session.
         foreach (var player in ctx.World.AllWithBehavior<PlayerBehavior>())
         {
-            if (!AdminCommandHelpers.IsOnline(player))
+            if (AdminCommandHelpers.GetOnlineBehavior(player) is not { } behavior)
                 continue;
 
-            await player.FindBehavior<PlayerBehavior>()!.Session!.WriteLineAsync($"[Announcement] {message}", ct);
+            await behavior.Session!.WriteLineAsync($"[Announcement] {message}", ct);
         }
     }
 }

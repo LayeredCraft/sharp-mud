@@ -53,7 +53,7 @@ public sealed class RoleGrantCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        await repository.DidNotReceiveWithAnyArgs().FindPlayerByUsernameAsync(default!, default);
+        await repository.DidNotReceiveWithAnyArgs().FindPlayerByUsernameAsync(default!, Arg.Any<CancellationToken>());
         await adminSession.Received(1).WriteLineAsync($"'{roleName}' isn't a grantable role.", Arg.Any<CancellationToken>());
     }
 
