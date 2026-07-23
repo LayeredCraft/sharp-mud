@@ -246,7 +246,29 @@ in-memory objects, and doesn't leave stale rows behind).
   `.db` file needs the file deleted by hand during dev, not an automatic wipe.
 - `ThingRepository` reconstructs the entire stored world into memory on every
   `LoadTreeAsync`/`FindPlayerByUsernameAsync` call — fine at hand-built-hub scale,
-  not yet a scoped/paginated load suitable for a large world.
+  not yet a scoped/paginated load suitable for a large world. Surfaced again
+  (not newly discovered, but discussed in more depth) while reviewing
+  [ADR-0009](adr/0009-world-building-olc-command-surface.md)'s `tunnel`
+  command: `GameDbContext` explicitly `Ignore()`s every `Thing`/`Behavior`
+  reference property (`Parent`, `Children`, `ExitBehavior.Destination`), so
+  EF Core's own relationship/`Include`-based scoped-loading features aren't
+  available here at all — the full-graph load is `ReconstructAllAsync`'s own
+  hand-written choice, not something EF Core requires. **This is a
+  persistence-layer/loading-strategy concern, separable from the
+  `Thing`/`Behavior` domain model itself** — nothing about composing game
+  objects from behaviors requires eager-loading the whole world; `Engine`
+  and every ruleset only ever depend on the `IThingRepository`/`IWorld`
+  interfaces, not `ThingRepository`'s internals, so this is fixable without
+  touching the domain model above it. The likely fix direction, when this
+  is actually designed: MUDs are naturally spatially local (a player only
+  ever touches their current room plus adjacent rooms via exits), so a
+  lazy/regional load — fetch a `Thing` the first time something references
+  it, cache it while active — is the standard shape, not a rewrite of
+  `Thing`/`Behavior`. Not yet worth designing given today's world size;
+  revisit once there's a real deployment approaching actual user counts, or
+  Slice 9 (procedural frontier generation) makes the world large enough
+  that eager-loading stops being free. See
+  [PLAN-0001](plans/0001-wheelmud-reconciliation-roadmap.md).
 - Concurrent `SaveTreeAsync` calls (e.g. two players disconnecting at once)
   rely on SQLite's own single-writer file locking; not independently
   stress-tested.

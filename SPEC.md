@@ -114,11 +114,15 @@ derivatives separate "instant" commands from round-based combat resolution.
 
 ### Content authoring evolution (not all v1)
 
-1. Hardcoded rooms in C# (bootstrap only, to get the loop working).
-2. Data-driven world files (JSON/YAML) loaded at startup — natural next step,
-   also the foundation for in-game building commands later.
-3. In-game building commands (`@dig`, `@describe`, etc.) writing to the same
-   data model.
+1. Hardcoded rooms in C# (bootstrap only, to get the loop working) — still
+   how every world's starting content is authored today.
+2. Data-driven world files (JSON/YAML) loaded at startup — **not yet
+   implemented**; turned out not to be a prerequisite for stage 3 below.
+3. In-game building commands (`dig`/`tunnel`/`describe`) writing directly
+   to the live `Thing` tree — **implemented**, role-gated at
+   `SecurityRole.MinorBuilder`. See
+   [ADR-0009](docs/adr/0009-world-building-olc-command-surface.md) and
+   [docs/world-model.md](docs/world-model.md).
 
 ## Command System
 
@@ -157,8 +161,9 @@ derivatives separate "instant" commands from round-based combat resolution.
    for a plain name (no identity verification) as a placeholder until this
    phase lands.
 8. **Moderation/admin tooling**: implemented — see below.
-9. **Procedural frontier generation**, **in-game building/scripting**: later
-   phases (see Deferred/Open Items).
+9. **In-game building** (`dig`/`tunnel`/`describe`): implemented — see
+   Content authoring evolution above. **Procedural frontier generation**
+   and **soft-code/scripting**: later phases (see Deferred/Open Items).
 
 ## Accounts & Auth ✅ implemented
 
@@ -204,6 +209,23 @@ Explicitly out of scope for v1, to revisit later:
   where — undesigned. Tracked as an open item in
   [PLAN-0005](docs/plans/0005-security-role-model-and-moderation-commands.md);
   the moderation commands themselves are implemented (see above).
+- **NPC/item spawning, mob-respawn loops, loot tables**: undesigned. An NPC
+  killed in combat is removed from the world permanently (no respawn
+  timer); loot drops aren't implemented at all (see
+  [docs/combat.md](docs/combat.md)). Surfaced while scoping ADR-0009,
+  deliberately kept out of it — tracked as Slice 10 in
+  [PLAN-0001](docs/plans/0001-wheelmud-reconciliation-roadmap.md), not yet
+  a numbered slice in ADR-0001 itself.
+- **World persistence loads everything into memory, always**: `ThingRepository`
+  reconstructs the *entire* stored world on every load — fine at
+  hand-built-hub scale, won't scale to real user counts or a large
+  procedurally generated world. A persistence-layer/loading-strategy
+  concern, separable from the `Thing`/`Behavior` domain model itself (see
+  [docs/persistence.md](docs/persistence.md) Open Items for the full
+  reasoning). Undesigned — revisit once there's a real deployment
+  approaching actual scale, or Slice 9 makes the world large enough that
+  eager-loading stops being free. Tracked as Slice 11 in
+  [PLAN-0001](docs/plans/0001-wheelmud-reconciliation-roadmap.md).
 - **Soft-code/scripting engine**: revisit once data/config-driven NPC and room
   behavior proves insufficient.
 - **Procedural frontier generation algorithm**: choice of generation approach

@@ -37,7 +37,7 @@ public sealed class BasicWorldBuilder : IWorldBuilder
         var watchtower = CreateRoom(world, area, "Old Watchtower",
             "A crumbling stone watchtower, long abandoned. Something rustles nearby.");
 
-        Connect(world, clearing, watchtower, Direction.North);
+        RoomConnector.Connect(world, clearing, watchtower, Direction.North);
 
         var boar = new Thing { Id = ThingId.New(), Name = "wild boar" };
         boar.Behaviors.Add(new NpcBehavior());
@@ -68,20 +68,5 @@ public sealed class BasicWorldBuilder : IWorldBuilder
         area.Add(room);
         world.Register(room);
         return room;
-    }
-
-    // Two exit Things per connection - one per direction (docs/engine-vs-ruleset.md
-    // Decisions), each a child of the room it exits from.
-    private static void Connect(World world, Thing a, Thing b, Direction direction)
-    {
-        var aToB = new Thing { Id = ThingId.New(), Name = direction.ToDisplayString() };
-        aToB.Behaviors.Add(new ExitBehavior { Direction = direction, Destination = b });
-        a.Add(aToB);
-        world.Register(aToB);
-
-        var bToA = new Thing { Id = ThingId.New(), Name = direction.Opposite().ToDisplayString() };
-        bToA.Behaviors.Add(new ExitBehavior { Direction = direction.Opposite(), Destination = a });
-        b.Add(bToA);
-        world.Register(bToA);
     }
 }

@@ -124,9 +124,17 @@ actually implemented as of the inventory/items build-order phase:
 - **Character**: `score`/`stats` (display derived stats — see
   [character.md](character.md)) is **not implemented yet**.
 - **Meta** ✅: `help`, `quit`.
-- **Builder/OLC verbs** (`@dig`, `@describe`, etc.) explicitly excluded —
-  those belong to the deferred in-game building phase (see
-  [world-model.md](world-model.md)). **Moderation/admin verbs** ✅
+- **Builder/OLC verbs** ✅ (`dig <direction> <name>`, `tunnel <direction>
+  <existing room name>`, `describe <text>`) — role-gated at
+  `SecurityRole.MinorBuilder` via `ICommandRegistry.RegisterWithRole`, same
+  mechanism as the moderation verbs below. `dig` creates a new room and
+  wires a two-way exit to it; `tunnel` wires the same kind of exit between
+  the current room and an already-existing room found by exact name;
+  `describe` sets the current room's description. No NPC/item spawning,
+  no room deletion — see
+  [ADR-0009](adr/0009-world-building-olc-command-surface.md) and
+  [PLAN-0009](plans/0009-world-building-olc-command-surface.md).
+  **Moderation/admin verbs** ✅
   (`boot`/`mute`/`unmute`/`announce`/`ban`/`unban`/`rolegrant`/
   `rolerevoke`) are role-gated via `ICommandRegistry.RegisterWithRole` —
   see [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md)
