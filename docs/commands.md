@@ -126,12 +126,11 @@ actually implemented as of the inventory/items build-order phase:
 - **Meta** ✅: `help`, `quit`.
 - **Builder/OLC verbs** (`@dig`, `@describe`, etc.) explicitly excluded —
   those belong to the deferred in-game building phase (see
-  [world-model.md](world-model.md)). **Moderation/admin verbs**
+  [world-model.md](world-model.md)). **Moderation/admin verbs** ✅
   (`boot`/`mute`/`unmute`/`announce`/`ban`/`unban`/`rolegrant`/
-  `rolerevoke`) are a separate thing — designed in
-  [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md), not
-  yet implemented (see
-  [PLAN-0005](plans/0005-security-role-model-and-moderation-commands.md)).
+  `rolerevoke`) are role-gated via `ICommandRegistry.RegisterWithRole` —
+  see [ADR-0005](adr/0005-security-role-model-and-moderation-commands.md)
+  and [PLAN-0005](plans/0005-security-role-model-and-moderation-commands.md).
 
 ## Open Items
 

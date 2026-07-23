@@ -156,8 +156,9 @@ derivatives separate "instant" commands from round-based combat resolution.
 7. **Accounts & auth**: see below. New Telnet connections currently prompt
    for a plain name (no identity verification) as a placeholder until this
    phase lands.
-8. **Moderation/admin tooling**, **procedural frontier generation**,
-   **in-game building/scripting**: later phases (see Deferred/Open Items).
+8. **Moderation/admin tooling**: implemented — see below.
+9. **Procedural frontier generation**, **in-game building/scripting**: later
+   phases (see Deferred/Open Items).
 
 ## Accounts & Auth ✅ implemented
 
@@ -168,6 +169,20 @@ login prompt, one character per login (no separate Account entity, no
 "alts"). Hashed via `PasswordHasher<TUser>` (PBKDF2 + salt). Telnet's
 placeholder name-only prompt has been replaced by the real thing; local CLI
 still has no login at all, per the original decision.
+
+## Moderation & Admin Tooling ✅ implemented
+
+`SecurityRole` flags enum + `RoleGuardedCommand`/`MuteGuardedCommand`
+decorators around `ICommand`, registered via
+`ICommandRegistry.RegisterWithRole` (vs. the unguarded `RegisterOpen`).
+`boot`/`mute`/`unmute`/`announce`/`ban`/`unban`/`rolegrant`/`rolerevoke`
+commands under `src/SharpMud.Engine/Commands/Builtin/Admin/`. Bootstrap: the
+`SHARPMUD_INITIAL_ADMIN` env var (see
+[docs/deployment.md](docs/deployment.md)) grants the first `FullAdmin` on
+login. See [ADR-0005](docs/adr/0005-security-role-model-and-moderation-commands.md)
+and [PLAN-0005](docs/plans/0005-security-role-model-and-moderation-commands.md).
+Audit logging of moderation actions remains undesigned — tracked as an open
+item below.
 
 ## Deployment
 
@@ -185,13 +200,10 @@ configuration and open items.
 
 Explicitly out of scope for v1, to revisit later:
 
-- **Moderation/admin tooling**: permission levels, mute/kick/ban, admin
-  commands — designed, see
-  [ADR-0005](docs/adr/0005-security-role-model-and-moderation-commands.md)
-  and
+- **Moderation audit logging**: which actions get logged, retention, and
+  where — undesigned. Tracked as an open item in
   [PLAN-0005](docs/plans/0005-security-role-model-and-moderation-commands.md);
-  not yet implemented. Audit logging remains undesigned, tracked as an
-  open item in PLAN-0005.
+  the moderation commands themselves are implemented (see above).
 - **Soft-code/scripting engine**: revisit once data/config-driven NPC and room
   behavior proves insufficient.
 - **Procedural frontier generation algorithm**: choice of generation approach
