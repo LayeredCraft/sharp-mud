@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SharpMud.Ruleset.Rpg;
 using SharpMud.Samples.Classic;
 
 namespace SharpMud.Persistence.Tests.TestKit;
@@ -16,7 +17,7 @@ public sealed class TestDbContextFactory : IDbContextFactory<GameDbContext>, IDi
         var options = new DbContextOptionsBuilder<GameDbContext>()
             .UseSqlite($"Data Source={_dbPath}")
             .Options;
-        var context = new GameDbContext(options, [new ClassicBehaviorMappingContributor()]);
+        var context = new GameDbContext(options, [new ClassicBehaviorMappingContributor(), new RpgBehaviorMappingContributor()]);
         context.Database.EnsureCreated();
         return context;
     }

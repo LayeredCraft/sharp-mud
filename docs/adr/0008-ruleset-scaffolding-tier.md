@@ -1,6 +1,6 @@
 # [ADR-0008] A Reusable RPG Scaffolding Tier Between `Engine` and Concrete Rulesets
 
-**Status:** Proposed
+**Status:** Accepted
 
 **Date:** 2026-07-21
 
@@ -140,7 +140,7 @@ SharpMud.Engine            unchanged — Thing/Behavior/events, zero ruleset kno
 
 SharpMud.Ruleset.Rpg       NEW, packaged — CombatantBehavior, ICombatResolver/CombatResolver,
                            ICombatManager/CombatManager, AttackCommand/FleeCommand, moved
-                           in from samples/SharpMud.Samples.Classic (see Context — these
+                           in from samples/SharpMud.Samples.Classic (see Context —
                            these extracted types' actual combat logic has no flavor-specific coupling
                            today, but CombatManager itself carries two seams that must be
                            decoupled before the move, not moved as-is):
@@ -355,26 +355,30 @@ See Decision Outcome above.
 
 ## Open Items
 
-- Whether `SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic` belong in the
-  `SharpMud` meta-package (narrowed by ADR-0007 to Engine + Hosting +
-  Persistence) is not decided here — a consumer who wants a *different*
-  ruleset shape shouldn't get RPG-specific scaffolding pulled in by default,
-  echoing ADR-0007's own reasoning almost exactly. Likely answer is "no,"
-  but that's a decision for whoever implements this, not asserted here.
-- The exact mechanism for decoupling `CombatManager`'s XP-award/death-penalty
-  logic from `StatsBehavior` (a game event through `ThingEvents`, a small
-  callback interface, or something else) is left to the implementation plan,
-  not fixed by this ADR.
-- The exact mechanism for decoupling `CombatManager`'s hard-coded `hubRoom`
-  respawn destination — just as blocking as the `StatsBehavior` seam above
-  for moving `CombatManager` into a generic package, and plausibly the same
-  mechanism, but left to the implementation plan, not fixed by this ADR.
-- The exact mechanism for composing `AttackCommand`/`FleeCommand`
-  registration with a consumer's own commands (a forwarding callback through
-  `AddSharpMudRpgRuleset(...)`, or an additive `ICommandRegistry`) — command
-  registration is part of `Ruleset.Rpg`'s public contract per the Decision
-  Outcome above, just as blocking as the other two seams, and left to the
-  implementation plan, not fixed by this ADR.
+- ~~Whether `SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic` belong in the
+  `SharpMud` meta-package~~ — **resolved during implementation: no.** Same
+  reasoning ADR-0007 already established for provider/transport packages —
+  a consumer who wants a *different* ruleset shape shouldn't get
+  RPG-specific scaffolding pulled in by default just for referencing the
+  meta-package. `SharpMud` stays Engine + Hosting + Persistence only;
+  `Ruleset.Rpg`/`Ruleset.Basic` are always an explicit, separate reference.
+  Revisit only if a real consumer need for a bundled "engine + Rpg"
+  meta-package surfaces — none has.
+- ~~The exact mechanism for decoupling `CombatManager`'s XP-award/death-penalty
+  logic from `StatsBehavior`~~ — **resolved during implementation:** a
+  callback interface, `ICombatOutcomeHandler` (`OnVictoryAsync`/
+  `OnDefeatAsync`), not a `ThingEvents` game event. See PLAN-0008.
+- ~~The exact mechanism for decoupling `CombatManager`'s hard-coded `hubRoom`
+  respawn destination~~ — **resolved during implementation:** the same
+  `ICombatOutcomeHandler.OnDefeatAsync` above also returns the respawn
+  `Thing`, confirming the ADR's own "plausibly the same mechanism" guess.
+- ~~The exact mechanism for composing `AttackCommand`/`FleeCommand`
+  registration with a consumer's own commands~~ — **resolved during
+  implementation:** the forwarding-callback shape.
+  `AddSharpMudRpgRuleset<TCombatOutcomeHandler>(registerConsumerCommands)`
+  calls `Hosting`'s `AddSharpMudRuleset(...)` exactly once internally;
+  `ICommandRegistry` registration did not need to become additive, and
+  `SharpMud.Hosting` was not changed.
 - `SharpMud.Ruleset.Rpg` taking a dependency on `SharpMud.Persistence` (to
   implement `IBehaviorMappingContributor` for `CombatantBehavior`) means
   there's no persistence-free path to Rpg's combat scaffolding — accepted

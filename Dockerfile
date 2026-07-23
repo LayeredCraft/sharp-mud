@@ -11,6 +11,7 @@ COPY src/SharpMud.Persistence/SharpMud.Persistence.csproj src/SharpMud.Persisten
 COPY src/SharpMud.Persistence.Sqlite/SharpMud.Persistence.Sqlite.csproj src/SharpMud.Persistence.Sqlite/
 COPY src/SharpMud.Adapters.Cli/SharpMud.Adapters.Cli.csproj src/SharpMud.Adapters.Cli/
 COPY src/SharpMud.Adapters.Telnet/SharpMud.Adapters.Telnet.csproj src/SharpMud.Adapters.Telnet/
+COPY src/SharpMud.Ruleset.Rpg/SharpMud.Ruleset.Rpg.csproj src/SharpMud.Ruleset.Rpg/
 COPY samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj samples/SharpMud.Samples.Classic/
 RUN dotnet restore samples/SharpMud.Samples.Classic/SharpMud.Samples.Classic.csproj
 

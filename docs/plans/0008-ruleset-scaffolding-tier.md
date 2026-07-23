@@ -1,11 +1,10 @@
 # [PLAN-0008] A Reusable RPG Scaffolding Tier Between `Engine` and Concrete Rulesets
 
-**Implements:** ADR-0008 (link once that ADR is `Accepted` — do not move this
-plan to `In Progress` while it still reads `Proposed`)
+**Implements:** [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md) (`Accepted`)
 
-**Status:** Not Started
+**Status:** Done
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-07-23
 
 ## Goal
 
@@ -64,18 +63,18 @@ Explicitly deferred / out of scope for this plan:
 
 ## Tasks
 
-- [ ] New `src/SharpMud.Ruleset.Rpg` project
-  - [ ] Move `CombatantBehavior`, `ICombatResolver`/`CombatResolver`,
+- [x] New `src/SharpMud.Ruleset.Rpg` project
+  - [x] Move `CombatantBehavior`, `ICombatResolver`/`CombatResolver`,
         `ICombatManager`/`CombatManager`, `AttackCommand`/`FleeCommand` in
         from `samples/SharpMud.Samples.Classic`
-  - [ ] Design and implement the `StatsBehavior` decoupling (game event
+  - [x] Design and implement the `StatsBehavior` decoupling (game event
         through `ThingEvents`, or a small callback interface — pick one,
         document why in a code comment per `documentation.md`'s bar for
         non-obvious decisions)
-  - [ ] Design and implement the `hubRoom`/respawn-destination decoupling —
+  - [x] Design and implement the `hubRoom`/respawn-destination decoupling —
         consider folding into the same mechanism as the `StatsBehavior`
         decoupling above rather than a second bespoke seam
-  - [ ] While touching this: today's death-penalty handling only resets
+  - [x] While touching this: today's death-penalty handling only resets
         `StatsBehavior.CurrentHitPoints`, but `CombatResolver` actually reads
         and writes damage against `CombatantBehavior.CurrentHitPoints` — a
         respawned character's `CombatantBehavior` HP stays at/below 0, so the
@@ -84,23 +83,23 @@ Explicitly deferred / out of scope for this plan:
         extraction), but the decoupled respawn mechanism must reset
         `CombatantBehavior.CurrentHitPoints` too, not just carry the
         `StatsBehavior`-only reset forward into the new package
-  - [ ] Move `CombatantBehaviorConfiguration` + a new `SharpMud.Ruleset.Rpg`-
+  - [x] Move `CombatantBehaviorConfiguration` + a new `SharpMud.Ruleset.Rpg`-
         owned `IBehaviorMappingContributor` in from
         `ClassicBehaviorMappingContributor`; verify `Basic`/Classic's own DI
         registration actually wires this contributor up (`Persistence`
         discovers contributors via DI, per `docs/persistence.md`)
-  - [ ] Dice-rolling abstraction over `IRandomSource` (DI-registered
+  - [x] Dice-rolling abstraction over `IRandomSource` (DI-registered
         interface + implementation, not a static singleton — "N dice of M
         sides plus a modifier"); swap `CombatResolver`/`FleeCommand`'s raw
         `random.Next(...)` calls to use it
-  - [ ] A package-level DI registration entry point (`AddSharpMudRpgRuleset(...)`
+  - [x] A package-level DI registration entry point (`AddSharpMudRpgRuleset(...)`
         or equivalent) that reproduces today's manual wiring in
         `samples/SharpMud.Samples.Classic/Program.cs` (`ICombatResolver`,
         `ICombatManager` registered as both itself *and* `ITickable` off the
         same instance, `IBehaviorMappingContributor`, the dice service) —
         without this, `Basic`/Classic/a custom ruleset each hand-roll the
         exact scaffolding this ADR exists to provide, verbatim
-  - [ ] Define how `AttackCommand`/`FleeCommand` registration composes with
+  - [x] Define how `AttackCommand`/`FleeCommand` registration composes with
         a consumer's own commands. `Hosting`'s `AddSharpMudRuleset(...)` takes
         a single callback — calling it a second time (once for Rpg's commands,
         again for `Basic`/Classic's own) registers `ICommandRegistry` as a
@@ -114,53 +113,53 @@ Explicitly deferred / out of scope for this plan:
         becomes additive across multiple sources instead of one factory —
         exact mechanism is this plan's to decide, same as the other seams
         above
-  - [ ] `csproj`: `Directory.Packages.props` entry, package metadata matching
+  - [x] `csproj`: `Directory.Packages.props` entry, package metadata matching
         the existing `SharpMud.*` packages
-- [ ] New `src/SharpMud.Ruleset.Basic` project
-  - [ ] Minimal concrete stats behavior (plain numeric attributes, no
+- [x] New `src/SharpMud.Ruleset.Basic` project
+  - [x] Minimal concrete stats behavior (plain numeric attributes, no
         Race/CharacterClass)
-  - [ ] Default `IWorldBuilder` implementation (small, enough to walk
+  - [x] Default `IWorldBuilder` implementation (small, enough to walk
         around) — must include at least one `Thing` with `CombatantBehavior`
         (an NPC) as a valid `attack` target, not just empty rooms; the Goal
         above promises a fresh character can "walk around and fight
         something," which a world with nothing to fight doesn't satisfy
-  - [ ] `AddSharpMudBasicRuleset(...)` DI extension, options callback for the
+  - [x] `AddSharpMudBasicRuleset(...)` DI extension, options callback for the
         tunable numbers (starting HP, etc.)
-  - [ ] Basic's new stats behavior needs its own `IEntityTypeConfiguration<>`
+  - [x] Basic's new stats behavior needs its own `IEntityTypeConfiguration<>`
         + `IBehaviorMappingContributor`, wired from `AddSharpMudBasicRuleset(...)`
         — `GameDbContext.OnModelCreating` only discovers engine configs plus
         registered contributors (`docs/persistence.md`), so without this a
         Basic world/player carrying the new behavior hits the same unmapped
         TPH subtype problem already caught for `CombatantBehavior`
-  - [ ] A Basic `IPlayerFactory` implementation (mirrors `ClassicPlayerFactory`
+  - [x] A Basic `IPlayerFactory` implementation (mirrors `ClassicPlayerFactory`
         wrapping `HubWorldBuilder.CreatePlayer`) that creates a `Thing` with
         `PlayerBehavior` plus Basic's stats/combat behaviors, wired from
         `AddSharpMudBasicRuleset(...)` via `AddSharpMudPlayerFactory<T>()` —
         `PlayerLogin`/`LoginFlow` constructor-inject `IPlayerFactory`, so
         without this a fresh CLI/Telnet player can't be created at all and
         the quick-start fails at first login, not just at "no content to see"
-- [ ] Rebuild `samples/SharpMud.Samples.Classic`
-  - [ ] Remove the now-extracted types; reference `SharpMud.Ruleset.Rpg`
+- [x] Rebuild `samples/SharpMud.Samples.Classic`
+  - [x] Remove the now-extracted types; reference `SharpMud.Ruleset.Rpg`
         instead
-  - [ ] Verify `StatsBehavior`/`Race`/`CharacterClass`/`HubWorldBuilder`
+  - [x] Verify `StatsBehavior`/`Race`/`CharacterClass`/`HubWorldBuilder`
         still compose correctly against the new decoupling mechanism
-- [ ] Tests
-  - [ ] `SharpMud.Ruleset.Rpg.Tests` — mirrors today's Classic combat test
+- [x] Tests
+  - [x] `SharpMud.Ruleset.Rpg.Tests` — mirrors today's Classic combat test
         coverage, moved and adjusted for the decoupling change
-  - [ ] `SharpMud.Ruleset.Basic.Tests` — new coverage for the minimal
+  - [x] `SharpMud.Ruleset.Basic.Tests` — new coverage for the minimal
         concrete ruleset
-  - [ ] `SharpMud.Samples.Classic.Tests` — updated for the new dependency
+  - [x] `SharpMud.Samples.Classic.Tests` — updated for the new dependency
         shape, same behavioral coverage as before
-- [ ] Docs
-  - [ ] Update `engine-vs-ruleset.md`'s project-structure listing to reflect
+- [x] Docs
+  - [x] Update `engine-vs-ruleset.md`'s project-structure listing to reflect
         the new packages (currently only has ADR-0008's forward-reference)
-  - [ ] Update `architecture.md` — it owns the solution layout and
+  - [x] Update `architecture.md` — it owns the solution layout and
         direct-dependency summary; the new `Ruleset.Rpg`/`Ruleset.Basic`
         projects and their dependency direction belong there too, not just
         in `engine-vs-ruleset.md`
-  - [ ] Update `combat.md`/`character.md` subsystem docs if their described
+  - [x] Update `combat.md`/`character.md` subsystem docs if their described
         "current state" changes
-  - [ ] Write the actual quick-start guidance the ADR's headline goal
+  - [x] Write the actual quick-start guidance the ADR's headline goal
         promises — a README/docsite getting-started page walking through
         `dotnet add package SharpMud.Ruleset.Basic` (+ `Engine`/`Hosting`/a
         persistence provider/a transport adapter) through a runnable basic
@@ -169,7 +168,7 @@ Explicitly deferred / out of scope for this plan:
         this, "few lines in `Program.cs`, run a basic game" is proven by an
         internal manual test (see Verification) but never actually
         documented for a real external consumer to follow.
-  - [ ] `docs/adr/README.md`: once implementation is complete and matches
+  - [x] `docs/adr/README.md`: once implementation is complete and matches
         ADR-0008 as written (or any divergence is reconciled), confirm the
         ADR's `Status` reads `Accepted` — it must already be `Accepted`
         *before* this plan moves to `In Progress` (see this plan's header
@@ -186,17 +185,21 @@ New:
 
 Modified:
 - `samples/SharpMud.Samples.Classic/*` — removes extracted types, adds
-  `SharpMud.Ruleset.Rpg` reference
-- `tests/SharpMud.Samples.Classic.Tests/*`
-- `Directory.Packages.props`, `SharpMud.slnx`
+  `SharpMud.Ruleset.Rpg` reference, adds `ClassicCombatOutcomeHandler`
+- `tests/SharpMud.Samples.Classic.Tests/*`, `tests/SharpMud.Persistence.Tests/*`
+  (`TestDbContextFactory`/`ThingRepositoryTests` now also register
+  `RpgBehaviorMappingContributor`)
+- `SharpMud.slnx` (new projects added; `Directory.Packages.props` did not
+  need a new entry — no new NuGet package IDs, only new project references)
 - `docs/architecture.md`, `docs/engine-vs-ruleset.md`, `docs/combat.md`,
-  `docs/character.md` (as needed), `docs/adr/README.md`
-- `src/SharpMud.Hosting/ServiceCollectionExtensions.cs`,
-  `tests/SharpMud.Hosting.Tests/*` — **conditional** on which
-  command-composition design (above) gets chosen: touched if
-  `ICommandRegistry` registration becomes additive across multiple sources,
-  untouched if `AddSharpMudRpgRuleset(...)` instead takes and forwards a
-  consumer callback through the existing single-registration shape
+  `docs/character.md`, `docs/adr/README.md`, new `docs/getting-started.md`
+- `src/SharpMud.Hosting/SharpMud.Hosting.csproj` — two `InternalsVisibleTo`
+  entries added (`SharpMud.Samples.Classic.Tests`, `SharpMud.Ruleset.Basic.Tests`)
+  so `ICombatOutcomeHandler` implementation tests can populate `WorldContext`
+  directly, same reason `SharpMud.Hosting.Tests` already has this grant.
+  `ServiceCollectionExtensions.cs`/`ICommandRegistry` itself stayed
+  untouched — the forwarding-callback command-composition design was chosen
+  (see Open questions below), not the additive-registry alternative.
 
 ## Test plan
 
@@ -256,24 +259,32 @@ lines, runnable basic game with working combat" claim ADR-0008 makes, and
 needs a real run exercising the command-registration seam above, not just
 passing unit tests, to confirm.
 
-## Open questions / blockers
+## Open questions / blockers — resolved during implementation
 
-- Exact decoupling mechanism for `CombatManager`'s `StatsBehavior` touches
-  (game event vs. callback interface) — first task to resolve once this
-  plan moves to `In Progress`; blocks everything downstream in
-  `SharpMud.Ruleset.Rpg`.
-- Exact decoupling mechanism for `CombatManager`'s hard-coded `hubRoom`
-  respawn destination — just as blocking as the `StatsBehavior` seam above
-  for moving `CombatManager` into a generic package, and plausibly resolved
-  by the same mechanism; listed here explicitly rather than only as a
-  nested task, since it's equally a blocker, not a follow-on detail.
-- Package naming (`SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic`) is a
-  working name per ADR-0008 — confirm before publishing, cheap to change
-  before first release, expensive after (lockstep versioning, per ADR-0006).
-- Exact mechanism for composing `AttackCommand`/`FleeCommand` registration
-  with a consumer's own commands — `Hosting`'s `AddSharpMudRuleset(...)`
-  takes a single callback, so a naive second call for Rpg's commands
-  silently clobbers the consumer's via DI's last-registration-wins
-  resolution; either Rpg's or the consumer's commands go missing without a
-  real answer here. Just as blocking as the seams above for a usable
-  `AddSharpMudRpgRuleset(...)` entry point.
+- **`StatsBehavior`/`hubRoom` decoupling**: a single callback interface,
+  `ICombatOutcomeHandler` (`OnVictoryAsync`/`OnDefeatAsync`), resolves both
+  seams at once, per the ADR's own "plausibly the same mechanism" hint.
+  `CombatManager` calls it on encounter resolution; each ruleset implements
+  it (`ClassicCombatOutcomeHandler`, `BasicCombatOutcomeHandler`) and
+  registers it via `AddSharpMudRpgRuleset<TCombatOutcomeHandler>(...)`.
+  `OnDefeatAsync` returns the respawn `Thing`, so `CombatManager` never
+  needs a `hubRoom`/`IWorld` reference of its own. The pre-existing
+  `CombatantBehavior.CurrentHitPoints` respawn-reset bug is fixed as part of
+  this: `CombatManager` resets it unconditionally to full, before the
+  outcome handler runs, as a safe baseline — a follow-up PR review round
+  then caught that this baseline alone made the documented HP-penalty a
+  no-op, since neither outcome handler touched `CombatantBehavior` at all
+  (only their own ruleset's stats-behavior HP field, never read by combat).
+  Both `ClassicCombatOutcomeHandler` and `BasicCombatOutcomeHandler` now
+  also halve `CombatantBehavior.CurrentHitPoints` themselves inside
+  `OnDefeatAsync`, overriding `CombatManager`'s baseline for rulesets that
+  want a real penalty.
+- **Package naming**: kept as `SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic`
+  — no objection raised during implementation.
+- **`AttackCommand`/`FleeCommand` composition**: the forwarding-callback
+  shape — `AddSharpMudRpgRuleset<TCombatOutcomeHandler>(registerConsumerCommands)`
+  itself calls `Hosting`'s `AddSharpMudRuleset(...)` exactly once
+  internally, registering `kill`/`attack`/`flee` and then invoking the
+  optional consumer callback. `SharpMud.Hosting` needed no changes —
+  `ICommandRegistry` stays a single-factory registration, per the plan's
+  documented conditional in Critical files below.

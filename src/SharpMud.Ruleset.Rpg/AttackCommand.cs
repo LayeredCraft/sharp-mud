@@ -1,0 +1,85 @@
+using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Commands;
+
+namespace SharpMud.Ruleset.Rpg;
+
+/// <summary>
+/// The <c>kill</c>/<c>attack</c> command - starts a combat encounter against
+/// an NPC in the current room. Registered by
+/// <c>AddSharpMudRpgRuleset(...)</c>, not meant to be constructed directly
+/// by a consumer.
+/// </summary>
+public sealed class AttackCommand : ICommand
+{
+    private readonly ICombatManager _combatManager;
+
+    /// <summary>Creates the command against the shared <see cref="ICombatManager"/>.</summary>
+    public AttackCommand(ICombatManager combatManager)
+    {
+        _combatManager = combatManager;
+    }
+
+    /// <summary>The canonical verb, <c>kill</c>.</summary>
+    public string Verb => "kill";
+
+    /// <summary>Aliases for <see cref="Verb"/> - just <c>attack</c>.</summary>
+    public IReadOnlyList<string> Aliases { get; } = ["attack"];
+
+    /// <summary>
+    /// Guards (not already fighting, actor can fight, a matching NPC target
+    /// exists in the room), then atomically starts the encounter via <see
+    /// cref="ICombatManager.TryStartEncounter"/> - which is also the guard
+    /// against a target someone else is already fighting, checked and
+    /// inserted as one operation so two concurrent attackers targeting the
+    /// same NPC can't both succeed. Resolution happens on the next game
+    /// tick, not synchronously here.
+    /// </summary>
+    public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
+    {
+        if (await CommandGuards.RequireArgsAsync(ctx, "Kill what?", ct))
+            return;
+
+        if (_combatManager.IsInCombat(ctx.Actor.Id))
+        {
+            await ctx.Session.WriteLineAsync("You are already fighting!", ct);
+            return;
+        }
+
+        // Every built-in IPlayerFactory attaches CombatantBehavior to a
+        // fresh player, but nothing enforces that for a consumer's own
+        // IPlayerFactory - without this guard, a player missing it would
+        // start an encounter here successfully and only fail later, at tick
+        // time, on CombatResolver's attacker.FindBehavior<CombatantBehavior>()!.
+        if (!ctx.Actor.HasBehavior<CombatantBehavior>())
+        {
+            await ctx.Session.WriteLineAsync("You have no way to fight.", ct);
+            return;
+        }
+
+        var targetName = string.Join(' ', ctx.Args);
+        var target = ObjectMatcher.FindMatch(
+            ctx.CurrentRoom.Children.Where(c => c.HasBehavior<NpcBehavior>() && c.HasBehavior<CombatantBehavior>()),
+            targetName,
+            n => n.Name);
+
+        if (target is null)
+        {
+            await ctx.Session.WriteLineAsync("You don't see that here.", ct);
+            return;
+        }
+
+        // TryStartEncounter is the actual guard against a target someone
+        // else is already fighting - checked and inserted atomically, so
+        // two concurrent attackers targeting the same NPC (two different
+        // players' session-loop tasks racing each other) can't both
+        // succeed. The IsInCombat check above already ruled out "this same
+        // actor is already fighting" as the reason for a false return here.
+        if (!_combatManager.TryStartEncounter(ctx.Actor, target))
+        {
+            await ctx.Session.WriteLineAsync($"Someone else is already fighting {target.Name}!", ct);
+            return;
+        }
+
+        await ctx.Session.WriteLineAsync($"You attack {target.Name}!", ct);
+    }
+}

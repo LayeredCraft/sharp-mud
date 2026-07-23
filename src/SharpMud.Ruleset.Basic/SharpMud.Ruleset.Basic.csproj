@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
+    <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
+    <ProjectReference Include="..\SharpMud.Persistence\SharpMud.Persistence.csproj" />
+    <ProjectReference Include="..\SharpMud.Ruleset.Rpg\SharpMud.Ruleset.Rpg.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Minimal, deliberately simple concrete ruleset built on SharpMud.Ruleset.Rpg - a plain numeric stat block, a small default world with a fightable NPC, and AddSharpMudBasicRuleset(...) for a true "dotnet add package, few lines in Program.cs, run a basic game" quick-start.</Description>
+  </PropertyGroup>
+
+</Project>

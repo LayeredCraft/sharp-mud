@@ -7,6 +7,7 @@ implementation detail.
 
 | Doc | Covers |
 |---|---|
+| [getting-started.md](getting-started.md) | **Start here to run a game.** `dotnet add package`-to-running-basic-game quick-start (`SharpMud.Ruleset.Basic`), plus how to build your own ruleset on `SharpMud.Ruleset.Rpg`'s combat scaffolding |
 | [architecture.md](architecture.md) | Project/solution structure, dependency direction, DI, the global tick loop, testing & observability conventions |
 | [engine-vs-ruleset.md](engine-vs-ruleset.md) | **Start here for the entity model.** `Thing`/`Behavior` composition, the event system, engine-vs-ruleset project split — supersedes the concrete classes described in world-model.md/character.md/combat.md, which still describe the game *shape* |
 | [world-model.md](world-model.md) | Room/Exit/Area data model, hand-built hub vs. generated frontier, generation-on-demand flow |

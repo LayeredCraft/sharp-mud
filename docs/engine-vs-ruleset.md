@@ -34,12 +34,28 @@ src/
   SharpMud.Persistence/        EF Core repositories, provider-agnostic.
                                References Engine only.
   SharpMud.Adapters.Cli/       Local stdin/stdout ISession. References Hosting.
+  SharpMud.Ruleset.Rpg/        Reusable RPG scaffolding tier (ADR-0008): CombatantBehavior,
+                               ICombatResolver/CombatResolver, ICombatManager/CombatManager,
+                               ICombatOutcomeHandler (a ruleset's XP-award/death-penalty/
+                               respawn hook), AttackCommand/FleeCommand, IDiceRoller over
+                               IRandomSource, AddSharpMudRpgRuleset(...). References
+                               Engine/Hosting/Persistence. No ruleset-flavor knowledge
+                               (no Race/CharacterClass/stat blocks) - not runnable on its
+                               own, same as Microsoft.EntityFrameworkCore.Relational isn't
+                               a database.
+  SharpMud.Ruleset.Basic/      Minimal concrete leaf ruleset built on SharpMud.Ruleset.Rpg
+                               (ADR-0008): a plain numeric BasicStatsBehavior (no Race/
+                               CharacterClass), BasicWorldBuilder (a small default world
+                               with a fightable NPC), BasicPlayerFactory,
+                               BasicCombatOutcomeHandler, AddSharpMudBasicRuleset(...).
+                               The actual "dotnet add package, few lines in Program.cs,
+                               run a basic game" quick-start.
 samples/
-  SharpMud.Samples.Classic/    D&D-flavored sample ruleset: Race/CharacterClass,
-                               stats, CombatantBehavior, combat resolver, kill/flee
-                               commands, dice-roll character creation, PLUS the
-                               composition root (Program.cs) that references
-                               everything and owns the hand-built hub world content.
+  SharpMud.Samples.Classic/    D&D-flavored sample ruleset: Race/CharacterClass, stats,
+                               dice-roll character creation, hand-built hub world content,
+                               plus the composition root (Program.cs) that references
+                               everything. Built on SharpMud.Ruleset.Rpg for combat/
+                               encounter scaffolding rather than owning it directly.
 ```
 
 Dependency direction is stricter than before: a ruleset like the sample
@@ -202,19 +218,29 @@ exit canceling a move, a full container canceling an item pickup).
   that the split holds for a whole feature, not just data classes:
   `SharpMud.Samples.Classic.Tests` never had to change for this to work.
 
-## Ruleset-level behaviors (`SharpMud.Samples.Classic`)
+## Ruleset-level behaviors
 
-- `StatsBehavior` — the D&D-style attributes (`Strength`...`Charisma`),
-  `Race`, `CharacterClass`, `Level`, `Experience`, `MaxHitPoints`/
-  `CurrentHitPoints`/etc. Everything [character.md](character.md) describes.
-- `CombatantBehavior` — `ArmorClass`, `DamageMin`/`DamageMax`. What
-  [combat.md](combat.md)'s `ICombatant` used to be an interface `Player`/`Npc`
-  implemented is now a behavior any `Thing` can carry (a hostile plant, a
-  turret — anything the ruleset wants to fight).
+Split across two tiers as of [ADR-0008](adr/0008-ruleset-scaffolding-tier.md)
+(see that ADR/[rulesets tier listing above](#project-structure-revised) for
+the full picture) — not all of this lives in `SharpMud.Samples.Classic`
+anymore:
+
+- `StatsBehavior` (`SharpMud.Samples.Classic`, Classic-specific) — the
+  D&D-style attributes (`Strength`...`Charisma`), `Race`, `CharacterClass`,
+  `Level`, `Experience`, `MaxHitPoints`/`CurrentHitPoints`/etc. Everything
+  [character.md](character.md) describes. `SharpMud.Ruleset.Basic` has its
+  own, much simpler `BasicStatsBehavior` instead (just `Level`/`Experience`).
+- `CombatantBehavior` (`SharpMud.Ruleset.Rpg`, shared scaffolding) —
+  `ArmorClass`, `DamageMin`/`DamageMax`. What [combat.md](combat.md)'s
+  `ICombatant` used to be an interface `Player`/`Npc` implemented is now a
+  behavior any `Thing` can carry (a hostile plant, a turret — anything a
+  ruleset wants to fight).
 - Combat resolution (`ICombatResolver`/`CombatResolver`), `ICombatManager`/
-  `CombatManager`, and the `kill`/`attack`/`flee` commands all move here
-  unchanged in logic — only their dependency on `Player`/`Npc` becomes a
-  dependency on `Thing` + `FindBehavior<CombatantBehavior>()`.
+  `CombatManager`, and the `kill`/`attack`/`flee` commands (`SharpMud.Ruleset.Rpg`,
+  shared scaffolding) — their dependency on `Player`/`Npc` is a dependency on
+  `Thing` + `FindBehavior<CombatantBehavior>()`, same as `CombatantBehavior`
+  above. Classic and Basic both reference this package rather than owning
+  this logic themselves.
 
 ## Command pipeline changes
 
@@ -222,8 +248,9 @@ exit canceling a move, a full container canceling an item pickup).
 `(Thing Actor, Thing CurrentRoom, ...)`. Commands that need ruleset data
 (`AttackCommand` needing `CombatantBehavior`) do `ctx.Actor.FindBehavior<...>()`
 and fail gracefully if absent — this is the actual mechanism that keeps
-`AttackCommand` in the sample ruleset rather than `Engine`: it's the first
-command to depend on a ruleset-specific behavior type.
+`AttackCommand` in `SharpMud.Ruleset.Rpg` rather than `Engine`: it's the
+first command to depend on a ruleset-shaped behavior type, not a
+ruleset-agnostic one.
 
 Adopted from WheelMUD (see findings doc §3): a lightweight `CommandGuards`
 static helper covers repeated preconditions (`RequiresAtLeastOneArgument`,
@@ -272,11 +299,12 @@ revisit if guard logic keeps growing.
   `samples/`. Implemented — this doc's project-structure listing above
   reflects the current layout.
 - `SharpMud.Samples.Classic` owning combat/stats scaffolding directly (not
-  just its own D&D-specific content) is addressed by
-  [ADR-0008](adr/0008-ruleset-scaffolding-tier.md) — a new
+  just its own D&D-specific content) was addressed by
+  [ADR-0008](adr/0008-ruleset-scaffolding-tier.md)/
+  [PLAN-0008](plans/0008-ruleset-scaffolding-tier.md): a new
   `SharpMud.Ruleset.Rpg` package for the reusable scaffolding, a new minimal
   `SharpMud.Ruleset.Basic` package as a concrete quick-start leaf sibling to
   Classic — both built directly on `SharpMud.Ruleset.Rpg`, neither depending
-  on the other — with Classic staying a still-unpackaged, richer sample. Not
-  yet implemented — this doc's project-structure listing above does not yet
-  reflect this.
+  on the other — with Classic staying a still-unpackaged, richer sample.
+  Implemented — this doc's project-structure listing above reflects the
+  current layout.

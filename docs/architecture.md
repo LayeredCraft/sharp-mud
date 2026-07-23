@@ -27,27 +27,42 @@ SharpMud.slnx
     SharpMud.Adapters.Telnet/     # raw TCP ISession + listener - see networking.md.
     SharpMud.Adapters.Ssh/        # (later)
     SharpMud.Adapters.WebSocket/  # (later)
+    SharpMud.Ruleset.Rpg/         # reusable RPG scaffolding tier (ADR-0008): CombatantBehavior,
+                                   # combat resolver/manager, ICombatOutcomeHandler, attack/flee
+                                   # commands, dice-roller. References Engine + Hosting + Persistence.
+                                   # No ruleset-flavor knowledge; not runnable on its own.
+    SharpMud.Ruleset.Basic/       # minimal concrete leaf ruleset (ADR-0008) built on
+                                   # SharpMud.Ruleset.Rpg - plain stat block, small default
+                                   # world with a fightable NPC, player factory. The actual
+                                   # "dotnet add package, few lines, run a basic game" leaf.
     SharpMud/                     # meta-package: Engine + Hosting + Persistence only -
                                    # provider/transport packages always explicit (ADR-0007).
+                                   # Ruleset.Rpg/Ruleset.Basic deliberately excluded - see
+                                   # ADR-0008 Open Items.
   samples/
     SharpMud.Samples.Classic/     # D&D-flavored sample ruleset + composition root
-                                   # (Program.cs). References everything; the only
-                                   # place that knows about a specific ruleset and
-                                   # owns the hand-built hub world content.
+                                   # (Program.cs). References everything, including
+                                   # SharpMud.Ruleset.Rpg for combat/encounter scaffolding;
+                                   # owns only its own Race/CharacterClass/stats/hand-built
+                                   # hub world content, not combat plumbing.
   tests/
     SharpMud.Engine.Tests/        # xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions
     SharpMud.Hosting.Tests/
     SharpMud.Persistence.Tests/
     SharpMud.Adapters.Cli.Tests/
     SharpMud.Adapters.Telnet.Tests/
+    SharpMud.Ruleset.Rpg.Tests/
+    SharpMud.Ruleset.Basic.Tests/
     SharpMud.Samples.Classic.Tests/
 ```
 
 **Dependency direction (strict, enforced by project references):**
 `Adapters.* → Hosting + Engine` (both are direct references, not purely
 transitive through Hosting), `Persistence.* → Persistence + Engine` (same —
-direct references to both, not just Persistence), `Samples.Classic →
-everything`. Engine never references Adapters, Persistence,
+direct references to both, not just Persistence), `Ruleset.Rpg → Engine +
+Hosting + Persistence`, `Ruleset.Basic → Ruleset.Rpg` (plus `Engine`/
+`Hosting`/`Persistence` directly), `Samples.Classic → everything, including
+Ruleset.Rpg`. Engine never references Adapters, Persistence,
 or any ruleset — see [engine-vs-ruleset.md](engine-vs-ruleset.md) for the full
 rationale (this is the actual mechanism behind the "engine, not just a game"
 goal in `SPEC.md`, not just the transport/persistence swappability described
@@ -92,8 +107,8 @@ provider (see [persistence.md](persistence.md)), the chosen transport
 
 - **Unit tests** (xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions,
   per the `dotnet-unit-testing-patterns` skill conventions) required for:
-  `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (now in
-  `SharpMud.Samples.Classic.Tests`), `Thing`/`BehaviorManager`/`ThingEvents`
+  `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (in
+  `SharpMud.Ruleset.Rpg.Tests` as of ADR-0008), `Thing`/`BehaviorManager`/`ThingEvents`
   propagation, stat-derivation formulas. These are pure/deterministic enough
   to test without a live session or tick loop — `ISession` and repositories
   are mocked via NSubstitute.

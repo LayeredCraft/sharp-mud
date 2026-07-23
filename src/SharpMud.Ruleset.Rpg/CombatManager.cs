@@ -1,0 +1,218 @@
+using System.Diagnostics.CodeAnalysis;
+using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Commands.Builtin;
+using SharpMud.Engine.Core;
+using SharpMud.Engine.Sessions;
+using SharpMud.Engine.Ticking;
+
+namespace SharpMud.Ruleset.Rpg;
+
+// Registered once with IGameLoop and resolves every active encounter each
+// tick, but "each tick" is not the only time _encounters is touched -
+// AttackCommand/FleeCommand call into this manager from whichever session's
+// SessionLoop.RunAsync happens to be running a command at that moment, and
+// each connection runs its own independently-scheduled task (see
+// TelnetTransportBackgroundService.HandleConnectionAsync). So _encounters is
+// genuinely accessed from multiple threads, not just serialized through the
+// tick loop - every access goes through _lock (System.Threading.Lock, per
+// this repo's own concurrency guidance for a real, unavoidable critical
+// section) rather than assuming single-threaded access.
+//
+// Combat-outcome side effects (XP awards, death penalties, respawn
+// destination) are delegated to ICombatOutcomeHandler rather than touching a
+// concrete ruleset's stats behavior or a hard-coded room directly - this
+// package has zero reference to any concrete ruleset's types (see
+// docs/adr/0008-ruleset-scaffolding-tier.md's Decision Outcome).
+/// <summary>
+/// Tracks active combat encounters and resolves them once per game tick -
+/// the concrete implementation of <see cref="ICombatManager"/>, registered
+/// by <c>AddSharpMudRpgRuleset(...)</c> as both <see cref="ICombatManager"/>
+/// and <see cref="ITickable"/> off the same instance. Public (rather than
+/// internal) specifically so a consumer can drive it directly against a
+/// custom <see cref="ICombatOutcomeHandler"/> in their own tests, without
+/// going through DI.
+/// </summary>
+public sealed class CombatManager : ICombatManager, ITickable
+{
+    private readonly ICombatResolver _resolver;
+    private readonly ICombatOutcomeHandler _outcomeHandler;
+    private readonly Lock _lock = new();
+    private readonly Dictionary<ThingId, CombatEncounter> _encounters = [];
+
+    /// <summary>Creates the manager against a resolver and a ruleset's outcome handler.</summary>
+    public CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
+    {
+        _resolver = resolver;
+        _outcomeHandler = outcomeHandler;
+    }
+
+    /// <inheritdoc/>
+    public bool IsInCombat(ThingId thingId)
+    {
+        lock (_lock)
+            return _encounters.ContainsKey(thingId);
+    }
+
+    /// <inheritdoc/>
+    public bool IsDefenderEngaged(ThingId defenderId)
+    {
+        lock (_lock)
+            return _encounters.Values.Any(e => e.Defender.Id == defenderId);
+    }
+
+    /// <inheritdoc/>
+    public bool TryStartEncounter(Thing attacker, Thing defender)
+    {
+        lock (_lock)
+        {
+            if (_encounters.ContainsKey(attacker.Id))
+                return false;
+
+            if (_encounters.Values.Any(e => e.Defender.Id == defender.Id))
+                return false;
+
+            _encounters[attacker.Id] = new CombatEncounter { Attacker = attacker, Defender = defender };
+            return true;
+        }
+    }
+
+    /// <inheritdoc/>
+    public void EndEncounter(ThingId thingId)
+    {
+        lock (_lock)
+            _encounters.Remove(thingId);
+    }
+
+    /// <inheritdoc/>
+    public bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter)
+    {
+        lock (_lock)
+            return _encounters.TryGetValue(thingId, out encounter);
+    }
+
+    /// <summary>Resolves one round for every active encounter - see the class remarks above for the full sequence.</summary>
+    public async Task OnTickAsync(TickContext ctx, CancellationToken ct)
+    {
+        ThingId[] activeEncounterIds;
+        lock (_lock)
+            activeEncounterIds = [.. _encounters.Keys];
+
+        foreach (var thingId in activeEncounterIds)
+        {
+            CombatEncounter? encounter;
+            lock (_lock)
+            {
+                if (!_encounters.TryGetValue(thingId, out encounter))
+                    continue;
+            }
+
+            // Only AttackCommand calls TryStartEncounter, and only with a
+            // player Thing as the attacker - encounter.Attacker always has a
+            // PlayerBehavior.
+            var attackerBehavior = encounter.Attacker.FindBehavior<PlayerBehavior>()!;
+            if (attackerBehavior.ConnectionState == ConnectionState.Linkdead)
+            {
+                // Attacker disconnected mid-fight (ADR-0004). Freeze the
+                // encounter rather than ending it immediately - it resumes
+                // automatically once LoginFlow reconnects them (ConnectionState
+                // flips back to Playing). Only actually abandon it once the
+                // same grace window LoginFlow/LinkdeadSweeper use has elapsed.
+                // Linkdead always sets LinkdeadSinceUtc (PlayerBehavior.EnterLinkdead).
+                if (ctx.Timestamp - attackerBehavior.LinkdeadSinceUtc!.Value >= ReconnectPolicy.GraceWindow)
+                    EndEncounter(thingId);
+
+                continue;
+            }
+
+            // Re-verify this is still the live encounter for thingId,
+            // immediately before resolving a round against it. Nothing
+            // above this point holds _lock across an await, so a concurrent
+            // FleeCommand (EndEncounter) + AttackCommand (TryStartEncounter,
+            // against a *different* defender) pair could otherwise replace
+            // _encounters[thingId] between the fetch above and here - this
+            // tick would then resolve a round against the stale, already-
+            // replaced encounter and could wrongly EndEncounter the new one
+            // afterward. Skip and pick up the real current encounter next
+            // tick instead.
+            lock (_lock)
+            {
+                if (!_encounters.TryGetValue(thingId, out var currentEncounter) || !ReferenceEquals(currentEncounter, encounter))
+                    continue;
+            }
+
+            // Not Linkdead (checked above), so Session is the live, connected session.
+            var session = attackerBehavior.Session!;
+
+            var attackResult = _resolver.ResolveRound(encounter.Attacker, encounter.Defender);
+            await session.WriteLineAsync(
+                attackResult.Hit
+                    ? $"You hit {encounter.Defender.Name} for {attackResult.Damage} damage."
+                    : $"You miss {encounter.Defender.Name}.",
+                ct);
+
+            if (attackResult.DefenderDefeated)
+            {
+                await HandleDefenderDefeatedAsync(encounter, session, ct);
+                continue;
+            }
+
+            // Classic mutual combat: the defender strikes back the same round.
+            var counterResult = _resolver.ResolveRound(encounter.Defender, encounter.Attacker);
+            await session.WriteLineAsync(
+                counterResult.Hit
+                    ? $"{encounter.Defender.Name} hits you for {counterResult.Damage} damage."
+                    : $"{encounter.Defender.Name} misses you.",
+                ct);
+
+            if (counterResult.DefenderDefeated)
+                await HandleAttackerDefeatedAsync(encounter, session, ct);
+        }
+    }
+
+    private async Task HandleDefenderDefeatedAsync(CombatEncounter encounter, ISession session, CancellationToken ct)
+    {
+        await session.WriteLineAsync($"You have slain {encounter.Defender.Name}!", ct);
+
+        await _outcomeHandler.OnVictoryAsync(encounter.Attacker, encounter.Defender, ct);
+
+        encounter.Defender.Parent?.Remove(encounter.Defender);
+        EndEncounter(encounter.Attacker.Id);
+    }
+
+    private async Task HandleAttackerDefeatedAsync(CombatEncounter encounter, ISession session, CancellationToken ct)
+    {
+        var attacker = encounter.Attacker;
+
+        // Real, pre-existing bug fixed here: CombatResolver reads/writes
+        // damage against CombatantBehavior.CurrentHitPoints, not any
+        // ruleset-specific stats behavior. A respawn that only reset the
+        // latter left CombatantBehavior.CurrentHitPoints at/below 0, so the
+        // very next hit instantly re-triggered "defeated" regardless of the
+        // roll. This reset is generic (CombatantBehavior is this package's
+        // own type) so it happens here, as a safe full-HP baseline, before
+        // the ruleset-specific outcome handler runs - NOT as the final word.
+        // A ruleset that wants a real death penalty (e.g. respawn at half
+        // HP, not full) mutates CombatantBehavior.CurrentHitPoints itself
+        // inside OnDefeatAsync below, which runs after this and therefore
+        // wins - see ClassicCombatOutcomeHandler/BasicCombatOutcomeHandler.
+        // Without that override, "no penalty, full-HP respawn" is the
+        // correct default for a ruleset that doesn't want one.
+        var combatant = attacker.FindBehavior<CombatantBehavior>()!;
+        combatant.CurrentHitPoints = combatant.MaxHitPoints;
+
+        // Generic defeat message first, then the ruleset-specific outcome
+        // handler (which may itself write its own messages, e.g. an XP-loss
+        // line) - same ordering as HandleDefenderDefeatedAsync above, and
+        // matches the message order from before this extraction.
+        await session.WriteLineAsync($"{encounter.Defender.Name} has slain you!", ct);
+
+        var destination = await _outcomeHandler.OnDefeatAsync(attacker, encounter.Defender, ct);
+
+        EndEncounter(attacker.Id);
+
+        attacker.Parent?.Remove(attacker);
+        destination.Add(attacker);
+
+        await LookCommand.SendRoomDescriptionAsync(attacker, destination, ct);
+    }
+}

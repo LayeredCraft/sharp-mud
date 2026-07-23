@@ -29,6 +29,8 @@ SharpMud.slnx
     SharpMud.Persistence.DynamoDb/   # DynamoDB provider
     SharpMud.Adapters.Cli/           # local stdin/stdout session adapter
     SharpMud.Adapters.Telnet/        # raw TCP session adapter + listener
+    SharpMud.Ruleset.Rpg/            # reusable RPG combat/encounter scaffolding (ADR-0008)
+    SharpMud.Ruleset.Basic/          # minimal concrete leaf ruleset built on Ruleset.Rpg (ADR-0008)
     SharpMud/                        # meta-package (Engine + Hosting + Persistence only - ADR-0007)
   samples/
     SharpMud.Samples.Classic/        # D&D-flavored sample ruleset + composition root
@@ -38,6 +40,8 @@ SharpMud.slnx
     SharpMud.Persistence.Tests/
     SharpMud.Adapters.Cli.Tests/
     SharpMud.Adapters.Telnet.Tests/
+    SharpMud.Ruleset.Rpg.Tests/
+    SharpMud.Ruleset.Basic.Tests/
     SharpMud.Samples.Classic.Tests/
 ```
 
@@ -59,11 +63,15 @@ dotnet run --project samples/SharpMud.Samples.Classic -- --telnet [port]  # teln
 
 `src/` publishes as NuGet packages (`SharpMud.Engine`, `SharpMud.Hosting`,
 `SharpMud.Persistence`(`.Sqlite`/`.DynamoDb`), `SharpMud.Adapters.Cli`/
-`.Telnet`), plus a `SharpMud` meta-package pulling in the engine-level core
-(`Engine`/`Hosting`/`Persistence`) — you still add a persistence provider and
-a transport explicitly, per [ADR-0007](docs/adr/0007-narrow-meta-package-scope.md).
-`samples/SharpMud.Samples.Classic` is a full reference consumer — start there
-to see how a ruleset composes against the packages. See
+`.Telnet`, `SharpMud.Ruleset.Rpg`/`.Basic`), plus a `SharpMud` meta-package
+pulling in the engine-level core (`Engine`/`Hosting`/`Persistence`) — you
+still add a persistence provider, a transport, and a ruleset explicitly, per
+[ADR-0007](docs/adr/0007-narrow-meta-package-scope.md). See
+[docs/getting-started.md](docs/getting-started.md) for the fastest path to a
+running game (`SharpMud.Ruleset.Basic`) or building your own ruleset on
+`SharpMud.Ruleset.Rpg`'s combat scaffolding.
+`samples/SharpMud.Samples.Classic` is a full, richer reference consumer —
+see how a ruleset composes against the packages. See
 [ADR-0006](docs/adr/0006-nuget-package-distribution.md) for the design.
 
 ## Containerized
