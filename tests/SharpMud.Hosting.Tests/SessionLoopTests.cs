@@ -134,6 +134,33 @@ public sealed class SessionLoopTests
         parentAtSaveTime.Should().Be(room);
     }
 
+    [Fact]
+    public async Task RunAsync_RemovesImmediately_WhenPlayerWasBooted()
+    {
+        // ADR-0005: an admin's BootCommand/BanCommand sets WasBooted on a
+        // different call stack before disconnecting this session - this
+        // player's own SessionLoop must treat that exactly like an
+        // explicit quit (immediate removal), not Linkdead (which would let
+        // the player just reconnect and undo the boot/ban).
+        var (worldContext, world, room, player, playerBehavior) = MakePlayerInRoom();
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
+        playerBehavior.Session = session;
+        playerBehavior.MarkBooted();
+
+        var parser = Substitute.For<ICommandParser>();
+        var registry = Substitute.For<ICommandRegistry>();
+        var repository = Substitute.For<IThingRepository>();
+        var sessionLoop = new SessionLoop(worldContext, parser, registry, repository);
+
+        await sessionLoop.RunAsync(session, player, TestContext.Current.CancellationToken);
+
+        room.Children.Should().NotContain(player);
+        world.GetThing(player.Id).Should().BeNull();
+        playerBehavior.ConnectionState.Should().Be(ConnectionState.Playing);
+    }
+
     private sealed class StubQuitCommand : ICommand
     {
         public string Verb => "quit";

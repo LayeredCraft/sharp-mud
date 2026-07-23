@@ -1,4 +1,5 @@
 using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 using SharpMud.Hosting;
@@ -135,5 +136,134 @@ public sealed class LoginFlowTests
 
         result.Should().BeNull();
         await session.Received(1).WriteLineAsync("That session has expired. Please log in again.", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_Rejects_WhenAccountIsBanned()
+    {
+        var world = new World();
+        var room = MakeRoom();
+        world.Register(room);
+
+        var passwordHash = PasswordHashing.Hash("correct-horse");
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "Hero", PasswordHash = passwordHash };
+        playerBehavior.Ban();
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+        world.Register(player);
+
+        var (loginFlow, _) = MakeLoginFlow(world, room);
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true, false);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
+
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
+
+        result.Should().BeNull();
+        await session.Received(1).WriteLineAsync("This account has been banned.", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_GrantsFullAdmin_WhenUsernameMatchesInitialAdmin()
+    {
+        var world = new World();
+        var room = MakeRoom();
+        world.Register(room);
+
+        var passwordHash = PasswordHashing.Hash("correct-horse");
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "Hero", PasswordHash = passwordHash };
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+        world.Register(player);
+
+        var (loginFlow, repository) = MakeLoginFlow(world, room, initialAdminUsername: "hero");
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
+
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
+
+        result.Should().Be(player);
+        playerBehavior.Roles.Should().HaveFlag(SecurityRole.FullAdmin);
+        await repository.Received(1).SaveTreeAsync(player, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_GrantsNothing_WhenUsernameDoesNotMatchInitialAdmin()
+    {
+        var world = new World();
+        var room = MakeRoom();
+        world.Register(room);
+
+        var passwordHash = PasswordHashing.Hash("correct-horse");
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "Hero", PasswordHash = passwordHash };
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+        world.Register(player);
+
+        var (loginFlow, _) = MakeLoginFlow(world, room, initialAdminUsername: "SomeoneElse");
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
+
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
+
+        result.Should().Be(player);
+        playerBehavior.Roles.Should().Be(SecurityRole.Player);
+    }
+
+    [Fact]
+    public async Task RunAsync_GrantsNothing_WhenInitialAdminUsernameIsNull()
+    {
+        var world = new World();
+        var room = MakeRoom();
+        world.Register(room);
+
+        var passwordHash = PasswordHashing.Hash("correct-horse");
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "Hero", PasswordHash = passwordHash };
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+        world.Register(player);
+
+        var (loginFlow, repository) = MakeLoginFlow(world, room);
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
+
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
+
+        result.Should().Be(player);
+        playerBehavior.Roles.Should().Be(SecurityRole.Player);
+        await repository.DidNotReceive().SaveTreeAsync(Arg.Any<Thing>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_DoesNotReSave_WhenInitialAdminAlreadyHoldsFullAdmin()
+    {
+        var world = new World();
+        var room = MakeRoom();
+        world.Register(room);
+
+        var passwordHash = PasswordHashing.Hash("correct-horse");
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        var playerBehavior = new PlayerBehavior { Username = "Hero", PasswordHash = passwordHash };
+        playerBehavior.GrantRole(SecurityRole.FullAdmin);
+        player.Behaviors.Add(playerBehavior);
+        room.Add(player);
+        world.Register(player);
+
+        var (loginFlow, repository) = MakeLoginFlow(world, room, initialAdminUsername: "Hero");
+        var session = Substitute.For<ISession>();
+        session.IsConnected.Returns(true);
+        session.ReadLineAsync(Arg.Any<CancellationToken>()).Returns("Hero", "correct-horse");
+
+        var result = await loginFlow.RunAsync(session, TestContext.Current.CancellationToken);
+
+        result.Should().Be(player);
+        await repository.DidNotReceive().SaveTreeAsync(Arg.Any<Thing>(), Arg.Any<CancellationToken>());
     }
 }
