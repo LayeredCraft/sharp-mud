@@ -6,6 +6,7 @@ using Serilog;
 using SharpMud.Adapters.Cli;
 using SharpMud.Adapters.Telnet;
 using SharpMud.Engine.Commands.Builtin.Admin;
+using SharpMud.Engine.Commands.Builtin.Builder;
 using SharpMud.Engine.Core;
 using SharpMud.Hosting;
 using SharpMud.Persistence;
@@ -68,10 +69,15 @@ builder.Services.AddSharpMudPlayerFactory<ClassicPlayerFactory>();
 // as both itself and ITickable, the dice service, its own
 // IBehaviorMappingContributor, and the kill/attack/flee commands) - see
 // docs/adr/0008-ruleset-scaffolding-tier.md. The registerConsumerCommands
-// callback wires AdminCommands (ADR-0005 moderation) - Rpg has no notion of
-// security roles itself, so this is Classic's own composition-root concern.
+// callback wires AdminCommands (ADR-0005 moderation) and BuilderCommands
+// (ADR-0009 world-building/OLC) - Rpg has no notion of security roles
+// itself, so both are Classic's own composition-root concern.
 builder.Services.AddSharpMudRpgRuleset<ClassicCombatOutcomeHandler>((sp, registry) =>
-    AdminCommands.RegisterAll(registry, sp.GetRequiredService<IThingRepository>()));
+{
+    var repository = sp.GetRequiredService<IThingRepository>();
+    AdminCommands.RegisterAll(registry, repository);
+    BuilderCommands.RegisterAll(registry, repository);
+});
 
 // Transport mode: SHARPMUD_MODE/SHARPMUD_TELNET_PORT/--telnet, same
 // precedence as before (CLI arg wins over env var) - this is now the
