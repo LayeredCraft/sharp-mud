@@ -2,7 +2,7 @@
 
 **Implements:** [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md)
 
-**Status:** Not Started
+**Status:** In Progress
 
 **Last updated:** 2026-07-23
 

@@ -13,14 +13,10 @@ public sealed class CommandRegistry : ICommandRegistry
 
     public IReadOnlyList<ICommand> Commands => _commands;
 
-    public void Register(ICommand command)
-    {
-        _verbs[command.Verb] = command;
-        foreach (var alias in command.Aliases)
-            _aliases.TryAdd(alias, command);
+    public void RegisterOpen(ICommand command) => RegisterInternal(command);
 
-        _commands.Add(command);
-    }
+    public void RegisterWithRole(ICommand command, SecurityRole requiredRole) =>
+        RegisterInternal(new RoleGuardedCommand(command, requiredRole));
 
     public bool TryResolve(string verb, [MaybeNullWhen(false)] out ICommand command)
     {
@@ -28,5 +24,14 @@ public sealed class CommandRegistry : ICommandRegistry
             return true;
 
         return _aliases.TryGetValue(verb, out command);
+    }
+
+    private void RegisterInternal(ICommand command)
+    {
+        _verbs[command.Verb] = command;
+        foreach (var alias in command.Aliases)
+            _aliases.TryAdd(alias, command);
+
+        _commands.Add(command);
     }
 }

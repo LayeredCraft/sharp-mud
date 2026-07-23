@@ -1,3 +1,4 @@
+using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 
@@ -30,6 +31,37 @@ public sealed class PlayerBehavior : Behavior
     public DateTimeOffset? LinkdeadSinceUtc { get; private set; }
 
     /// <summary>
+    /// This player's granted access levels - persisted (unlike <see
+    /// cref="ConnectionState"/>, a role assignment must survive a restart).
+    /// Defaults to <see cref="SecurityRole.Player"/> for new characters.
+    /// Only mutated via <see cref="GrantRole"/>/<see cref="RevokeRole"/> -
+    /// ADR-0005.
+    /// </summary>
+    public SecurityRole Roles { get; private set; } = SecurityRole.Player;
+
+    /// <summary>Whether this player's <c>say</c>/<c>emote</c> are currently blocked - persisted. Only mutated via <see cref="Mute"/>/<see cref="Unmute"/>.</summary>
+    public bool IsMuted { get; private set; }
+
+    /// <summary>Whether this player is blocked from logging in - persisted, enforced in <c>LoginFlow</c>. Only mutated via <see cref="Ban"/>/<see cref="Unban"/>.</summary>
+    public bool IsBanned { get; private set; }
+
+    /// <summary>
+    /// Whether this player's session was just forcibly disconnected by
+    /// <c>BootCommand</c> (or <c>BanCommand</c> disconnecting an online
+    /// target). Transient, like <see cref="Session"/>/<see
+    /// cref="ConnectionState"/> (<c>Ignore</c>'d in
+    /// <c>PlayerBehaviorConfiguration</c>) - it only needs to survive long
+    /// enough for this same connection's <c>SessionLoop.RunAsync</c> to see
+    /// it in its own <c>finally</c> block, crossing from the admin's call
+    /// stack to the target's. Without this, an admin-triggered disconnect
+    /// looks identical to a dropped connection, so the target would just
+    /// resume via the normal <see cref="Sessions.ConnectionState.Linkdead"/>
+    /// reconnect path (ADR-0004) - making <c>boot</c> a no-op as a
+    /// moderation tool. Only set via <see cref="MarkBooted"/>.
+    /// </summary>
+    public bool WasBooted { get; private set; }
+
+    /// <summary>
     /// Transitions this player to <see cref="Sessions.ConnectionState.Linkdead"/> - called by
     /// <c>SessionLoop</c> when a connection is lost (not an explicit <c>quit</c>).
     /// </summary>
@@ -57,4 +89,64 @@ public sealed class PlayerBehavior : Behavior
         ConnectionState = ConnectionState.Playing;
         LinkdeadSinceUtc = null;
     }
+
+    /// <summary>
+    /// Marks this player as having just been forcibly disconnected - called
+    /// by <c>BootCommand</c>/<c>BanCommand</c> before disconnecting the
+    /// target's session. See <see cref="WasBooted"/>.
+    /// </summary>
+    public void MarkBooted() => WasBooted = true;
+
+    /// <summary>
+    /// Grants <paramref name="role"/> and every role it implies (e.g.
+    /// granting <see cref="SecurityRole.FullAdmin"/> also grants <see
+    /// cref="SecurityRole.MinorAdmin"/> and <see cref="SecurityRole.Player"/>)
+    /// - ADR-0005's accumulation rule. Idempotent.
+    /// </summary>
+    public void GrantRole(SecurityRole role) => Roles |= role.ImpliedRoles;
+
+    /// <summary>
+    /// Revokes <paramref name="role"/>, unless some other role this player
+    /// currently holds implies it (e.g. revoking <see
+    /// cref="SecurityRole.MinorAdmin"/> while still holding <see
+    /// cref="SecurityRole.FullAdmin"/> would otherwise leave <see
+    /// cref="SecurityRole.FullAdmin"/> set with a role it implies cleared).
+    /// Returns <see langword="null"/> on success, or a message naming the
+    /// blocking higher tier on failure - a normal, directly
+    /// user-triggerable business-rule outcome per
+    /// coding-standards.md's Error Handling section, not a thrown
+    /// exception.
+    /// </summary>
+    public string? RevokeRole(SecurityRole role)
+    {
+        foreach (var candidate in RolesWithImplications)
+        {
+            if (candidate == role)
+                continue;
+
+            if ((Roles & candidate) == candidate && candidate.Implies(role))
+                return $"Still has {candidate}, which includes {role} - revoke {candidate} instead.";
+        }
+
+        Roles &= ~role;
+        return null;
+    }
+
+    /// <summary>Blocks this player's <c>say</c>/<c>emote</c>. Idempotent.</summary>
+    public void Mute() => IsMuted = true;
+
+    /// <summary>Restores this player's <c>say</c>/<c>emote</c>. Idempotent.</summary>
+    public void Unmute() => IsMuted = false;
+
+    /// <summary>Blocks this player from logging in. Idempotent.</summary>
+    public void Ban() => IsBanned = true;
+
+    /// <summary>Restores this player's ability to log in. Idempotent.</summary>
+    public void Unban() => IsBanned = false;
+
+    // The only roles with an "implies" relationship to another role - see
+    // SecurityRoleExtensions.ImpliedRoles. RevokeRole only needs to check
+    // these three, not every SecurityRole member.
+    private static readonly SecurityRole[] RolesWithImplications =
+        [SecurityRole.FullAdmin, SecurityRole.MinorAdmin, SecurityRole.FullBuilder];
 }

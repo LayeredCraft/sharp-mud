@@ -17,7 +17,7 @@ public sealed class CommandRegistryTests
     public void TryResolve_ReturnsCommand_WhenVerbMatchesCanonicalVerb()
     {
         var north = new FakeCommand("north", "n");
-        _sut.Register(north);
+        _sut.RegisterOpen(north);
 
         _sut.TryResolve("north", out var resolved).Should().BeTrue();
         resolved.Should().BeSameAs(north);
@@ -27,7 +27,7 @@ public sealed class CommandRegistryTests
     public void TryResolve_ReturnsCommand_WhenVerbMatchesAlias()
     {
         var north = new FakeCommand("north", "n");
-        _sut.Register(north);
+        _sut.RegisterOpen(north);
 
         _sut.TryResolve("n", out var resolved).Should().BeTrue();
         resolved.Should().BeSameAs(north);
@@ -50,8 +50,8 @@ public sealed class CommandRegistryTests
         var north = new FakeCommand("north", "n");
         var literalN = new FakeCommand("n");
 
-        _sut.Register(north);
-        _sut.Register(literalN);
+        _sut.RegisterOpen(north);
+        _sut.RegisterOpen(literalN);
 
         _sut.TryResolve("n", out var resolved).Should().BeTrue();
         resolved.Should().BeSameAs(literalN);
@@ -61,8 +61,30 @@ public sealed class CommandRegistryTests
     public void Commands_ContainsEveryRegisteredCommandOnce_RegardlessOfAliasCount()
     {
         var north = new FakeCommand("north", "n");
-        _sut.Register(north);
+        _sut.RegisterOpen(north);
 
         _sut.Commands.Should().ContainSingle().Which.Should().BeSameAs(north);
+    }
+
+    [Fact]
+    public void RegisterOpen_ResolvesUnconditionally()
+    {
+        var command = new FakeCommand("dance");
+        _sut.RegisterOpen(command);
+
+        _sut.TryResolve("dance", out var resolved).Should().BeTrue();
+        resolved.Should().BeSameAs(command);
+    }
+
+    [Fact]
+    public void RegisterWithRole_ResolvesToARoleGuardedCommandWrappingTheGivenCommandAndRole()
+    {
+        var command = new FakeCommand("ban");
+        _sut.RegisterWithRole(command, SecurityRole.FullAdmin);
+
+        _sut.TryResolve("ban", out var resolved).Should().BeTrue();
+        var guarded = resolved.Should().BeOfType<RoleGuardedCommand>().Subject;
+        guarded.RequiredRole.Should().Be(SecurityRole.FullAdmin);
+        guarded.Verb.Should().Be("ban");
     }
 }
