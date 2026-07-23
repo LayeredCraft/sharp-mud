@@ -4,10 +4,12 @@ namespace SharpMud.Engine.Commands;
 /// The role hierarchy (<see cref="SecurityRole.FullAdmin"/> implies <see
 /// cref="SecurityRole.MinorAdmin"/> implies <see cref="SecurityRole.Player"/>;
 /// <see cref="SecurityRole.FullBuilder"/> implies <see
-/// cref="SecurityRole.MinorBuilder"/>), defined once here and used by both
-/// <c>PlayerBehavior.GrantRole</c> (accumulate downward) and
-/// <c>PlayerBehavior.RevokeRole</c> (check upward) per ADR-0005's
-/// accumulation rule.
+/// cref="SecurityRole.MinorBuilder"/> implies <see cref="SecurityRole.Player"/>
+/// - the admin and builder ladders are deliberately independent of each
+/// other, both bottoming out at <see cref="SecurityRole.Player"/>), defined
+/// once here and used by both <c>PlayerBehavior.GrantRole</c> (accumulate
+/// downward) and <c>PlayerBehavior.RevokeRole</c> (check upward) per
+/// ADR-0005's accumulation rule.
 /// </summary>
 public static class SecurityRoleExtensions
 {
@@ -23,7 +25,8 @@ public static class SecurityRoleExtensions
         {
             SecurityRole.FullAdmin => SecurityRole.FullAdmin | SecurityRole.MinorAdmin | SecurityRole.Player,
             SecurityRole.MinorAdmin => SecurityRole.MinorAdmin | SecurityRole.Player,
-            SecurityRole.FullBuilder => SecurityRole.FullBuilder | SecurityRole.MinorBuilder,
+            SecurityRole.FullBuilder => SecurityRole.FullBuilder | SecurityRole.MinorBuilder | SecurityRole.Player,
+            SecurityRole.MinorBuilder => SecurityRole.MinorBuilder | SecurityRole.Player,
             _ => role,
         };
 

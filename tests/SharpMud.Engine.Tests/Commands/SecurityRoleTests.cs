@@ -58,12 +58,33 @@ public sealed class SecurityRoleTests
     }
 
     [Fact]
-    public void ImpliedRoles_ForFullBuilder_IncludesMinorBuilder()
+    public void ImpliedRoles_ForFullBuilder_IncludesMinorBuilderAndPlayer()
     {
         var implied = SecurityRole.FullBuilder.ImpliedRoles;
 
         implied.Should().HaveFlag(SecurityRole.FullBuilder);
         implied.Should().HaveFlag(SecurityRole.MinorBuilder);
+        implied.Should().HaveFlag(SecurityRole.Player);
+    }
+
+    [Fact]
+    public void ImpliedRoles_ForMinorBuilder_IncludesPlayer()
+    {
+        var implied = SecurityRole.MinorBuilder.ImpliedRoles;
+
+        implied.Should().HaveFlag(SecurityRole.MinorBuilder);
+        implied.Should().HaveFlag(SecurityRole.Player);
+    }
+
+    [Fact]
+    public void ImpliedRoles_ForFullBuilder_DoesNotIncludeAdminRoles()
+    {
+        // The admin and builder ladders are deliberately independent -
+        // FullAdmin does not imply FullBuilder, and vice versa.
+        var implied = SecurityRole.FullBuilder.ImpliedRoles;
+
+        implied.Should().NotHaveFlag(SecurityRole.MinorAdmin);
+        implied.Should().NotHaveFlag(SecurityRole.FullAdmin);
     }
 
     [Fact]
@@ -77,6 +98,8 @@ public sealed class SecurityRoleTests
     [InlineData(SecurityRole.FullAdmin, SecurityRole.Player, true)]
     [InlineData(SecurityRole.MinorAdmin, SecurityRole.FullAdmin, false)]
     [InlineData(SecurityRole.FullBuilder, SecurityRole.MinorBuilder, true)]
+    [InlineData(SecurityRole.FullBuilder, SecurityRole.Player, true)]
+    [InlineData(SecurityRole.MinorBuilder, SecurityRole.Player, true)]
     [InlineData(SecurityRole.MinorBuilder, SecurityRole.FullBuilder, false)]
     public void Implies_ReflectsTheRoleHierarchy(SecurityRole role, SecurityRole other, bool expected)
     {

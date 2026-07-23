@@ -146,7 +146,7 @@ public sealed class PlayerBehavior : Behavior
 
     // The only roles with an "implies" relationship to another role - see
     // SecurityRoleExtensions.ImpliedRoles. RevokeRole only needs to check
-    // these three, not every SecurityRole member.
+    // these four, not every SecurityRole member.
     private static readonly SecurityRole[] RolesWithImplications =
-        [SecurityRole.FullAdmin, SecurityRole.MinorAdmin, SecurityRole.FullBuilder];
+        [SecurityRole.FullAdmin, SecurityRole.MinorAdmin, SecurityRole.FullBuilder, SecurityRole.MinorBuilder];
 }

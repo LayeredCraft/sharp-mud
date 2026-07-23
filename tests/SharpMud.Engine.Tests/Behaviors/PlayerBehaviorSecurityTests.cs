@@ -28,7 +28,7 @@ public sealed class PlayerBehaviorSecurityTests
     }
 
     [Fact]
-    public void GrantRole_FullBuilder_AlsoGrantsMinorBuilder()
+    public void GrantRole_FullBuilder_AlsoGrantsMinorBuilderAndPlayer()
     {
         var player = MakePlayer();
 
@@ -36,6 +36,18 @@ public sealed class PlayerBehaviorSecurityTests
 
         player.Roles.Should().HaveFlag(SecurityRole.FullBuilder);
         player.Roles.Should().HaveFlag(SecurityRole.MinorBuilder);
+        player.Roles.Should().HaveFlag(SecurityRole.Player);
+    }
+
+    [Fact]
+    public void GrantRole_FullBuilder_DoesNotGrantAnyAdminRole()
+    {
+        var player = MakePlayer();
+
+        player.GrantRole(SecurityRole.FullBuilder);
+
+        player.Roles.Should().NotHaveFlag(SecurityRole.MinorAdmin);
+        player.Roles.Should().NotHaveFlag(SecurityRole.FullAdmin);
     }
 
     [Fact]
@@ -87,6 +99,33 @@ public sealed class PlayerBehaviorSecurityTests
 
         result.Should().BeNull();
         player.Roles.Should().NotHaveFlag(SecurityRole.MinorAdmin);
+    }
+
+    [Fact]
+    public void RevokeRole_Player_ReturnsFailureAndLeavesRolesUnchanged_WhenActorAlsoHoldsFullBuilder()
+    {
+        var player = MakePlayer();
+        player.GrantRole(SecurityRole.FullBuilder);
+        var rolesBefore = player.Roles;
+
+        var result = player.RevokeRole(SecurityRole.Player);
+
+        result.Should().NotBeNull();
+        player.Roles.Should().Be(rolesBefore);
+    }
+
+    [Fact]
+    public void RevokeRole_FullBuilder_SucceedsAndLeavesMinorBuilderAndPlayerIntact_WhenActorHoldsFullBuilder()
+    {
+        var player = MakePlayer();
+        player.GrantRole(SecurityRole.FullBuilder);
+
+        var result = player.RevokeRole(SecurityRole.FullBuilder);
+
+        result.Should().BeNull();
+        player.Roles.Should().NotHaveFlag(SecurityRole.FullBuilder);
+        player.Roles.Should().HaveFlag(SecurityRole.MinorBuilder);
+        player.Roles.Should().HaveFlag(SecurityRole.Player);
     }
 
     [Fact]
