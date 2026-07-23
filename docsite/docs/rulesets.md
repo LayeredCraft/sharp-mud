@@ -140,9 +140,26 @@ public sealed class MyCombatOutcomeHandler(WorldContext worldContext) : ICombatO
 }
 ```
 
-You don't need to reset `CombatantBehavior.CurrentHitPoints` yourself —
-`ICombatManager` already does that unconditionally before calling
-`OnDefeatAsync`, regardless of what your handler does.
+`ICombatManager` already resets `CombatantBehavior.CurrentHitPoints` to full
+before calling `OnDefeatAsync` — so if you want a "no penalty, full-HP
+respawn" ruleset (as `MyCombatOutcomeHandler` above does), you don't need to
+touch it at all. But if your death penalty should actually cost HP (a
+half-HP respawn, say), you have to set `CombatantBehavior.CurrentHitPoints`
+yourself inside `OnDefeatAsync` — that field is what `ICombatResolver`
+actually reads and writes during combat, so setting anything else (your own
+stats behavior's own HP field, if it has one) has no effect on the fight
+itself:
+
+```csharp
+public Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken ct)
+{
+    var combatant = defeated.FindBehavior<CombatantBehavior>();
+    if (combatant is not null)
+        combatant.CurrentHitPoints = Math.Max(1, combatant.MaxHitPoints / 2);
+
+    return Task.FromResult(worldContext.StartingRoom);
+}
+```
 
 ### Putting it together
 

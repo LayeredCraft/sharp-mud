@@ -173,16 +173,24 @@ Classic-stakes model, split between `CombatManager` (generic) and
   `CombatantBehavior.ExperienceReward`; Basic's does the same against
   `BasicStatsBehavior`. Loot drops are **not implemented** — the item system
   itself is a later build-order phase, so there's nothing to drop yet.
-- **Player death**: `CombatManager` unconditionally resets the loser's own
-  `CombatantBehavior.CurrentHitPoints` to `MaxHitPoints` (see the bug note
-  below), then calls `OnDefeatAsync`, which returns the respawn `Thing` and
-  applies whatever ruleset-specific penalty it wants — Classic's handler
-  reduces `StatsBehavior.Experience` by a flat **10%** (placeholder — exact
-  percentage is still an open item) and resets `StatsBehavior.CurrentHitPoints`
-  to `MaxHitPoints / 2` (placeholder, minimum 1), returning `WorldContext
-  .StartingRoom` (Classic's hub). `CombatManager` moves the attacker there and
-  sends the room description via `LookCommand.SendRoomDescriptionAsync`. No
-  item loss and no corpse-run.
+- **Player death**: HP ownership is split between a generic safe baseline
+  and a ruleset-specific override. `CombatManager` unconditionally resets
+  the loser's `CombatantBehavior.CurrentHitPoints` to `MaxHitPoints` first
+  (see the bug note below) — a "no penalty" ruleset can rely on that and do
+  nothing further. `CombatManager` then calls `OnDefeatAsync`, which returns
+  the respawn `Thing` and may apply a real death penalty: Classic's and
+  Basic's handlers both reduce their own stats behavior's `Experience` by a
+  flat **10%** (placeholder — exact percentage is still an open item), *and*
+  halve `CombatantBehavior.CurrentHitPoints` again themselves (minimum 1) -
+  since that's the value `CombatResolver` actually reads/writes, the earlier
+  full-HP reset would otherwise make the documented "respawn at half HP"
+  penalty a no-op. Classic additionally mirrors the halved value into
+  `StatsBehavior.CurrentHitPoints` (its own character-sheet display field,
+  never read by combat) so the two don't visibly drift. Respawn destination
+  is `WorldContext.StartingRoom` for both (Classic's hub, Basic's clearing).
+  `CombatManager` moves the attacker there and sends the room description
+  via `LookCommand.SendRoomDescriptionAsync`. No item loss and no
+  corpse-run.
 
   **Bug fixed during the ADR-0008 extraction**: `CombatResolver` reads/writes
   damage against `CombatantBehavior.CurrentHitPoints`, not any ruleset stats
@@ -190,7 +198,9 @@ Classic-stakes model, split between `CombatManager` (generic) and
   `CombatantBehavior.CurrentHitPoints` at/below 0 - the very next hit
   instantly re-triggered "defeated" regardless of the roll. `CombatManager`
   now resets `CombatantBehavior.CurrentHitPoints` itself, unconditionally,
-  before the outcome handler runs.
+  before the outcome handler runs — and a follow-up review round caught that
+  the outcome handlers also needed to override that reset for their own
+  penalty to have any actual combat effect (see above).
 
 ## Flee
 
@@ -198,11 +208,14 @@ Implemented in `FleeCommand` (`SharpMud.Ruleset.Rpg`). Requires an active
 encounter (`ICombatManager.TryGetEncounter`) and at least one exit in the
 current room. Success chance is currently a **flat 60%** via
 `IDiceRoller.Roll(1, 100)` — the real DEX-differential formula from the
-original design is still an open item, and `Npc`/`ICombatant` doesn't carry
-Dexterity, so there's nothing to differential against yet. On success, a
-random exit is chosen (`IRandomSource.Next` over the room's exits — index
-selection isn't dice notation, so it stays a direct `IRandomSource` call, not
-`IDiceRoller`), the encounter ends, and the actor moves exactly as a normal
+original design is still an open item, and neither `CombatantBehavior` nor
+any built-in ruleset's stats behavior carries a Dexterity-equivalent value
+yet, so there's nothing to differential against. On success, a random exit
+is chosen (`IRandomSource.Next` over the room's exits — index selection
+isn't dice notation, so it stays a direct `IRandomSource` call, not
+`IDiceRoller`) and checked through the same `UseExitEvent` request path
+`MoveCommand` uses (so a locked exit can still block a flee), the encounter
+ends, and the actor moves exactly as a normal
 move (see [commands.md](commands.md)).
 
 ## Dice-Rolling Abstraction

@@ -270,9 +270,15 @@ passing unit tests, to confirm.
   `OnDefeatAsync` returns the respawn `Thing`, so `CombatManager` never
   needs a `hubRoom`/`IWorld` reference of its own. The pre-existing
   `CombatantBehavior.CurrentHitPoints` respawn-reset bug is fixed as part of
-  this: `CombatManager` resets it unconditionally, before the outcome
-  handler runs (the outcome handler only owns its own ruleset's
-  stats-behavior-specific reset).
+  this: `CombatManager` resets it unconditionally to full, before the
+  outcome handler runs, as a safe baseline — a follow-up PR review round
+  then caught that this baseline alone made the documented HP-penalty a
+  no-op, since neither outcome handler touched `CombatantBehavior` at all
+  (only their own ruleset's stats-behavior HP field, never read by combat).
+  Both `ClassicCombatOutcomeHandler` and `BasicCombatOutcomeHandler` now
+  also halve `CombatantBehavior.CurrentHitPoints` themselves inside
+  `OnDefeatAsync`, overriding `CombatManager`'s baseline for rulesets that
+  want a real penalty.
 - **Package naming**: kept as `SharpMud.Ruleset.Rpg`/`SharpMud.Ruleset.Basic`
   — no objection raised during implementation.
 - **`AttackCommand`/`FleeCommand` composition**: the forwarding-callback

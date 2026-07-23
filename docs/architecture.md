@@ -107,8 +107,8 @@ provider (see [persistence.md](persistence.md)), the chosen transport
 
 - **Unit tests** (xUnit v3 + AutoFixture + NSubstitute + AwesomeAssertions,
   per the `dotnet-unit-testing-patterns` skill conventions) required for:
-  `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (now in
-  `SharpMud.Samples.Classic.Tests`), `Thing`/`BehaviorManager`/`ThingEvents`
+  `ICommandParser`, each `ICommand` implementation, `ICombatResolver` (in
+  `SharpMud.Ruleset.Rpg.Tests` as of ADR-0008), `Thing`/`BehaviorManager`/`ThingEvents`
   propagation, stat-derivation formulas. These are pure/deterministic enough
   to test without a live session or tick loop — `ISession` and repositories
   are mocked via NSubstitute.

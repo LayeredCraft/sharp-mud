@@ -32,8 +32,10 @@ public sealed class FleeCommand : ICommand
 
     /// <summary>
     /// Guards (an active encounter exists, the current room has an exit),
-    /// rolls a flat success chance, and on success ends the encounter and
-    /// moves the actor through a random exit.
+    /// rolls a flat success chance, and on success publishes the same <see
+    /// cref="UseExitEvent"/> request <c>MoveCommand</c> does (so a locked
+    /// exit can still veto) before ending the encounter and moving the
+    /// actor through the chosen exit.
     /// </summary>
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
@@ -60,6 +62,19 @@ public sealed class FleeCommand : ICommand
         }
 
         var exit = exits[_random.Next(0, exits.Count - 1)];
+
+        // Same request/cancellation path MoveCommand uses - without this,
+        // a locked exit blocks a normal move but not a flee through the
+        // exact same exit.
+        var exitThing = exit.Parent!;
+        var request = new UseExitEvent { ActiveThing = ctx.Actor, Exit = exitThing };
+        exitThing.Events.PublishRequest(request, EventScope.SelfOnly);
+        if (request.IsCanceled)
+        {
+            await ctx.Session.WriteLineAsync(request.CancelReason ?? "You can't escape that way!", ct);
+            return;
+        }
+
         var destination = exit.Destination;
 
         _combatManager.EndEncounter(ctx.Actor.Id);
