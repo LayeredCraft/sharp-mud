@@ -28,8 +28,8 @@ reconciliation effort stands.
 - [x] **Slice 2 — Session/connection state machine + reconnect.** ADR-0004
       Accepted, PLAN-0004 Done. See
       [PLAN-0004](0004-session-state-machine-and-reconnect.md).
-- [ ] **Slice 3 — Permission/security-role model + moderation commands.**
-      ADR-0005 Accepted, PLAN-0005 In Progress. See
+- [x] **Slice 3 — Permission/security-role model + moderation commands.**
+      ADR-0005 Accepted, PLAN-0005 Done. See
       [PLAN-0005](0005-security-role-model-and-moderation-commands.md).
 - [ ] **Slice 4 — World-building/OLC command surface.** Not yet designed;
       bundles with Slice 3.

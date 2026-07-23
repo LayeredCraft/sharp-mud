@@ -2,7 +2,7 @@
 
 **Implements:** [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md)
 
-**Status:** In Progress
+**Status:** Done
 
 **Last updated:** 2026-07-23
 
@@ -57,7 +57,7 @@ an open item below.
 
 ### `SecurityRole` + registry
 
-- [ ] New `src/SharpMud.Engine/Commands/SecurityRole.cs` — plain
+- [x] New `src/SharpMud.Engine/Commands/SecurityRole.cs` — plain
       `[Flags] enum SecurityRole : uint` with **explicit power-of-two
       values on every member** (`None = 0`, `Mobile = 1 << 0`, `Item = 1
       << 1`, `Room = 1 << 2`, `TutorialPlayer = 1 << 3`, `Player = 1 <<
@@ -73,24 +73,24 @@ an open item below.
       `All` is a union expression, not a separate hardcoded value, so it
       can't drift out of sync if a flag is added later. XML doc comments
       per `documentation.md`'s new-public-member rule.
-- [ ] New `src/SharpMud.Engine/Commands/RoleGuardedCommand.cs` — wraps an
+- [x] New `src/SharpMud.Engine/Commands/RoleGuardedCommand.cs` — wraps an
       inner `ICommand`, checks `(actor.Roles & requiredRole) !=
       SecurityRole.None` before delegating; generic rejection message.
       Exposes `public SecurityRole RequiredRole { get; }` — needed by
       `HelpCommand`'s filtering below, not just internally.
-- [ ] New `src/SharpMud.Engine/Commands/MuteGuardedCommand.cs` — wraps an
+- [x] New `src/SharpMud.Engine/Commands/MuteGuardedCommand.cs` — wraps an
       inner `ICommand`, checks the *actor's own* `IsMuted` (not a target's
       — this gates the muted player's own `say`/`emote`, not something
       they're doing to someone else) before delegating.
-- [ ] `ICommandRegistry.cs` / `CommandRegistry.cs`
+- [x] `ICommandRegistry.cs` / `CommandRegistry.cs`
       (`src/SharpMud.Engine/Commands/`): remove `Register(ICommand)` from
       the public surface; add `RegisterOpen(ICommand)` and
       `RegisterWithRole(ICommand, SecurityRole)` (the latter wraps in
       `RoleGuardedCommand` before storing).
-- [ ] Update every existing registration call site from `Register` to
+- [x] Update every existing registration call site from `Register` to
       `RegisterOpen` — mechanical, no behavior change. Two call sites
       today, not one (verified by grep, not assumed):
-      - [ ] `src/SharpMud.Engine/Commands/Builtin/BuiltinCommands.cs` — all
+      - [x] `src/SharpMud.Engine/Commands/Builtin/BuiltinCommands.cs` — all
             17 registrations. While here: wrap the `SayCommand`/
             `EmoteCommand` registrations specifically in
             `MuteGuardedCommand` before `RegisterOpen` (mute enforcement is
@@ -98,19 +98,19 @@ an open item below.
             .RegisterAll` runs for every consumer via `Hosting`'s
             `AddSharpMudRuleset(...)`, so wrapping here — not per-consumer
             — is what actually makes mute universal).
-      - [ ] `src/SharpMud.Ruleset.Rpg/ServiceCollectionExtensions.cs` — the
+      - [x] `src/SharpMud.Ruleset.Rpg/ServiceCollectionExtensions.cs` — the
             `AttackCommand`/`FleeCommand` registrations inside
             `AddSharpMudRpgRuleset(...)`. This call site didn't exist when
             ADR-0005 was accepted ([ADR-0008](../adr/0008-ruleset-scaffolding-tier.md)
             added it afterward) — `attack`/`flee` aren't role-gated, just
             migrated to the new intentional entry point like everything
             else.
-      - [ ] `samples/SharpMud.Samples.Classic/ClassicCommands.cs` no longer
+      - [x] `samples/SharpMud.Samples.Classic/ClassicCommands.cs` no longer
             exists (removed when [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md)
             landed — it had nothing left to register) — do not recreate it
             for this plan; the new admin commands register through their
             own `AdminCommands.RegisterAll`, see below.
-- [ ] `HelpCommand.cs`: filter `registry.Commands` by the actor's roles
+- [x] `HelpCommand.cs`: filter `registry.Commands` by the actor's roles
       before listing them — caught in self-review. `RoleGuardedCommand`
       passes `Verb`/`Aliases` straight through from the wrapped command, so
       without this, `help` lists every admin command (`ban`, `boot`,
@@ -122,13 +122,13 @@ an open item below.
 
 ### `PlayerBehavior` + persistence + `SessionLoop`
 
-- [ ] `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`: add `SecurityRole
+- [x] `src/SharpMud.Engine/Behaviors/PlayerBehavior.cs`: add `SecurityRole
       Roles { get; private set; } = SecurityRole.Player`, `bool IsMuted {
       get; private set; }`, `bool IsBanned { get; private set; }`, plus
       mutation methods (`GrantRole`/`RevokeRole`, `Mute`/`Unmute`,
       `Ban`/`Unban`) rather than public setters, matching
       `ConnectionState`'s existing transition-method style.
-      - [ ] Also add `bool WasBooted { get; private set; }` (transient,
+      - [x] Also add `bool WasBooted { get; private set; }` (transient,
             like `Session`/`ConnectionState` — `Ignore`d in
             `PlayerBehaviorConfiguration`) and a `MarkBooted()` method.
             **Real gap caught in PR review**: `BootCommand` runs inside
@@ -145,7 +145,7 @@ an open item below.
             `PlayerBehavior` *before* calling `DisconnectAsync`; the
             target's own `SessionLoop.RunAsync` (a completely separate
             call stack) checks it in its `finally` block.
-      - [ ] `src/SharpMud.Hosting/SessionLoop.cs`: in the `finally` block,
+      - [x] `src/SharpMud.Hosting/SessionLoop.cs`: in the `finally` block,
             treat `WasBooted` exactly like `explicitQuit` — both mean
             "this disconnect was intentional, skip `Linkdead` and remove
             immediately" (same save-then-remove ordering `explicitQuit`
@@ -153,19 +153,19 @@ an open item below.
             ordering). Concretely: replace the bare `explicitQuit` checks
             in both branches with `explicitQuit || (playerBehavior
             ?.WasBooted ?? false)`.
-      - [ ] `GrantRole(SecurityRole role)`: ORs in `role` *and* every tier
+      - [x] `GrantRole(SecurityRole role)`: ORs in `role` *and* every tier
             it implies (`FullAdmin` → also `MinorAdmin` + `Player`;
             `FullBuilder` → also `MinorBuilder`) per ADR-0005's
             accumulation rule — a plain `Roles |= role` is not enough on
             its own.
-      - [ ] A static `SecurityRole.Implies(SecurityRole role)` (or
+      - [x] A static `SecurityRole.Implies(SecurityRole role)` (or
             equivalent lookup) expressing the same hierarchy
             (`FullAdmin`→`MinorAdmin`→`Player`, `FullBuilder`→
             `MinorBuilder`) — used by both `GrantRole` (to accumulate
             downward) and `RevokeRole` (to check upward, see next) so the
             hierarchy is defined once, not duplicated between the two
             directions.
-      - [ ] `RevokeRole(SecurityRole role)`: **enforces the same
+      - [x] `RevokeRole(SecurityRole role)`: **enforces the same
             invariant symmetrically** (caught in PR review — clearing
             only the exact bit passed in can leave a higher tier set with
             a lower tier it implies cleared, e.g. `FullAdmin` present but
@@ -182,7 +182,7 @@ an open item below.
             has FullAdmin, which includes MinorAdmin — revoke FullAdmin
             instead"). `RoleRevokeCommand` relays a non-null return
             straight to the admin; never wraps this call in a try/catch.
-- [ ] `src/SharpMud.Persistence/Configurations/PlayerBehaviorConfiguration.cs`:
+- [x] `src/SharpMud.Persistence/Configurations/PlayerBehaviorConfiguration.cs`:
       map `Roles` with the plain-enum default EF conversion (matching
       `WearableBehaviorConfiguration`'s `Slot` precedent — no custom value
       converter needed); map `IsMuted`/`IsBanned` as plain persisted
@@ -236,7 +236,7 @@ playerBehavior.Session is { IsConnected: true }`) — don't invent a
 narrower one. Verified this check still reads exactly this way in the
 current `src/SharpMud.Hosting/LoginFlow.cs`.
 
-- [ ] `BootCommand` (`MinorAdmin`, no repository dependency) — disconnects
+- [x] `BootCommand` (`MinorAdmin`, no repository dependency) — disconnects
       a currently-online (`ConnectionState == Playing && Session is {
       IsConnected: true }`) target by username; "not online" message
       otherwise (not found at all, found only `Linkdead`, or found but
@@ -247,15 +247,15 @@ current `src/SharpMud.Hosting/LoginFlow.cs`.
       a message to the target's session first (mirrors `QuitCommand`'s
       "Goodbye!" before disconnecting), e.g. "You have been disconnected
       by an administrator."
-- [ ] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
+- [x] `MuteCommand`/`UnmuteCommand` (`MinorAdmin`, `IThingRepository`) —
       sets/clears `IsMuted` on a target (online-or-not, mirrors
       `LoginFlow`'s live-then-repository lookup), saves immediately.
-- [ ] `AnnounceCommand` (`MinorAdmin`, no repository dependency) —
+- [x] `AnnounceCommand` (`MinorAdmin`, no repository dependency) —
       broadcasts to every `world.AllWithBehavior<PlayerBehavior>()` entry
       whose `ConnectionState == Playing && Session is { IsConnected: true
       }` — explicitly **not** every entry `WhoCommand`-style, and
       explicitly **not** `ConnectionState` alone (see above).
-- [ ] `BanCommand` (`FullAdmin`, `IThingRepository`) — sets `IsBanned`,
+- [x] `BanCommand` (`FullAdmin`, `IThingRepository`) — sets `IsBanned`,
       online-or-not lookup, saves immediately. **If the target is
       currently online (`ConnectionState == Playing && Session is {
       IsConnected: true }`), also disconnects them the same way
@@ -270,7 +270,7 @@ current `src/SharpMud.Hosting/LoginFlow.cs`.
       alone, both are harmless and trivially reversible by the same
       admin). `UnbanCommand` needs no such guard (undoing your own ban
       isn't reachable — you can't be logged in while banned).
-- [ ] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`,
+- [x] `RoleGrantCommand`/`RoleRevokeCommand` (`FullAdmin`,
       `IThingRepository`) — mutates a target's `Roles` via
       `GrantRole`/`RevokeRole` (accumulation/hierarchy-invariant
       enforcement happens inside `PlayerBehavior` itself, not here),
@@ -290,7 +290,7 @@ current `src/SharpMud.Hosting/LoginFlow.cs`.
       checks `RevokeRole`'s `string?` return (not a caught exception) and
       relays a non-null failure straight to the admin as the rejection
       message.
-- [ ] Register all 8 via `RegisterWithRole` in a new
+- [x] Register all 8 via `RegisterWithRole` in a new
       `AdminCommands.RegisterAll(registry, repository)`
       (`src/SharpMud.Engine/Commands/Builtin/Admin/AdminCommands.cs` —
       mirrors `BuiltinCommands`'s shape). **Wiring point, corrected from
@@ -325,13 +325,13 @@ character is brand-new (`MaybeCreateAsync`) or pre-existing
 and "admin logs in later after the env var was set," all identically —
 no separate boot-time code path to keep in sync with the login-time one.
 
-- [ ] `LoginFlow.LoginExistingAsync`: after password verification
+- [x] `LoginFlow.LoginExistingAsync`: after password verification
       succeeds, check `IsBanned` → reject with a distinct message before
       the `ConnectionState` branch.
-- [ ] `src/SharpMud.Hosting/SharpMudHostOptions.cs`: add `string?
+- [x] `src/SharpMud.Hosting/SharpMudHostOptions.cs`: add `string?
       InitialAdminUsername`, parsed from `SHARPMUD_INITIAL_ADMIN` in
       `SharpMudHostOptions.Parse(env)`.
-- [ ] `samples/SharpMud.Samples.Classic/Program.cs`: add
+- [x] `samples/SharpMud.Samples.Classic/Program.cs`: add
       `["SHARPMUD_INITIAL_ADMIN"] = Environment.GetEnvironmentVariable
       ("SHARPMUD_INITIAL_ADMIN")` to the `env` dictionary already built
       before `SharpMudHostOptions.Parse(env)` — that dictionary is a
@@ -339,7 +339,7 @@ no separate boot-time code path to keep in sync with the login-time one.
       `SHARPMUD_DB_PATH`), not a full environment pass-through, so the new
       var needs its own entry here or the real host never sees it even
       with it set in production.
-- [ ] `builder.Services.AddSingleton(hostOptions);` in the same
+- [x] `builder.Services.AddSingleton(hostOptions);` in the same
       `Program.cs`, right after `SharpMudHostOptions.Parse(env)` — **new
       requirement this plan's implementer needs that the original didn't**:
       `SharpMudHostOptions` isn't registered in DI today (`Program.cs`
@@ -347,7 +347,7 @@ no separate boot-time code path to keep in sync with the login-time one.
       directly into `AddSharpMudSqlitePersistence(...)`), but `LoginFlow`
       needs to constructor-inject it now, so it has to actually be in the
       container.
-- [ ] `LoginFlow`: constructor-inject `SharpMudHostOptions` (a 4th
+- [x] `LoginFlow`: constructor-inject `SharpMudHostOptions` (a 4th
       dependency, alongside `WorldContext`/`IThingRepository`/
       `IPlayerFactory`). In `RunAsync`, after `LoginExistingAsync`/
       `MaybeCreateAsync` produces a non-null `player`, before returning
@@ -363,23 +363,23 @@ no separate boot-time code path to keep in sync with the login-time one.
 
 ### Docs
 
-- [ ] `docs/commands.md`: describe the new admin command set as current
+- [x] `docs/commands.md`: describe the new admin command set as current
       state, link ADR-0005.
-- [ ] `docs/accounts-auth.md`: describe ban enforcement in the login flow
+- [x] `docs/accounts-auth.md`: describe ban enforcement in the login flow
       as current state, update the existing "deferred moderation tooling"
       forward-reference to point at ADR-0005/this plan.
-- [ ] `docs/deployment.md`: add `SHARPMUD_INITIAL_ADMIN` to the Runtime
+- [x] `docs/deployment.md`: add `SHARPMUD_INITIAL_ADMIN` to the Runtime
       Configuration table — this table is the documented list of every
       `SharpMudHostOptions`/sample-level env var, and
       `SHARPMUD_INITIAL_ADMIN` is the *only* bootstrap path to a
       `FullAdmin` in a fresh deployment; omitting it here means deploying
       a container with no discoverable way to administer it.
-- [ ] `SPEC.md`: update the "Moderation/admin tooling" Deferred/Open Item
+- [x] `SPEC.md`: update the "Moderation/admin tooling" Deferred/Open Item
       to reflect what's actually implemented vs. still deferred (Find/
       GoTo/Control/Clone/Spawn/Jail/Buff/Relinquish, audit logging).
-- [ ] `docs/adr/README.md` / `docs/plans/README.md`: index rows for
+- [x] `docs/adr/README.md` / `docs/plans/README.md`: index rows for
       ADR-0005/PLAN-0005 flip to `Accepted`/in-progress-then-`Done`.
-- [ ] `docs/plans/0001-wheelmud-reconciliation-roadmap.md`: check off
+- [x] `docs/plans/0001-wheelmud-reconciliation-roadmap.md`: check off
       Slice 3.
 
 ## Critical files
@@ -490,6 +490,14 @@ Modified:
   matching the simplified single-checkpoint design.
 
 ## Verification
+
+**Done (2026-07-23)** — all 9 steps below run manually over real Telnet
+connections against the Classic sample; all passed as described. Found and
+noted (not fixed, out of scope) one pre-existing, unrelated crash: the
+game loop's `WanderManager` tick broadcasts to every occupant of a room
+including `Linkdead` ones with a dead socket, and an unhandled
+`IOException`/`SocketException` there brings down the whole process — this
+predates ADR-0005 and isn't part of its mechanism.
 
 Real manual check over Telnet (this repo's established pattern for
 session/persistence-facing changes):
