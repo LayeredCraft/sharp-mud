@@ -75,6 +75,45 @@ public sealed class CombatManagerTests
     }
 
     [Fact]
+    public async Task OnTickAsync_SendsDefeatMessageBeforeInvokingOutcomeHandler_WhenNpcDefeatsPlayer()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
+        var session = Substitute.For<ISession>();
+        var hubRoom = new Thing { Id = ThingId.New(), Name = "Hub" };
+        var callOrder = new List<string>();
+
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
+        player.Behaviors.Add(new CombatantBehavior { MaxHitPoints = 20, CurrentHitPoints = 20 });
+        room.Add(player);
+
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        npc.Behaviors.Add(new NpcBehavior());
+        npc.Behaviors.Add(new CombatantBehavior { CurrentHitPoints = 6 });
+        room.Add(npc);
+
+        resolver.ResolveRound(player, npc).Returns(new CombatRoundResult(false, 0, false));
+        resolver.ResolveRound(npc, player).Returns(new CombatRoundResult(true, 999, true));
+        session.When(s => s.WriteLineAsync("cave rat has slain you!", Arg.Any<CancellationToken>()))
+            .Do(_ => callOrder.Add("defeat-message"));
+        outcomeHandler.OnDefeatAsync(player, npc, TestContext.Current.CancellationToken)
+            .Returns(hubRoom)
+            .AndDoes(_ => callOrder.Add("outcome-handler"));
+
+        var sut = new CombatManager(resolver, outcomeHandler);
+        sut.StartEncounter(player, npc);
+
+        await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
+
+        // Matches the message order from before the ADR-0008 extraction -
+        // the generic "has slain you!" message must still arrive before any
+        // ruleset-specific outcome-handler messaging (e.g. an XP-loss line).
+        callOrder.Should().Equal("defeat-message", "outcome-handler");
+    }
+
+    [Fact]
     public async Task OnTickAsync_FreezesEncounter_WhenAttackerLinkdeadWithinGraceWindow()
     {
         var resolver = Substitute.For<ICombatResolver>();

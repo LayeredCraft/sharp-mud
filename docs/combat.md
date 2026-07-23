@@ -31,29 +31,28 @@ world content.
 Simple round-based combat (Diku/Circle-style), per SPEC.md: auto-attack on
 the global tick, hit/miss/damage messages, minimal per-round input required
 once engaged. **v1 scope is player-vs-NPC only** — no PvP verb or aggression
-rules exist yet, so every encounter is keyed by the attacking player.
+rules exist yet, so every encounter is keyed by the attacking `Thing`.
 
-Implemented shape (`src/SharpMud.Engine/Combat/`) differs from the original
+Implemented shape (`src/SharpMud.Ruleset.Rpg/`) differs from the original
 sketch in two ways: `ITickable.OnTick` is `Task OnTickAsync(...)`, not `void`
-(it needs to `await` `ISession` writes each round — same reasoning as
-`IWorld.MovePlayer` becoming `MovePlayerAsync`), and there's one
+(it needs to `await` `ISession` writes each round), and there's one
 `CombatManager` registered with `IGameLoop`, not one `ITickable` per
-encounter — it owns a `Dictionary<PlayerId, CombatEncounter>` and resolves
+encounter — it owns a `Dictionary<ThingId, CombatEncounter>` and resolves
 every active encounter each tick:
 
 ```csharp
 public sealed class CombatEncounter
 {
-    public required Player Attacker { get; init; }
-    public required Npc Defender { get; init; }
+    public required Thing Attacker { get; init; }
+    public required Thing Defender { get; init; }
 }
 
 public interface ICombatManager
 {
-    bool IsInCombat(PlayerId playerId);
-    void StartEncounter(Player attacker, Npc defender);
-    void EndEncounter(PlayerId playerId);
-    bool TryGetEncounter(PlayerId playerId, out CombatEncounter? encounter);
+    bool IsInCombat(ThingId thingId);
+    void StartEncounter(Thing attacker, Thing defender);
+    void EndEncounter(ThingId thingId);
+    bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter);
 }
 
 public sealed class CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
@@ -63,8 +62,8 @@ public sealed class CombatManager(ICombatResolver resolver, ICombatOutcomeHandle
 }
 ```
 
-No `hubRoomId`/`IWorld` constructor parameter any more - `CombatManager` has
-no respawn-destination or world-lookup concept of its own. `ICombatOutcomeHandler`
+No `hubRoomId`/`IWorld` constructor parameter — `CombatManager` has no
+respawn-destination or world-lookup concept of its own. `ICombatOutcomeHandler`
 (implemented per-ruleset) owns both the XP-award/death-penalty side effects
 and the respawn destination:
 
@@ -76,23 +75,23 @@ public interface ICombatOutcomeHandler
 }
 ```
 
-`ICombatant` also grew two members beyond the original sketch
-(`CurrentHitPoints`/`ArmorClass`/`DamageRange` only) — `Name` and
-`MaxHitPoints`, both needed for round messages and death/respawn handling
-that the doc implied but didn't spell out as interface members:
+Any `Thing` that can fight carries `CombatantBehavior` - a plain-data
+`Behavior`, not an interface a domain type implements (see
+[engine-vs-ruleset.md](engine-vs-ruleset.md) for why composition replaced
+the original class-hierarchy sketch entirely):
 
 ```csharp
-public interface ICombatant
+public sealed class CombatantBehavior : Behavior
 {
-    string Name { get; }
-    int CurrentHitPoints { get; set; }
-    int MaxHitPoints { get; }
-    int ArmorClass { get; }
-    (int Min, int Max) DamageRange { get; }
+    public int MaxHitPoints { get; set; }
+    public int CurrentHitPoints { get; set; }
+    public int ArmorClass { get; set; }
+    public int DamageMin { get; set; }
+    public int DamageMax { get; set; }
+    public int ExperienceReward { get; set; }
+    public (int Min, int Max) DamageRange => (DamageMin, DamageMax);
 }
 ```
-
-`Player` and `Npc` both implement `ICombatant`.
 
 Hit/damage formula: Diku/Circle-style d20-vs-AC roll — attacker rolls d20 vs.
 defender Armor Class to hit; damage is a random roll within the attacker's
@@ -100,29 +99,31 @@ defender Armor Class to hit; damage is a random roll within the attacker's
 level/skill to-hit bonus yet (see Open Items; the modifier-scaling formula
 is still undecided, so the code has nothing to apply).
 
-Formulas live in a dedicated `ICombatResolver` (pure, unit-testable, no I/O):
+Formulas live in a dedicated `ICombatResolver` (pure, unit-testable, no I/O)
+implemented by `CombatResolver`, which both computes **and applies** the
+round (mutates the defender's `CombatantBehavior.CurrentHitPoints` directly):
 
 ```csharp
 public interface ICombatResolver
 {
-    CombatRoundResult ResolveRound(ICombatant attacker, ICombatant defender);
+    CombatRoundResult ResolveRound(Thing attacker, Thing defender);
 }
 
 public sealed record CombatRoundResult(bool Hit, int Damage, bool DefenderDefeated);
 ```
 
-`ResolveRound` both computes **and applies** the round (mutates
-`defender.CurrentHitPoints` directly) — matching the original "resolve one
-round: hit check → damage → apply → check death" description.
-
 ## Sequence: Combat Round Resolves
 
-1. Player types `"kill cave rat"` → `AttackCommand` resolves the target NPC
-   in the room (`ctx.CurrentRoom.Npcs` → `IWorld.GetNpc`, matched by
-   case-insensitive substring), calls `ICombatManager.StartEncounter`, sends
-   `"You attack cave rat!"` immediately (engagement is instant; resolution is
-   tick-gated). If the player is already in combat, the command instead sends
-   `"You are already fighting!"`.
+1. Player types `"kill cave rat"` → `AttackCommand` matches the target among
+   the current room's children carrying both `NpcBehavior` and
+   `CombatantBehavior` (`ObjectMatcher.FindMatch`, case-insensitive), calls
+   `ICombatManager.StartEncounter`, sends `"You attack cave rat!"`
+   immediately (engagement is instant; resolution is tick-gated). If the
+   player is already in combat, the command instead sends `"You are already
+   fighting!"`; if the actor itself has no `CombatantBehavior` (a consumer's
+   own `IPlayerFactory` forgot to attach it), it sends `"You have no way to
+   fight."` instead of starting an encounter that would crash on the next
+   tick.
 2. On the next global tick, `IGameLoop` calls `CombatManager.OnTickAsync`,
    which iterates every active encounter.
 3. `ICombatResolver.ResolveRound(attacker, defender)` computes the player's

@@ -7,6 +7,7 @@ using SharpMud.Persistence;
 
 namespace SharpMud.Ruleset.Rpg;
 
+/// <summary>DI registration entry point for this package.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>

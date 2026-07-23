@@ -24,9 +24,15 @@ public interface ICombatOutcomeHandler
     /// Called when <paramref name="defeated"/> loses the encounter to
     /// <paramref name="victor"/> - the hook for a death penalty (XP loss,
     /// stats-specific HP reset) and for deciding the respawn destination.
-    /// <see cref="CombatantBehavior.CurrentHitPoints"/> is already reset by
-    /// <see cref="CombatManager"/> before this is called, regardless of what
-    /// this method does.
+    /// <see cref="CombatManager"/> already reset <paramref
+    /// name="defeated"/>'s <see cref="CombatantBehavior.CurrentHitPoints"/>
+    /// to full as a safe baseline before this is called - a "no penalty"
+    /// ruleset can rely on that and do nothing here, but a ruleset that
+    /// wants a real HP penalty (e.g. respawn at half HP) must mutate <see
+    /// cref="CombatantBehavior.CurrentHitPoints"/> itself inside this
+    /// method, since it's the value <see cref="ICombatResolver"/> actually
+    /// reads/writes in combat - see <c>ClassicCombatOutcomeHandler</c>/
+    /// <c>BasicCombatOutcomeHandler</c> for worked examples.
     /// </summary>
     Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken ct);
 }

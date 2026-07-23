@@ -13,12 +13,15 @@ below.
 Create a new console project and add:
 
 ```
-dotnet add package SharpMud.Engine
-dotnet add package SharpMud.Hosting
-dotnet add package SharpMud.Persistence.Sqlite
-dotnet add package SharpMud.Ruleset.Basic
-dotnet add package SharpMud.Adapters.Cli
+dotnet add package SharpMud.Engine --prerelease
+dotnet add package SharpMud.Hosting --prerelease
+dotnet add package SharpMud.Persistence.Sqlite --prerelease
+dotnet add package SharpMud.Ruleset.Basic --prerelease
+dotnet add package SharpMud.Adapters.Cli --prerelease
 ```
+
+`--prerelease` is required until a stable 1.0 release ships — sharp-mud is
+pre-1.0 and only prerelease packages are published so far.
 
 (swap `SharpMud.Persistence.Sqlite` for `SharpMud.Persistence.DynamoDb` and/or
 `SharpMud.Adapters.Cli` for `SharpMud.Adapters.Telnet` as needed — see

@@ -17,11 +17,13 @@ public sealed class BasicCombatOutcomeHandler : ICombatOutcomeHandler
 {
     private readonly WorldContext _worldContext;
 
+    /// <summary>Creates the handler against the shared <see cref="WorldContext"/> (for the respawn destination).</summary>
     public BasicCombatOutcomeHandler(WorldContext worldContext)
     {
         _worldContext = worldContext;
     }
 
+    /// <inheritdoc/>
     public async Task OnVictoryAsync(Thing victor, Thing defeated, CancellationToken ct)
     {
         var stats = victor.FindBehavior<BasicStatsBehavior>();
@@ -36,8 +38,19 @@ public sealed class BasicCombatOutcomeHandler : ICombatOutcomeHandler
             await session.WriteLineAsync($"You gain {combatant.ExperienceReward} experience.", ct);
     }
 
+    /// <inheritdoc/>
     public async Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken ct)
     {
+        // Respawn HP fraction is an open item (docs/combat.md); 50% is a
+        // placeholder, matching Classic's. BasicStatsBehavior carries no HP
+        // of its own (just Level/Experience) - CombatantBehavior.CurrentHitPoints
+        // is the only combat HP a Basic character has, and CombatManager
+        // already reset it to full before calling this method, so halving
+        // it here is what makes the penalty real rather than a no-op.
+        var combatant = defeated.FindBehavior<CombatantBehavior>();
+        if (combatant is not null)
+            combatant.CurrentHitPoints = Math.Max(1, combatant.MaxHitPoints / 2);
+
         var stats = defeated.FindBehavior<BasicStatsBehavior>();
         if (stats is not null)
         {

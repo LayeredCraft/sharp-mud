@@ -17,28 +17,43 @@ namespace SharpMud.Ruleset.Rpg;
 // concrete ruleset's stats behavior or a hard-coded room directly - this
 // package has zero reference to any concrete ruleset's types (see
 // docs/adr/0008-ruleset-scaffolding-tier.md's Decision Outcome).
+/// <summary>
+/// Tracks active combat encounters and resolves them once per game tick -
+/// the concrete implementation of <see cref="ICombatManager"/>, registered
+/// by <c>AddSharpMudRpgRuleset(...)</c> as both <see cref="ICombatManager"/>
+/// and <see cref="ITickable"/> off the same instance. Public (rather than
+/// internal) specifically so a consumer can drive it directly against a
+/// custom <see cref="ICombatOutcomeHandler"/> in their own tests, without
+/// going through DI.
+/// </summary>
 public sealed class CombatManager : ICombatManager, ITickable
 {
     private readonly ICombatResolver _resolver;
     private readonly ICombatOutcomeHandler _outcomeHandler;
     private readonly Dictionary<ThingId, CombatEncounter> _encounters = [];
 
+    /// <summary>Creates the manager against a resolver and a ruleset's outcome handler.</summary>
     public CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
     {
         _resolver = resolver;
         _outcomeHandler = outcomeHandler;
     }
 
+    /// <inheritdoc/>
     public bool IsInCombat(ThingId thingId) => _encounters.ContainsKey(thingId);
 
+    /// <inheritdoc/>
     public void StartEncounter(Thing attacker, Thing defender) =>
         _encounters[attacker.Id] = new CombatEncounter { Attacker = attacker, Defender = defender };
 
+    /// <inheritdoc/>
     public void EndEncounter(ThingId thingId) => _encounters.Remove(thingId);
 
+    /// <inheritdoc/>
     public bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter) =>
         _encounters.TryGetValue(thingId, out encounter);
 
+    /// <summary>Resolves one round for every active encounter - see the class remarks above for the full sequence.</summary>
     public async Task OnTickAsync(TickContext ctx, CancellationToken ct)
     {
         foreach (var thingId in _encounters.Keys.ToArray())
@@ -112,14 +127,24 @@ public sealed class CombatManager : ICombatManager, ITickable
         // latter left CombatantBehavior.CurrentHitPoints at/below 0, so the
         // very next hit instantly re-triggered "defeated" regardless of the
         // roll. This reset is generic (CombatantBehavior is this package's
-        // own type) so it happens here, unconditionally, before the
-        // ruleset-specific outcome handler runs.
+        // own type) so it happens here, as a safe full-HP baseline, before
+        // the ruleset-specific outcome handler runs - NOT as the final word.
+        // A ruleset that wants a real death penalty (e.g. respawn at half
+        // HP, not full) mutates CombatantBehavior.CurrentHitPoints itself
+        // inside OnDefeatAsync below, which runs after this and therefore
+        // wins - see ClassicCombatOutcomeHandler/BasicCombatOutcomeHandler.
+        // Without that override, "no penalty, full-HP respawn" is the
+        // correct default for a ruleset that doesn't want one.
         var combatant = attacker.FindBehavior<CombatantBehavior>()!;
         combatant.CurrentHitPoints = combatant.MaxHitPoints;
 
-        var destination = await _outcomeHandler.OnDefeatAsync(attacker, encounter.Defender, ct);
-
+        // Generic defeat message first, then the ruleset-specific outcome
+        // handler (which may itself write its own messages, e.g. an XP-loss
+        // line) - same ordering as HandleDefenderDefeatedAsync above, and
+        // matches the message order from before this extraction.
         await session.WriteLineAsync($"{encounter.Defender.Name} has slain you!", ct);
+
+        var destination = await _outcomeHandler.OnDefeatAsync(attacker, encounter.Defender, ct);
 
         _encounters.Remove(attacker.Id);
 

@@ -47,4 +47,18 @@ public sealed class ServiceCollectionExtensionsTests
 
         options.StartingHitPoints.Should().Be(42);
     }
+
+    // Without this, an invalid StartingHitPoints/StartingDamageMin/Max only
+    // surfaces the first time a fight actually happens - IRandomSource.Next(min, max)
+    // throwing mid-combat, not a clear failure at startup.
+    [Fact]
+    public void AddSharpMudBasicRuleset_ThrowsAtCompositionRootTime_WhenOptionsAreInvalid()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IRandomSource>(Substitute.For<IRandomSource>());
+
+        var act = () => services.AddSharpMudBasicRuleset(options => options.StartingHitPoints = 0);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
 }

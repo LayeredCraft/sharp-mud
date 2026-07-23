@@ -15,6 +15,7 @@ public sealed class AttackCommandTests
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        player.Behaviors.Add(new CombatantBehavior());
         room.Add(player);
 
         var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
@@ -39,6 +40,7 @@ public sealed class AttackCommandTests
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        player.Behaviors.Add(new CombatantBehavior());
         room.Add(player);
 
         var sut = new AttackCommand(combatManager);
@@ -48,6 +50,30 @@ public sealed class AttackCommandTests
 
         combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
         await session.Received(1).WriteLineAsync("You don't see that here.", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SendsCannotFightMessage_WhenActorHasNoCombatantBehavior()
+    {
+        var combatManager = Substitute.For<ICombatManager>();
+        var session = Substitute.For<ISession>();
+
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        room.Add(player);
+
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        npc.Behaviors.Add(new NpcBehavior());
+        npc.Behaviors.Add(new CombatantBehavior());
+        room.Add(npc);
+
+        var sut = new AttackCommand(combatManager);
+        var ctx = new CommandContext(player, room, ["cave", "rat"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        await session.Received(1).WriteLineAsync("You have no way to fight.", Arg.Any<CancellationToken>());
     }
 
     [Fact]

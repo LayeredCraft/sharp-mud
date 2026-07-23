@@ -5,12 +5,18 @@ using SharpMud.Engine.Core;
 
 namespace SharpMud.Ruleset.Rpg;
 
+/// <summary>
+/// The <c>flee</c> command - attempts to escape an active combat encounter
+/// through a random exit. Registered by <c>AddSharpMudRpgRuleset(...)</c>,
+/// not meant to be constructed directly by a consumer.
+/// </summary>
 public sealed class FleeCommand : ICommand
 {
     private readonly ICombatManager _combatManager;
     private readonly IDiceRoller _dice;
     private readonly IRandomSource _random;
 
+    /// <summary>Creates the command against the shared <see cref="ICombatManager"/> and dice/randomness sources.</summary>
     public FleeCommand(ICombatManager combatManager, IDiceRoller dice, IRandomSource random)
     {
         _combatManager = combatManager;
@@ -18,9 +24,17 @@ public sealed class FleeCommand : ICommand
         _random = random;
     }
 
+    /// <summary>The canonical verb, <c>flee</c>. No aliases.</summary>
     public string Verb => "flee";
+
+    /// <summary>No aliases for <see cref="Verb"/>.</summary>
     public IReadOnlyList<string> Aliases { get; } = [];
 
+    /// <summary>
+    /// Guards (an active encounter exists, the current room has an exit),
+    /// rolls a flat success chance, and on success ends the encounter and
+    /// moves the actor through a random exit.
+    /// </summary>
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
         if (!_combatManager.TryGetEncounter(ctx.Actor.Id, out _))

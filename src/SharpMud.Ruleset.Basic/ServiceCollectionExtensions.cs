@@ -6,6 +6,7 @@ using SharpMud.Ruleset.Rpg;
 
 namespace SharpMud.Ruleset.Basic;
 
+/// <summary>DI registration entry point for this package.</summary>
 public static class ServiceCollectionExtensions
 {
     /// <summary>
@@ -19,7 +20,7 @@ public static class ServiceCollectionExtensions
     /// (docs/adr/0008-ruleset-scaffolding-tier.md).
     /// </summary>
     /// <param name="services">The consumer's <see cref="IServiceCollection"/>.</param>
-    /// <param name="configureOptions">Tunes the starting numbers for a fresh player character - see <see cref="BasicRulesetOptions"/>.</param>
+    /// <param name="configureOptions">Tunes the starting numbers for a fresh player character - see <see cref="BasicRulesetOptions"/>. Validated immediately after this callback runs; an invalid combination throws <see cref="ArgumentOutOfRangeException"/> at startup rather than at first combat.</param>
     /// <param name="registerConsumerCommands">Forwarded to <c>AddSharpMudRpgRuleset(...)</c> - a consumer's own commands, registered alongside <c>kill</c>/<c>attack</c>/<c>flee</c>.</param>
     public static IServiceCollection AddSharpMudBasicRuleset(
         this IServiceCollection services,
@@ -28,6 +29,7 @@ public static class ServiceCollectionExtensions
     {
         var options = new BasicRulesetOptions();
         configureOptions?.Invoke(options);
+        options.Validate();
         services.AddSingleton(options);
 
         services.AddSingleton<IBehaviorMappingContributor, BasicBehaviorMappingContributor>();

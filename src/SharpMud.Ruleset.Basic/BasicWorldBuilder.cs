@@ -17,10 +17,13 @@ public sealed class BasicWorldBuilder : IWorldBuilder
     // Fixed, not ThingId.New() - so a fresh boot can ask the repository
     // "does this already exist?" instead of always rebuilding. See
     // docs/persistence.md.
+    /// <summary>The fixed id of the default world's root area - stable across restarts so a persisted world can be found again.</summary>
     public static readonly ThingId AreaId = new(Guid.Parse("00000000-0000-0000-0000-000000000002"));
 
+    /// <inheritdoc/>
     public ThingId RootId => AreaId;
 
+    /// <summary>Builds the default two-room world (a Clearing and an Old Watchtower) with one fightable NPC (a wild boar) in the watchtower.</summary>
     public (World World, Thing StartingRoom) Build()
     {
         var world = new World();
@@ -53,6 +56,7 @@ public sealed class BasicWorldBuilder : IWorldBuilder
         return (world, clearing);
     }
 
+    /// <inheritdoc/>
     public Thing FindStartingRoom(Thing root) =>
         root.Children.FirstOrDefault(c => c.HasBehavior<RoomBehavior>() && c.Name == "Clearing")
         ?? root.Children.First(c => c.HasBehavior<RoomBehavior>());
