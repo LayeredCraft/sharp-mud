@@ -38,8 +38,8 @@ public sealed class HelpCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        await session.DidNotReceive().WriteLineAsync(Arg.Is<string>(s => s.Contains("ban")), Arg.Any<CancellationToken>());
-        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s.Contains("look")), Arg.Any<CancellationToken>());
+        await session.DidNotReceive().WriteLineAsync(Arg.Is<string>(s => s!.Contains("ban")), Arg.Any<CancellationToken>());
+        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s!.Contains("look")), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public sealed class HelpCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s.Contains("ban")), Arg.Any<CancellationToken>());
+        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s!.Contains("ban")), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -71,6 +71,6 @@ public sealed class HelpCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s.Contains("look")), Arg.Any<CancellationToken>());
+        await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s!.Contains("look")), Arg.Any<CancellationToken>());
     }
 }
