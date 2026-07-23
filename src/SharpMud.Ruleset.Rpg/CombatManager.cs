@@ -43,6 +43,9 @@ public sealed class CombatManager : ICombatManager, ITickable
     public bool IsInCombat(ThingId thingId) => _encounters.ContainsKey(thingId);
 
     /// <inheritdoc/>
+    public bool IsDefenderEngaged(ThingId defenderId) => _encounters.Values.Any(e => e.Defender.Id == defenderId);
+
+    /// <inheritdoc/>
     public void StartEncounter(Thing attacker, Thing defender) =>
         _encounters[attacker.Id] = new CombatEncounter { Attacker = attacker, Defender = defender };
 

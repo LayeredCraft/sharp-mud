@@ -8,6 +8,23 @@ namespace SharpMud.Ruleset.Rpg.Tests.Combat;
 public sealed class CombatManagerTests
 {
     [Fact]
+    public void IsDefenderEngaged_ReturnsTrue_WhenAnotherAttackerAlreadyTargetsTheSameDefender()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
+
+        var attackerOne = new Thing { Id = ThingId.New(), Name = "Hero One" };
+        var attackerTwo = new Thing { Id = ThingId.New(), Name = "Hero Two" };
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+
+        var sut = new CombatManager(resolver, outcomeHandler);
+        sut.StartEncounter(attackerOne, npc);
+
+        sut.IsDefenderEngaged(npc.Id).Should().BeTrue();
+        sut.IsDefenderEngaged(attackerTwo.Id).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task OnTickAsync_NotifiesOutcomeHandlerAndEndsEncounter_WhenPlayerDefeatsNpc()
     {
         var resolver = Substitute.For<ICombatResolver>();

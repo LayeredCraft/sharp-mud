@@ -26,6 +26,16 @@ public interface ICombatManager
     /// <summary>Whether the given Thing is currently the attacker in an active encounter.</summary>
     bool IsInCombat(ThingId thingId);
 
+    /// <summary>
+    /// Whether the given Thing is currently the defender in any active
+    /// encounter - since encounters are keyed by attacker only, this is the
+    /// check that stops a second attacker from starting a second, redundant
+    /// encounter against a target someone else is already fighting (which
+    /// would otherwise let both encounters independently resolve, remove,
+    /// and award victory for the same kill).
+    /// </summary>
+    bool IsDefenderEngaged(ThingId defenderId);
+
     /// <summary>Starts (or replaces) the encounter keyed by <paramref name="attacker"/>.</summary>
     void StartEncounter(Thing attacker, Thing defender);
 

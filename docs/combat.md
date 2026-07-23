@@ -236,8 +236,8 @@ damage range (e.g. 2-6) isn't 1-based dice notation and forcing it through
 - ~~Real linkdead/reconnect handling~~ — resolved by ADR-0004, see
   Disconnect Mid-Fight above.
 - Flee success-chance formula (exact DEX-differential-to-probability curve)
-  — currently a flat 60%; would also need Dexterity added to `ICombatant` or
-  a separate lookup.
+  — currently a flat 60%; would also need Dexterity added to
+  `CombatantBehavior` or a separate ruleset-specific stats behavior lookup.
 - XP-loss percentage on player death — currently a flat 10% placeholder.
 - Respawn HP fraction — currently `MaxHitPoints / 2` placeholder.
 - Loot drops on NPC death — not implemented; blocked on the item system.

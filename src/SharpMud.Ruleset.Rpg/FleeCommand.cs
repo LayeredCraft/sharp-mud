@@ -77,13 +77,24 @@ public sealed class FleeCommand : ICommand
 
         var destination = exit.Destination;
 
+        // Remove can itself publish a cancellable RemoveChildEvent and
+        // return false (e.g. a future "can't leave this room" behavior) -
+        // same check MoveCommand does, and for the same reason: proceeding
+        // to Add into destination after a failed Remove would leave the
+        // actor added to the new room without ever having left the old
+        // one. EndEncounter/messaging only happen once the move is real.
+        if (!ctx.CurrentRoom.Remove(ctx.Actor))
+        {
+            await ctx.Session.WriteLineAsync("You can't escape that way!", ct);
+            return;
+        }
+
         _combatManager.EndEncounter(ctx.Actor.Id);
         await ctx.Session.WriteLineAsync($"You flee {exit.Direction.ToDisplayString()}!", ct);
 
         await RoomBroadcast.ToOccupantsAsync(
             ctx.CurrentRoom, ctx.Actor, $"{ctx.Actor.Name} flees {exit.Direction.ToDisplayString()}.", ct);
 
-        ctx.CurrentRoom.Remove(ctx.Actor);
         destination.Add(ctx.Actor);
 
         await LookCommand.SendRoomDescriptionAsync(ctx.Actor, destination, ct);

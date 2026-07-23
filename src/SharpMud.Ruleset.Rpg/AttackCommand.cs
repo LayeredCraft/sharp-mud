@@ -27,9 +27,9 @@ public sealed class AttackCommand : ICommand
 
     /// <summary>
     /// Guards (not already fighting, actor can fight, a matching NPC target
-    /// exists in the room), then starts the encounter via <see
-    /// cref="ICombatManager.StartEncounter"/>. Resolution happens on the
-    /// next game tick, not synchronously here.
+    /// exists in the room and isn't already engaged by someone else), then
+    /// starts the encounter via <see cref="ICombatManager.StartEncounter"/>.
+    /// Resolution happens on the next game tick, not synchronously here.
     /// </summary>
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
@@ -62,6 +62,16 @@ public sealed class AttackCommand : ICommand
         if (target is null)
         {
             await ctx.Session.WriteLineAsync("You don't see that here.", ct);
+            return;
+        }
+
+        // Without this, a second attacker could start a second, independent
+        // encounter against a target someone else is already fighting -
+        // both encounters would then resolve/remove/award victory for the
+        // same kill (see ICombatManager.IsDefenderEngaged).
+        if (_combatManager.IsDefenderEngaged(target.Id))
+        {
+            await ctx.Session.WriteLineAsync($"Someone else is already fighting {target.Name}!", ct);
             return;
         }
 

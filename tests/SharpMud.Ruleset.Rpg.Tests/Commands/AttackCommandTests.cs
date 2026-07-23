@@ -77,6 +77,32 @@ public sealed class AttackCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_SendsAlreadyEngagedMessage_WhenTargetIsAlreadyBeingFoughtByAnotherAttacker()
+    {
+        var combatManager = Substitute.For<ICombatManager>();
+        var session = Substitute.For<ISession>();
+        combatManager.IsDefenderEngaged(Arg.Any<ThingId>()).Returns(true);
+
+        var room = new Thing { Id = ThingId.New(), Name = "Room" };
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        player.Behaviors.Add(new CombatantBehavior());
+        room.Add(player);
+
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        npc.Behaviors.Add(new NpcBehavior());
+        npc.Behaviors.Add(new CombatantBehavior());
+        room.Add(npc);
+
+        var sut = new AttackCommand(combatManager);
+        var ctx = new CommandContext(player, room, ["cave", "rat"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        await session.Received(1).WriteLineAsync("Someone else is already fighting cave rat!", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsAlreadyFightingMessage_WhenActorAlreadyInCombat()
     {
         var combatManager = Substitute.For<ICombatManager>();

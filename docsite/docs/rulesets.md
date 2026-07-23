@@ -123,8 +123,15 @@ A minimal implementation, tracking XP on your own stats behavior and always
 respawning at the world's starting room:
 
 ```csharp
-public sealed class MyCombatOutcomeHandler(WorldContext worldContext) : ICombatOutcomeHandler
+public sealed class MyCombatOutcomeHandler : ICombatOutcomeHandler
 {
+    private readonly WorldContext _worldContext;
+
+    public MyCombatOutcomeHandler(WorldContext worldContext)
+    {
+        _worldContext = worldContext;
+    }
+
     public Task OnVictoryAsync(Thing victor, Thing defeated, CancellationToken ct)
     {
         var stats = victor.FindBehavior<MyStatsBehavior>();
@@ -136,7 +143,7 @@ public sealed class MyCombatOutcomeHandler(WorldContext worldContext) : ICombatO
     }
 
     public Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken ct) =>
-        Task.FromResult(worldContext.StartingRoom);
+        Task.FromResult(_worldContext.StartingRoom);
 }
 ```
 
@@ -157,7 +164,7 @@ public Task<Thing> OnDefeatAsync(Thing defeated, Thing victor, CancellationToken
     if (combatant is not null)
         combatant.CurrentHitPoints = Math.Max(1, combatant.MaxHitPoints / 2);
 
-    return Task.FromResult(worldContext.StartingRoom);
+    return Task.FromResult(_worldContext.StartingRoom);
 }
 ```
 

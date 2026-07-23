@@ -1,10 +1,12 @@
 namespace SharpMud.Ruleset.Basic;
 
-// Plain mutable options class configured via AddSharpMudBasicRuleset(...)'s
-// callback, not IOptions<T>/appsettings.json-bound - same shape as Engine's
-// GameLoopOptions. These are the tunable starting numbers for a fresh
-// player character; the default default world's NPC keeps its own fixed
-// stats regardless (small, deliberately simple content, not a tunable).
+/// <summary>
+/// Tunable starting numbers for a fresh player character, configured via
+/// <c>AddSharpMudBasicRuleset(...)</c>'s callback - not <c>IOptions&lt;T&gt;</c>/
+/// appsettings.json-bound, same shape as <c>Engine</c>'s
+/// <c>GameLoopOptions</c>. The default world's NPC keeps its own fixed
+/// stats regardless (small, deliberately simple content, not a tunable).
+/// </summary>
 public sealed class BasicRulesetOptions
 {
     /// <summary>A fresh character's starting (and max) hit points. Must be at least 1 - see <see cref="Validate"/>.</summary>
