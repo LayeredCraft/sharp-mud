@@ -50,8 +50,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSharpMudRuleset((sp, registry) =>
         {
-            registry.Register(new AttackCommand(sp.GetRequiredService<ICombatManager>()));
-            registry.Register(new FleeCommand(
+            registry.RegisterOpen(new AttackCommand(sp.GetRequiredService<ICombatManager>()));
+            registry.RegisterOpen(new FleeCommand(
                 sp.GetRequiredService<ICombatManager>(),
                 sp.GetRequiredService<IDiceRoller>(),
                 sp.GetRequiredService<IRandomSource>()));

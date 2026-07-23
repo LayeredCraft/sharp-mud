@@ -24,5 +24,18 @@ public sealed class PlayerBehaviorConfiguration : IEntityTypeConfiguration<Playe
         // (ADR-0004).
         builder.Ignore(x => x.ConnectionState);
         builder.Ignore(x => x.LinkdeadSinceUtc);
+
+        // Roles/IsMuted/IsBanned (ADR-0005) - unlike ConnectionState, these
+        // must survive a restart or they're useless. Roles is a plain
+        // [Flags] enum - default int mapping, same as WearableBehavior.Slot,
+        // no custom value converter needed.
+        builder.Property(x => x.Roles);
+        builder.Property(x => x.IsMuted);
+        builder.Property(x => x.IsBanned);
+
+        // WasBooted is transient, same category as Session/ConnectionState
+        // above - it only needs to survive within one already-live process,
+        // never across a restart (see PlayerBehavior.WasBooted's doc comment).
+        builder.Ignore(x => x.WasBooted);
     }
 }

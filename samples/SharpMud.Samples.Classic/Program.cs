@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using SharpMud.Adapters.Cli;
 using SharpMud.Adapters.Telnet;
+using SharpMud.Engine.Commands.Builtin.Admin;
+using SharpMud.Engine.Core;
 using SharpMud.Hosting;
 using SharpMud.Persistence;
 using SharpMud.Persistence.Sqlite;
@@ -48,8 +50,14 @@ var dbPathArg = dbPathIndex >= 0 && dbPathIndex + 1 < args.Length ? args[dbPathI
 var env = new Dictionary<string, string?>
 {
     ["SHARPMUD_DB_PATH"] = dbPathArg ?? Environment.GetEnvironmentVariable("SHARPMUD_DB_PATH"),
+    ["SHARPMUD_INITIAL_ADMIN"] = Environment.GetEnvironmentVariable("SHARPMUD_INITIAL_ADMIN"),
 };
 var hostOptions = SharpMudHostOptions.Parse(env);
+
+// LoginFlow consumes this directly (ADR-0005 bootstrap) - not otherwise
+// registered by SharpMud.Hosting itself, since it's parsed here in the
+// consumer's own composition root alongside every other env-var option.
+builder.Services.AddSingleton(hostOptions);
 
 builder.Services.AddSharpMudSqlitePersistence(hostOptions.DbPath);
 builder.Services.AddSingleton<IBehaviorMappingContributor, ClassicBehaviorMappingContributor>();
@@ -59,10 +67,11 @@ builder.Services.AddSharpMudPlayerFactory<ClassicPlayerFactory>();
 // SharpMud.Ruleset.Rpg's combat scaffolding (ICombatResolver, ICombatManager
 // as both itself and ITickable, the dice service, its own
 // IBehaviorMappingContributor, and the kill/attack/flee commands) - see
-// docs/adr/0008-ruleset-scaffolding-tier.md. Classic has no commands of its
-// own beyond what Rpg already provides, so no registerConsumerCommands
-// callback is needed here.
-builder.Services.AddSharpMudRpgRuleset<ClassicCombatOutcomeHandler>();
+// docs/adr/0008-ruleset-scaffolding-tier.md. The registerConsumerCommands
+// callback wires AdminCommands (ADR-0005 moderation) - Rpg has no notion of
+// security roles itself, so this is Classic's own composition-root concern.
+builder.Services.AddSharpMudRpgRuleset<ClassicCombatOutcomeHandler>((sp, registry) =>
+    AdminCommands.RegisterAll(registry, sp.GetRequiredService<IThingRepository>()));
 
 // Transport mode: SHARPMUD_MODE/SHARPMUD_TELNET_PORT/--telnet, same
 // precedence as before (CLI arg wins over env var) - this is now the

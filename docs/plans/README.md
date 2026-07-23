@@ -59,6 +59,6 @@ isn't settled yet — don't do that.
 | [0001](0001-wheelmud-reconciliation-roadmap.md) | [ADR-0001](../adr/0001-wheelmud-reconciliation-roadmap.md) | In Progress |
 | [0002](0002-telnet-protocol-negotiation.md) | [ADR-0002](../adr/0002-telnet-protocol-negotiation.md) | Done |
 | [0004](0004-session-state-machine-and-reconnect.md) | [ADR-0004](../adr/0004-session-state-machine-and-reconnect.md) | Done |
-| [0005](0005-security-role-model-and-moderation-commands.md) | [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md) | Not Started |
+| [0005](0005-security-role-model-and-moderation-commands.md) | [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md) | Done |
 | [0006](0006-nuget-package-distribution.md) | [ADR-0006](../adr/0006-nuget-package-distribution.md) | Done |
 | [0008](0008-ruleset-scaffolding-tier.md) | [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md) | Done |

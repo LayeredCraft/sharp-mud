@@ -6,6 +6,38 @@
 
 **Decision Makers:** solo (design dive conducted with the user)
 
+**Correction (2026-07-23, before implementation started):** the file paths
+and call chain this ADR's Decision Outcome/bootstrap section describe
+(`src/SharpMud.Host`, `TelnetHostContext`, `HostRunner`,
+`src/SharpMud.Ruleset.Classic`, `ClassicCommands.RegisterAll`) reflect the
+architecture as of this ADR's acceptance date — that architecture no longer
+exists. [ADR-0006](0006-nuget-package-distribution.md) (accepted and
+implemented before this slice's implementation began) split `SharpMud.Host`
+into `SharpMud.Hosting` (DI composition helpers) + `SharpMud.Adapters.*`
+(transport, e.g. `TelnetTransportBackgroundService` replacing `HostRunner`)
++ a consumer composition root (now `samples/SharpMud.Samples.Classic
+/Program.cs`, not a project called `SharpMud.Host`), and moved ruleset
+content out of a packaged `SharpMud.Ruleset.Classic` into that same
+unpackaged sample. [ADR-0008](0008-ruleset-scaffolding-tier.md) later
+extracted the reusable combat scaffolding from that sample into
+`SharpMud.Ruleset.Rpg`. None of this changes what was decided here
+(`SecurityRole`, the Decorator pattern, `RegisterOpen`/`RegisterWithRole`,
+role accumulation, the bootstrap env var) — only where the mechanism's
+pieces physically live, which is why this is a correction note rather than
+a supersession. The bootstrap mechanism specifically is also simplified in
+the implementation (see [PLAN-0005](../plans/0005-security-role-model-and-moderation-commands.md)):
+`LoginFlow` is DI-constructed now (it wasn't, structurally, when this ADR
+was written — there was no `TelnetHostContext` to thread a value through),
+so the original two-separate-checkpoints design (a boot-time Program.cs
+check plus a `MaybeCreateAsync` check) collapses to one check inside
+`LoginFlow` itself, run against whichever `Thing` it's about to return
+(new or existing) — same outcome (idempotent grant, covers fresh-server and
+restart cases), fewer moving parts. Corrected here rather than superseded
+because the actual decision - what gets built and why - is unchanged; only
+implementation-mechanism detail moved, and that detail belongs in the plan
+per this repo's own ADR/plan split, not repeated (and inevitably going
+stale again) here.
+
 ## Context
 
 Per ADR-0001, this is Slice 3 of the WheelMUD reconciliation roadmap.

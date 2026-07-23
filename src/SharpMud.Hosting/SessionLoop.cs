@@ -88,6 +88,16 @@ public sealed class SessionLoop
         {
             var playerBehavior = player.FindBehavior<PlayerBehavior>();
 
+            // WasBooted (ADR-0005) means an admin's BootCommand/BanCommand
+            // - running on a completely different connection's call stack -
+            // already decided this disconnect is intentional. Treated
+            // exactly like explicitQuit here: without this, this player's
+            // own SessionLoop can't tell an admin-triggered disconnect apart
+            // from an ordinary dropped connection, so it would take the
+            // Linkdead branch below and let them just reconnect and resume,
+            // making boot/ban a no-op as a moderation tool.
+            var wasIntentionalDisconnect = explicitQuit || (playerBehavior?.WasBooted ?? false);
+
             // Guard + do this BEFORE the awaited save below (PR #1 review) -
             // if a reconnect races in while this disconnect is being
             // processed, LoginFlow must see Linkdead immediately, not a
@@ -95,10 +105,10 @@ public sealed class SessionLoop
             // playerBehavior.Session == session check additionally backs off
             // entirely if a newer session already took over this same Thing
             // by the time we get here, so this disconnect can't clobber an
-            // already-active reconnect. explicitQuit's removal deliberately
-            // does NOT happen here (see below) - only the Linkdead
-            // transition needs to race ahead of the save.
-            if (!explicitQuit && playerBehavior?.Session == session)
+            // already-active reconnect. The removal below deliberately does
+            // NOT happen here (see below) - only the Linkdead transition
+            // needs to race ahead of the save.
+            if (!wasIntentionalDisconnect && playerBehavior?.Session == session)
             {
                 // Linkdead, not an immediate world removal (ADR-0004) - the
                 // Thing stays live in its room so LoginFlow can reconnect a
@@ -116,12 +126,12 @@ public sealed class SessionLoop
             // cancellation mid-operation.
             await _repository.SaveTreeAsync(player, CancellationToken.None);
 
-            // explicitQuit's removal happens AFTER the save, not before
-            // (PR #1 review) - ThingRepository.SaveTreeAsync persists
-            // ParentId from thing.Parent at save time, so removing first
-            // would save ParentId=null and lose the room a player quit
+            // Removal happens AFTER the save, not before (PR #1 review) -
+            // ThingRepository.SaveTreeAsync persists ParentId from
+            // thing.Parent at save time, so removing first would save
+            // ParentId=null and lose the room a player quit/was booted
             // from. Same session-identity guard as above, for consistency.
-            if (explicitQuit && playerBehavior?.Session == session)
+            if (wasIntentionalDisconnect && playerBehavior?.Session == session)
             {
                 player.Parent?.Remove(player);
                 world.Unregister(player.Id);

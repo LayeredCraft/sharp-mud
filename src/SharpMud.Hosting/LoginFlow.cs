@@ -1,4 +1,5 @@
 using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
 using SharpMud.Engine.Sessions;
 
@@ -17,12 +18,14 @@ public sealed class LoginFlow
     private readonly WorldContext _worldContext;
     private readonly IThingRepository _repository;
     private readonly IPlayerFactory _playerFactory;
+    private readonly SharpMudHostOptions _hostOptions;
 
-    public LoginFlow(WorldContext worldContext, IThingRepository repository, IPlayerFactory playerFactory)
+    public LoginFlow(WorldContext worldContext, IThingRepository repository, IPlayerFactory playerFactory, SharpMudHostOptions hostOptions)
     {
         _worldContext = worldContext;
         _repository = repository;
         _playerFactory = playerFactory;
+        _hostOptions = hostOptions;
     }
 
     // Returns null if the connection should be dropped (empty input,
@@ -44,11 +47,38 @@ public sealed class LoginFlow
                 : await MaybeCreateAsync(session, username, ct);
 
             if (player is not null)
+            {
+                await MaybeGrantInitialAdminAsync(player, ct);
                 return player;
+            }
 
             if (!session.IsConnected)
                 return null;
         }
+    }
+
+    // ADR-0005 bootstrap - checked here, not at boot time and again at
+    // character creation, since a single check that runs on every login
+    // (new character or existing) covers the fresh-server case, the
+    // restart case, and "the env var was set after this character already
+    // existed," identically. Idempotent (the FullAdmin check below), so
+    // safe to run on every login for the matching username, not just the
+    // first.
+    private async Task MaybeGrantInitialAdminAsync(Thing player, CancellationToken ct)
+    {
+        var username = _hostOptions.InitialAdminUsername;
+        if (username is null)
+            return;
+
+        var playerBehavior = player.FindBehavior<PlayerBehavior>()!;
+        if (!string.Equals(playerBehavior.Username, username, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if ((playerBehavior.Roles & SecurityRole.FullAdmin) != SecurityRole.None)
+            return;
+
+        playerBehavior.GrantRole(SecurityRole.FullAdmin);
+        await _repository.SaveTreeAsync(player, ct);
     }
 
     private async Task<Thing?> FindAndAttachExistingAsync(string username, CancellationToken ct)
@@ -95,6 +125,16 @@ public sealed class LoginFlow
                 // reveal whether the username existed, per docs/accounts-auth.md.
                 await session.WriteLineAsync("Login incorrect.", ct);
                 continue;
+            }
+
+            // ADR-0005 - checked right after password verification, before
+            // the ConnectionState branch below, so a banned user gets a
+            // distinct message rather than silently falling through to a
+            // reconnect/already-logged-in check that doesn't apply to them.
+            if (playerBehavior.IsBanned)
+            {
+                await session.WriteLineAsync("This account has been banned.", ct);
+                return null;
             }
 
             // Unchanged from before ADR-0004: still actively Playing with a

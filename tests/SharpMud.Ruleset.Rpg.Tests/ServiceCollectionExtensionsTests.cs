@@ -19,7 +19,7 @@ public sealed class ServiceCollectionExtensionsTests
         services.AddSingleton<IRandomSource>(Substitute.For<IRandomSource>());
 
         services.AddSharpMudRpgRuleset<FakeCombatOutcomeHandler>((_, registry) =>
-            registry.Register(new FakeConsumerCommand()));
+            registry.RegisterOpen(new FakeConsumerCommand()));
 
         var provider = services.BuildServiceProvider();
         var registry = provider.GetRequiredService<ICommandRegistry>();

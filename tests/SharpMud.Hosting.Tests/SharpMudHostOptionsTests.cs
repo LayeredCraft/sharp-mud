@@ -21,4 +21,22 @@ public sealed class SharpMudHostOptionsTests
 
         options.DbPath.Should().Be("/data/sharpmud.db");
     }
+
+    [Fact]
+    public void Parse_DefaultsInitialAdminUsernameToNull_WhenEnvVarNotSet()
+    {
+        var options = SharpMudHostOptions.Parse(new Dictionary<string, string?>());
+
+        options.InitialAdminUsername.Should().BeNull();
+    }
+
+    [Fact]
+    public void Parse_UsesInitialAdminUsernameFromEnvVar_WhenSet()
+    {
+        var env = new Dictionary<string, string?> { ["SHARPMUD_INITIAL_ADMIN"] = "Root" };
+
+        var options = SharpMudHostOptions.Parse(env);
+
+        options.InitialAdminUsername.Should().Be("Root");
+    }
 }

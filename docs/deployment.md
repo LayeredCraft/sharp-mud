@@ -37,6 +37,13 @@ debugging inside the container) without rebuilding.
 | Mode | `--telnet` (anywhere in args) | `SHARPMUD_MODE=telnet` | CLI (local single-player) |
 | Telnet port | `--telnet <port>` (looked up by index, not positional - can combine with `--db-path` in either order) | `SHARPMUD_TELNET_PORT` | `4000` |
 | SQLite DB path | `--db-path <path>` | `SHARPMUD_DB_PATH` | `./sharpmud.db` (`/data/sharpmud.db` in the container image) |
+| Initial admin username | *(none)* | `SHARPMUD_INITIAL_ADMIN` | unset (no bootstrap grant) |
+
+`SHARPMUD_INITIAL_ADMIN` (ADR-0005) names the one character `LoginFlow`
+grants `SecurityRole.FullAdmin` to on login — the only path to a `FullAdmin`
+on a fresh deployment, since granting a role itself requires `FullAdmin`.
+Idempotent (checked every login, no-op once already held), so it's safe to
+leave set permanently rather than unsetting it after first use.
 
 The Dockerfile sets `SHARPMUD_MODE=telnet`, `SHARPMUD_TELNET_PORT=4000`, and
 `SHARPMUD_DB_PATH=/data/sharpmud.db` as image defaults, plus `EXPOSE 4000`
