@@ -18,10 +18,49 @@ public sealed class CombatManagerTests
         var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(attackerOne, npc);
+        sut.TryStartEncounter(attackerOne, npc);
 
         sut.IsDefenderEngaged(npc.Id).Should().BeTrue();
         sut.IsDefenderEngaged(attackerTwo.Id).Should().BeFalse();
+    }
+
+    [Fact]
+    public void TryStartEncounter_ReturnsFalse_WhenDefenderIsAlreadyEngagedByAnotherAttacker()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
+
+        var attackerOne = new Thing { Id = ThingId.New(), Name = "Hero One" };
+        var attackerTwo = new Thing { Id = ThingId.New(), Name = "Hero Two" };
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+
+        var sut = new CombatManager(resolver, outcomeHandler);
+
+        sut.TryStartEncounter(attackerOne, npc).Should().BeTrue();
+        sut.TryStartEncounter(attackerTwo, npc).Should().BeFalse();
+    }
+
+    // Regression coverage for the actual concurrency bug (two players'
+    // independent session-loop tasks both targeting the same NPC at nearly
+    // the same time) - not just the sequential "second call fails" case
+    // above, which wouldn't have caught the original TOCTOU race between a
+    // separate IsDefenderEngaged check and StartEncounter.
+    [Fact]
+    public async Task TryStartEncounter_AllowsExactlyOneCaller_WhenManyAttackersRaceTheSameDefender()
+    {
+        var resolver = Substitute.For<ICombatResolver>();
+        var outcomeHandler = Substitute.For<ICombatOutcomeHandler>();
+        var npc = new Thing { Id = ThingId.New(), Name = "cave rat" };
+        var sut = new CombatManager(resolver, outcomeHandler);
+
+        var attackers = Enumerable.Range(0, 32)
+            .Select(i => new Thing { Id = ThingId.New(), Name = $"Hero {i}" })
+            .ToArray();
+
+        var results = await Task.WhenAll(attackers.Select(attacker =>
+            Task.Run(() => sut.TryStartEncounter(attacker, npc))));
+
+        results.Count(succeeded => succeeded).Should().Be(1);
     }
 
     [Fact]
@@ -44,7 +83,7 @@ public sealed class CombatManagerTests
         resolver.ResolveRound(player, npc).Returns(new CombatRoundResult(true, 6, true));
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(player, npc);
+        sut.TryStartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
@@ -78,7 +117,7 @@ public sealed class CombatManagerTests
         outcomeHandler.OnDefeatAsync(player, npc, TestContext.Current.CancellationToken).Returns(hubRoom);
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(player, npc);
+        sut.TryStartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
@@ -120,7 +159,7 @@ public sealed class CombatManagerTests
             .AndDoes(_ => callOrder.Add("outcome-handler"));
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(player, npc);
+        sut.TryStartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
@@ -150,7 +189,7 @@ public sealed class CombatManagerTests
         room.Add(npc);
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(player, npc);
+        sut.TryStartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 
@@ -179,7 +218,7 @@ public sealed class CombatManagerTests
         room.Add(npc);
 
         var sut = new CombatManager(resolver, outcomeHandler);
-        sut.StartEncounter(player, npc);
+        sut.TryStartEncounter(player, npc);
 
         await sut.OnTickAsync(new TickContext(DateTimeOffset.UtcNow), TestContext.Current.CancellationToken);
 

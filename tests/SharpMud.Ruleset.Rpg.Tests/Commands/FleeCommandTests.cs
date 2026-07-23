@@ -117,6 +117,46 @@ public sealed class FleeCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RollsBackAndDoesNotEndEncounter_WhenEnteringDestinationIsVetoed()
+    {
+        var combatManager = Substitute.For<ICombatManager>();
+        var dice = Substitute.For<IDiceRoller>();
+        var random = Substitute.For<IRandomSource>();
+        var session = Substitute.For<ISession>();
+        var encounter = new CombatEncounter { Attacker = new Thing { Id = ThingId.New(), Name = "x" }, Defender = new Thing { Id = ThingId.New(), Name = "y" } };
+        combatManager.TryGetEncounter(Arg.Any<ThingId>(), out Arg.Any<CombatEncounter?>())
+            .Returns(x => { x[1] = encounter; return true; });
+        dice.Roll(1, 100).Returns(1);
+        random.Next(0, 0).Returns(0);
+
+        var origin = new Thing { Id = ThingId.New(), Name = "Origin" };
+        var destination = new Thing { Id = ThingId.New(), Name = "Destination" };
+        destination.Events.SubscribeRequest((_, evt) =>
+        {
+            if (evt is AddChildEvent)
+                evt.Cancel("The room is full.");
+        });
+        var exit = new Thing { Id = ThingId.New(), Name = "north" };
+        exit.Behaviors.Add(new ExitBehavior { Direction = Direction.North, Destination = destination });
+        origin.Add(exit);
+
+        var player = new Thing { Id = ThingId.New(), Name = "Hero" };
+        player.Behaviors.Add(new PlayerBehavior { Username = "TestUser", PasswordHash = "test-hash", Session = session });
+        origin.Add(player);
+
+        var sut = new FleeCommand(combatManager, dice, random);
+        var ctx = new CommandContext(player, origin, [], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        combatManager.DidNotReceiveWithAnyArgs().EndEncounter(default!);
+        player.Parent.Should().Be(origin, "a vetoed Add must roll back the earlier Remove, not leave the actor parentless");
+        origin.Children.Should().Contain(player);
+        destination.Children.Should().NotContain(player);
+        await session.Received(1).WriteLineAsync("You can't escape that way!", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsFailureMessage_WhenRollFails()
     {
         var combatManager = Substitute.For<ICombatManager>();

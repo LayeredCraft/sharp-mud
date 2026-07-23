@@ -12,6 +12,7 @@ public sealed class AttackCommandTests
     {
         var combatManager = Substitute.For<ICombatManager>();
         var session = Substitute.For<ISession>();
+        combatManager.TryStartEncounter(Arg.Any<Thing>(), Arg.Any<Thing>()).Returns(true);
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
@@ -28,7 +29,7 @@ public sealed class AttackCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        combatManager.Received(1).StartEncounter(player, npc);
+        combatManager.Received(1).TryStartEncounter(player, npc);
         await session.Received(1).WriteLineAsync("You attack cave rat!", Arg.Any<CancellationToken>());
     }
 
@@ -48,7 +49,7 @@ public sealed class AttackCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        combatManager.DidNotReceiveWithAnyArgs().TryStartEncounter(default!, default!);
         await session.Received(1).WriteLineAsync("You don't see that here.", Arg.Any<CancellationToken>());
     }
 
@@ -72,16 +73,16 @@ public sealed class AttackCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        combatManager.DidNotReceiveWithAnyArgs().TryStartEncounter(default!, default!);
         await session.Received(1).WriteLineAsync("You have no way to fight.", Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_SendsAlreadyEngagedMessage_WhenTargetIsAlreadyBeingFoughtByAnotherAttacker()
+    public async Task ExecuteAsync_SendsAlreadyEngagedMessage_WhenTryStartEncounterFails()
     {
         var combatManager = Substitute.For<ICombatManager>();
         var session = Substitute.For<ISession>();
-        combatManager.IsDefenderEngaged(Arg.Any<ThingId>()).Returns(true);
+        combatManager.TryStartEncounter(Arg.Any<Thing>(), Arg.Any<Thing>()).Returns(false);
 
         var room = new Thing { Id = ThingId.New(), Name = "Room" };
         var player = new Thing { Id = ThingId.New(), Name = "Hero" };
@@ -98,7 +99,10 @@ public sealed class AttackCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        // TryStartEncounter is called (and is the actual source of truth for
+        // this failure) rather than skipped - distinguishes this from the
+        // guard-clause tests above, which never even attempt to start.
+        combatManager.Received(1).TryStartEncounter(player, npc);
         await session.Received(1).WriteLineAsync("Someone else is already fighting cave rat!", Arg.Any<CancellationToken>());
     }
 
@@ -118,7 +122,7 @@ public sealed class AttackCommandTests
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
-        combatManager.DidNotReceiveWithAnyArgs().StartEncounter(default!, default!);
+        combatManager.DidNotReceiveWithAnyArgs().TryStartEncounter(default!, default!);
         await session.Received(1).WriteLineAsync("You are already fighting!", Arg.Any<CancellationToken>());
     }
 }

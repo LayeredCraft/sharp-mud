@@ -8,9 +8,15 @@ using SharpMud.Engine.Ticking;
 namespace SharpMud.Ruleset.Rpg;
 
 // Registered once with IGameLoop and resolves every active encounter each
-// tick - simpler Host wiring than one ITickable per encounter, and all
-// world-state mutation happens on the single game-loop "thread" (sequential
-// awaits in GameLoop.RunAsync), so there's no concurrent-mutation risk.
+// tick, but "each tick" is not the only time _encounters is touched -
+// AttackCommand/FleeCommand call into this manager from whichever session's
+// SessionLoop.RunAsync happens to be running a command at that moment, and
+// each connection runs its own independently-scheduled task (see
+// TelnetTransportBackgroundService.HandleConnectionAsync). So _encounters is
+// genuinely accessed from multiple threads, not just serialized through the
+// tick loop - every access goes through _lock (System.Threading.Lock, per
+// this repo's own concurrency guidance for a real, unavoidable critical
+// section) rather than assuming single-threaded access.
 //
 // Combat-outcome side effects (XP awards, death penalties, respawn
 // destination) are delegated to ICombatOutcomeHandler rather than touching a
@@ -30,6 +36,7 @@ public sealed class CombatManager : ICombatManager, ITickable
 {
     private readonly ICombatResolver _resolver;
     private readonly ICombatOutcomeHandler _outcomeHandler;
+    private readonly Lock _lock = new();
     private readonly Dictionary<ThingId, CombatEncounter> _encounters = [];
 
     /// <summary>Creates the manager against a resolver and a ruleset's outcome handler.</summary>
@@ -40,32 +47,68 @@ public sealed class CombatManager : ICombatManager, ITickable
     }
 
     /// <inheritdoc/>
-    public bool IsInCombat(ThingId thingId) => _encounters.ContainsKey(thingId);
+    public bool IsInCombat(ThingId thingId)
+    {
+        lock (_lock)
+            return _encounters.ContainsKey(thingId);
+    }
 
     /// <inheritdoc/>
-    public bool IsDefenderEngaged(ThingId defenderId) => _encounters.Values.Any(e => e.Defender.Id == defenderId);
+    public bool IsDefenderEngaged(ThingId defenderId)
+    {
+        lock (_lock)
+            return _encounters.Values.Any(e => e.Defender.Id == defenderId);
+    }
 
     /// <inheritdoc/>
-    public void StartEncounter(Thing attacker, Thing defender) =>
-        _encounters[attacker.Id] = new CombatEncounter { Attacker = attacker, Defender = defender };
+    public bool TryStartEncounter(Thing attacker, Thing defender)
+    {
+        lock (_lock)
+        {
+            if (_encounters.ContainsKey(attacker.Id))
+                return false;
+
+            if (_encounters.Values.Any(e => e.Defender.Id == defender.Id))
+                return false;
+
+            _encounters[attacker.Id] = new CombatEncounter { Attacker = attacker, Defender = defender };
+            return true;
+        }
+    }
 
     /// <inheritdoc/>
-    public void EndEncounter(ThingId thingId) => _encounters.Remove(thingId);
+    public void EndEncounter(ThingId thingId)
+    {
+        lock (_lock)
+            _encounters.Remove(thingId);
+    }
 
     /// <inheritdoc/>
-    public bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter) =>
-        _encounters.TryGetValue(thingId, out encounter);
+    public bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter)
+    {
+        lock (_lock)
+            return _encounters.TryGetValue(thingId, out encounter);
+    }
 
     /// <summary>Resolves one round for every active encounter - see the class remarks above for the full sequence.</summary>
     public async Task OnTickAsync(TickContext ctx, CancellationToken ct)
     {
-        foreach (var thingId in _encounters.Keys.ToArray())
-        {
-            if (!_encounters.TryGetValue(thingId, out var encounter))
-                continue;
+        ThingId[] activeEncounterIds;
+        lock (_lock)
+            activeEncounterIds = [.. _encounters.Keys];
 
-            // Only AttackCommand calls StartEncounter, and only with a player
-            // Thing as the attacker - encounter.Attacker always has a PlayerBehavior.
+        foreach (var thingId in activeEncounterIds)
+        {
+            CombatEncounter? encounter;
+            lock (_lock)
+            {
+                if (!_encounters.TryGetValue(thingId, out encounter))
+                    continue;
+            }
+
+            // Only AttackCommand calls TryStartEncounter, and only with a
+            // player Thing as the attacker - encounter.Attacker always has a
+            // PlayerBehavior.
             var attackerBehavior = encounter.Attacker.FindBehavior<PlayerBehavior>()!;
             if (attackerBehavior.ConnectionState == ConnectionState.Linkdead)
             {
@@ -76,7 +119,7 @@ public sealed class CombatManager : ICombatManager, ITickable
                 // same grace window LoginFlow/LinkdeadSweeper use has elapsed.
                 // Linkdead always sets LinkdeadSinceUtc (PlayerBehavior.EnterLinkdead).
                 if (ctx.Timestamp - attackerBehavior.LinkdeadSinceUtc!.Value >= ReconnectPolicy.GraceWindow)
-                    _encounters.Remove(thingId);
+                    EndEncounter(thingId);
 
                 continue;
             }
@@ -117,7 +160,7 @@ public sealed class CombatManager : ICombatManager, ITickable
         await _outcomeHandler.OnVictoryAsync(encounter.Attacker, encounter.Defender, ct);
 
         encounter.Defender.Parent?.Remove(encounter.Defender);
-        _encounters.Remove(encounter.Attacker.Id);
+        EndEncounter(encounter.Attacker.Id);
     }
 
     private async Task HandleAttackerDefeatedAsync(CombatEncounter encounter, ISession session, CancellationToken ct)
@@ -149,7 +192,7 @@ public sealed class CombatManager : ICombatManager, ITickable
 
         var destination = await _outcomeHandler.OnDefeatAsync(attacker, encounter.Defender, ct);
 
-        _encounters.Remove(attacker.Id);
+        EndEncounter(attacker.Id);
 
         attacker.Parent?.Remove(attacker);
         destination.Add(attacker);

@@ -50,17 +50,28 @@ public sealed class CombatEncounter
 public interface ICombatManager
 {
     bool IsInCombat(ThingId thingId);
-    void StartEncounter(Thing attacker, Thing defender);
+    bool IsDefenderEngaged(ThingId defenderId);
+    bool TryStartEncounter(Thing attacker, Thing defender);
     void EndEncounter(ThingId thingId);
     bool TryGetEncounter(ThingId thingId, [MaybeNullWhen(false)] out CombatEncounter encounter);
 }
 
-public sealed class CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
-    : ICombatManager, ITickable
+public sealed class CombatManager : ICombatManager, ITickable
 {
+    private readonly ICombatResolver _resolver;
+    private readonly ICombatOutcomeHandler _outcomeHandler;
+
+    public CombatManager(ICombatResolver resolver, ICombatOutcomeHandler outcomeHandler)
+    {
+        _resolver = resolver;
+        _outcomeHandler = outcomeHandler;
+    }
+
     public Task OnTickAsync(TickContext ctx, CancellationToken ct) { /* see below */ }
 }
 ```
+
+`_encounters` isn't only touched from the tick loop - `TryStartEncounter`/`EndEncounter`/etc. are also called from whichever session's command-execution task happens to be running `AttackCommand`/`FleeCommand` at that moment, and each connection runs independently (see `TelnetTransportBackgroundService`). `TryStartEncounter` checks "is this attacker already fighting" and "is this defender already engaged by someone else" and inserts the new encounter as one atomic operation (a `System.Threading.Lock` critical section) - not two separate steps - so two players targeting the same NPC at nearly the same time can't both succeed. `IsDefenderEngaged` alone is a point-in-time status query only, useful for a custom command that wants to display "who's fighting what," but not by itself race-free the way `TryStartEncounter` is.
 
 No `hubRoomId`/`IWorld` constructor parameter — `CombatManager` has no
 respawn-destination or world-lookup concept of its own. `ICombatOutcomeHandler`
@@ -117,13 +128,17 @@ public sealed record CombatRoundResult(bool Hit, int Damage, bool DefenderDefeat
 1. Player types `"kill cave rat"` → `AttackCommand` matches the target among
    the current room's children carrying both `NpcBehavior` and
    `CombatantBehavior` (`ObjectMatcher.FindMatch`, case-insensitive), calls
-   `ICombatManager.StartEncounter`, sends `"You attack cave rat!"`
-   immediately (engagement is instant; resolution is tick-gated). If the
-   player is already in combat, the command instead sends `"You are already
-   fighting!"`; if the actor itself has no `CombatantBehavior` (a consumer's
-   own `IPlayerFactory` forgot to attach it), it sends `"You have no way to
-   fight."` instead of starting an encounter that would crash on the next
-   tick.
+   `ICombatManager.TryStartEncounter`, sends `"You attack cave rat!"`
+   immediately if it returns `true` (engagement is instant; resolution is
+   tick-gated). If the player is already in combat, the command sends `"You
+   are already fighting!"` without calling `TryStartEncounter` at all; if the
+   actor itself has no `CombatantBehavior` (a consumer's own `IPlayerFactory`
+   forgot to attach it), it sends `"You have no way to fight."` instead of
+   starting an encounter that would crash on the next tick. If
+   `TryStartEncounter` itself returns `false` - the target is already
+   engaged by a different attacker, checked and inserted atomically so two
+   players targeting the same NPC at once can't both succeed - it sends
+   `"Someone else is already fighting cave rat!"`.
 2. On the next global tick, `IGameLoop` calls `CombatManager.OnTickAsync`,
    which iterates every active encounter.
 3. `ICombatResolver.ResolveRound(attacker, defender)` computes the player's

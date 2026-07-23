@@ -89,13 +89,25 @@ public sealed class FleeCommand : ICommand
             return;
         }
 
+        // Add can itself publish a cancellable AddChildEvent and return
+        // false (e.g. a future "room is full" behavior). Unlike Remove
+        // above, there's no early-return option here - the actor is already
+        // detached from ctx.CurrentRoom - so a failed Add is rolled back by
+        // re-adding to the original room, keeping the encounter (and the
+        // actor) exactly where they were rather than leaving them parentless
+        // after an announced-but-not-actually-completed flee.
+        if (!destination.Add(ctx.Actor))
+        {
+            ctx.CurrentRoom.Add(ctx.Actor);
+            await ctx.Session.WriteLineAsync("You can't escape that way!", ct);
+            return;
+        }
+
         _combatManager.EndEncounter(ctx.Actor.Id);
         await ctx.Session.WriteLineAsync($"You flee {exit.Direction.ToDisplayString()}!", ct);
 
         await RoomBroadcast.ToOccupantsAsync(
             ctx.CurrentRoom, ctx.Actor, $"{ctx.Actor.Name} flees {exit.Direction.ToDisplayString()}.", ct);
-
-        destination.Add(ctx.Actor);
 
         await LookCommand.SendRoomDescriptionAsync(ctx.Actor, destination, ct);
     }

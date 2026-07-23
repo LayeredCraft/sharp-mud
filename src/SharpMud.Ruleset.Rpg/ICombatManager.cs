@@ -28,16 +28,28 @@ public interface ICombatManager
 
     /// <summary>
     /// Whether the given Thing is currently the defender in any active
-    /// encounter - since encounters are keyed by attacker only, this is the
-    /// check that stops a second attacker from starting a second, redundant
-    /// encounter against a target someone else is already fighting (which
-    /// would otherwise let both encounters independently resolve, remove,
-    /// and award victory for the same kill).
+    /// encounter - since encounters are keyed by attacker only, a second
+    /// attacker targeting an already-engaged defender would otherwise let
+    /// both encounters independently resolve, remove, and award victory for
+    /// the same kill. This is a point-in-time status query only - the actual
+    /// enforcement against that race is <see cref="TryStartEncounter"/>,
+    /// which checks and inserts atomically; don't call this separately and
+    /// then call <see cref="TryStartEncounter"/> expecting the combination
+    /// to be race-free, since another attacker can start an encounter
+    /// between the two calls.
     /// </summary>
     bool IsDefenderEngaged(ThingId defenderId);
 
-    /// <summary>Starts (or replaces) the encounter keyed by <paramref name="attacker"/>.</summary>
-    void StartEncounter(Thing attacker, Thing defender);
+    /// <summary>
+    /// Atomically starts the encounter keyed by <paramref name="attacker"/>,
+    /// unless <paramref name="attacker"/> is already fighting or <paramref
+    /// name="defender"/> is already engaged by a different attacker - the
+    /// check and the insert happen under the same lock, so two concurrent
+    /// callers (e.g. two players' independent session-loop tasks targeting
+    /// the same NPC at nearly the same time) can't both succeed against the
+    /// same defender. Returns whether the encounter was actually started.
+    /// </summary>
+    bool TryStartEncounter(Thing attacker, Thing defender);
 
     /// <summary>Ends the encounter keyed by the given Thing, if one exists.</summary>
     void EndEncounter(ThingId thingId);

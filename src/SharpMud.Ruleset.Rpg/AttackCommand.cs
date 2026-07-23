@@ -27,9 +27,12 @@ public sealed class AttackCommand : ICommand
 
     /// <summary>
     /// Guards (not already fighting, actor can fight, a matching NPC target
-    /// exists in the room and isn't already engaged by someone else), then
-    /// starts the encounter via <see cref="ICombatManager.StartEncounter"/>.
-    /// Resolution happens on the next game tick, not synchronously here.
+    /// exists in the room), then atomically starts the encounter via <see
+    /// cref="ICombatManager.TryStartEncounter"/> - which is also the guard
+    /// against a target someone else is already fighting, checked and
+    /// inserted as one operation so two concurrent attackers targeting the
+    /// same NPC can't both succeed. Resolution happens on the next game
+    /// tick, not synchronously here.
     /// </summary>
     public async Task ExecuteAsync(CommandContext ctx, CancellationToken ct)
     {
@@ -65,17 +68,18 @@ public sealed class AttackCommand : ICommand
             return;
         }
 
-        // Without this, a second attacker could start a second, independent
-        // encounter against a target someone else is already fighting -
-        // both encounters would then resolve/remove/award victory for the
-        // same kill (see ICombatManager.IsDefenderEngaged).
-        if (_combatManager.IsDefenderEngaged(target.Id))
+        // TryStartEncounter is the actual guard against a target someone
+        // else is already fighting - checked and inserted atomically, so
+        // two concurrent attackers targeting the same NPC (two different
+        // players' session-loop tasks racing each other) can't both
+        // succeed. The IsInCombat check above already ruled out "this same
+        // actor is already fighting" as the reason for a false return here.
+        if (!_combatManager.TryStartEncounter(ctx.Actor, target))
         {
             await ctx.Session.WriteLineAsync($"Someone else is already fighting {target.Name}!", ct);
             return;
         }
 
-        _combatManager.StartEncounter(ctx.Actor, target);
         await ctx.Session.WriteLineAsync($"You attack {target.Name}!", ct);
     }
 }
