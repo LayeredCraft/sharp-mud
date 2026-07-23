@@ -124,6 +124,22 @@ public sealed class CombatManager : ICombatManager, ITickable
                 continue;
             }
 
+            // Re-verify this is still the live encounter for thingId,
+            // immediately before resolving a round against it. Nothing
+            // above this point holds _lock across an await, so a concurrent
+            // FleeCommand (EndEncounter) + AttackCommand (TryStartEncounter,
+            // against a *different* defender) pair could otherwise replace
+            // _encounters[thingId] between the fetch above and here - this
+            // tick would then resolve a round against the stale, already-
+            // replaced encounter and could wrongly EndEncounter the new one
+            // afterward. Skip and pick up the real current encounter next
+            // tick instead.
+            lock (_lock)
+            {
+                if (!_encounters.TryGetValue(thingId, out var currentEncounter) || !ReferenceEquals(currentEncounter, encounter))
+                    continue;
+            }
+
             // Not Linkdead (checked above), so Session is the live, connected session.
             var session = attackerBehavior.Session!;
 
