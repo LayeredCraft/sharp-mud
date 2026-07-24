@@ -123,7 +123,12 @@ actually implemented as of the inventory/items build-order phase:
   placeholder formulas still pending).
 - **Character**: `score`/`stats` (display derived stats — see
   [character.md](character.md)) is **not implemented yet**.
-- **Meta** ✅: `help`, `quit`.
+- **Meta** ✅: `help` (topic lookup + semantic-search fallback, plus
+  no-argument command listing), `quit` — see [help-system.md](help-system.md)
+  and [ADR-0010](adr/0010-help-system-semantic-search.md).
+- **Help authoring** ✅ (`helptopic <key> <body>`, `helpindex rebuild`) —
+  role-gated at `SecurityRole.MinorBuilder`, same tier as world-building/OLC.
+  See [help-system.md](help-system.md).
 - **Builder/OLC verbs** ✅ (`dig <direction> <name>`, `tunnel <direction>
   <existing room name>`, `describe <text>`) — role-gated at
   `SecurityRole.MinorBuilder` via `ICommandRegistry.RegisterWithRole`, same
@@ -142,6 +147,4 @@ actually implemented as of the inventory/items build-order phase:
 
 ## Open Items
 
-- `help` command content/structure (static text vs. per-verb generated docs)
-  not yet designed.
 - `who` list formatting and whether it shows location/level or just names.

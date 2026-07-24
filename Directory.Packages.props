@@ -25,6 +25,11 @@
     <!-- Configuration: appsettings.json + env vars feeding Serilog.Settings.Configuration
          and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
+    <!-- Local, offline embedding model for the sample app's IEmbeddingProvider
+         (ADR-0011) - no cloud API, runs in-process via ONNX Runtime. Preview
+         package (experimental Microsoft repo), scoped to the sample project
+         only - SharpMud.Engine/Persistence gain no ML dependency. -->
+    <PackageVersion Include="SmartComponents.LocalEmbeddings" Version="0.1.0-preview10148" />
   </ItemGroup>
   <!-- Microsoft.EntityFrameworkCore.*/Microsoft.Extensions.* packages ship
        parallel net10.0 (stable) and net11.0 (preview) build lines and are

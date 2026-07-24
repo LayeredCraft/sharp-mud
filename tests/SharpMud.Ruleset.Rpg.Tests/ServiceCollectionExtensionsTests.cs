@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Core;
+using SharpMud.Engine.Help;
 using SharpMud.Engine.Ticking;
 
 namespace SharpMud.Ruleset.Rpg.Tests;
@@ -17,6 +18,8 @@ public sealed class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IRandomSource>(Substitute.For<IRandomSource>());
+        services.AddSingleton(Substitute.For<IHelpRepository>());
+        services.AddSingleton(Substitute.For<IHelpSearchIndex>());
 
         services.AddSharpMudRpgRuleset<FakeCombatOutcomeHandler>((_, registry) =>
             registry.RegisterOpen(new FakeConsumerCommand()));
@@ -37,6 +40,8 @@ public sealed class ServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
         services.AddSingleton<IRandomSource>(Substitute.For<IRandomSource>());
+        services.AddSingleton(Substitute.For<IHelpRepository>());
+        services.AddSingleton(Substitute.For<IHelpSearchIndex>());
 
         services.AddSharpMudRpgRuleset<FakeCombatOutcomeHandler>();
 

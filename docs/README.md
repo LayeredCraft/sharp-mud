@@ -13,6 +13,7 @@ implementation detail.
 | [world-model.md](world-model.md) | Room/Exit/Area data model, hand-built hub vs. generated frontier, generation-on-demand flow |
 | [character.md](character.md) | Player entity, D&D-style attributes, Race/Class modifiers, derived stats |
 | [commands.md](commands.md) | Command parser/registry, `ICommand` pipeline, aliases, error handling, movement walkthrough |
+| [help-system.md](help-system.md) | `HelpTopic` lookup pipeline (exact/keyword/semantic-search fallback), in-game authoring, the `IEmbeddingProvider`/`IHelpSearchIndex` abstraction |
 | [combat.md](combat.md) | Round-based combat model, `ICombatResolver`, tick-driven resolution, disconnect-mid-fight handling |
 | [persistence.md](persistence.md) | Repository interfaces, EF Core, provider strategy (SQLite and DynamoDB now, via separate provider packages) |
 | [networking.md](networking.md) | `ISession` transport abstraction, adapter plan (CLI and Telnet now, SSH/WebSocket later) |

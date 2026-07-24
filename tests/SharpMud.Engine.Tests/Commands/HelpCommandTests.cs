@@ -2,6 +2,7 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
+using SharpMud.Engine.Help;
 using SharpMud.Engine.Sessions;
 
 namespace SharpMud.Engine.Tests.Commands;
@@ -24,6 +25,17 @@ public sealed class HelpCommandTests
         return actor;
     }
 
+    private static HelpCommand MakeSut(
+        ICommandRegistry? registry = null,
+        IHelpRepository? helpRepository = null,
+        IHelpSearchIndex? helpSearchIndex = null)
+    {
+        return new HelpCommand(
+            registry ?? new CommandRegistry(),
+            helpRepository ?? Substitute.For<IHelpRepository>(),
+            helpSearchIndex ?? Substitute.For<IHelpSearchIndex>());
+    }
+
     [Fact]
     public async Task ExecuteAsync_OmitsRoleGatedCommand_WhenActorLacksTheRequiredRole()
     {
@@ -33,7 +45,7 @@ public sealed class HelpCommandTests
         registry.RegisterWithRole(new FakeCommand("ban"), SecurityRole.FullAdmin);
 
         var actor = MakeActor(SecurityRole.Player);
-        var sut = new HelpCommand(registry);
+        var sut = MakeSut(registry);
         var ctx = new CommandContext(actor, actor, [], new World(), session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
@@ -50,7 +62,7 @@ public sealed class HelpCommandTests
         registry.RegisterWithRole(new FakeCommand("ban"), SecurityRole.FullAdmin);
 
         var actor = MakeActor(SecurityRole.FullAdmin);
-        var sut = new HelpCommand(registry);
+        var sut = MakeSut(registry);
         var ctx = new CommandContext(actor, actor, [], new World(), session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
@@ -66,11 +78,114 @@ public sealed class HelpCommandTests
         registry.RegisterOpen(new FakeCommand("look"));
 
         var actor = MakeActor(SecurityRole.Player);
-        var sut = new HelpCommand(registry);
+        var sut = MakeSut(registry);
         var ctx = new CommandContext(actor, actor, [], new World(), session);
 
         await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
 
         await session.Received(1).WriteLineAsync(Arg.Is<string>(s => s!.Contains("look")), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WritesTopicBody_OnExactKeyMatch()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "How to become a wizard." };
+        var helpRepository = Substitute.For<IHelpRepository>();
+        helpRepository.FindByNameOrAliasAsync("wizard", Arg.Any<CancellationToken>()).Returns(topic);
+
+        var sut = MakeSut(helpRepository: helpRepository);
+        var ctx = new CommandContext(actor, actor, ["wizard"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("How to become a wizard.", Arg.Any<CancellationToken>());
+        await helpRepository.DidNotReceiveWithAnyArgs().FindByKeywordAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FallsBackToKeywordMatch_WhenExactMatchMisses()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "How to become a wizard." };
+        var helpRepository = Substitute.For<IHelpRepository>();
+        helpRepository.FindByNameOrAliasAsync("magic", Arg.Any<CancellationToken>()).Returns((HelpTopic?)null);
+        helpRepository.FindByKeywordAsync("magic", Arg.Any<CancellationToken>()).Returns([topic]);
+        var helpSearchIndex = Substitute.For<IHelpSearchIndex>();
+
+        var sut = MakeSut(helpRepository: helpRepository, helpSearchIndex: helpSearchIndex);
+        var ctx = new CommandContext(actor, actor, ["magic"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("How to become a wizard.", Arg.Any<CancellationToken>());
+        await helpSearchIndex.DidNotReceiveWithAnyArgs().SearchAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ChecksEachQueryWordAgainstKeywords_ForMultiWordQueries()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "How to become a wizard." };
+        var helpRepository = Substitute.For<IHelpRepository>();
+        var query = "teach me magic";
+        helpRepository.FindByNameOrAliasAsync(query, Arg.Any<CancellationToken>()).Returns((HelpTopic?)null);
+        // FindByKeywordAsync's contract is an exact match against one
+        // Keywords entry - the query as a whole ("teach me magic") never
+        // matches, only the individual token "magic" does.
+        helpRepository.FindByKeywordAsync("teach", Arg.Any<CancellationToken>()).Returns([]);
+        helpRepository.FindByKeywordAsync("me", Arg.Any<CancellationToken>()).Returns([]);
+        helpRepository.FindByKeywordAsync("magic", Arg.Any<CancellationToken>()).Returns([topic]);
+        var helpSearchIndex = Substitute.For<IHelpSearchIndex>();
+
+        var sut = MakeSut(helpRepository: helpRepository, helpSearchIndex: helpSearchIndex);
+        var ctx = new CommandContext(actor, actor, ["teach", "me", "magic"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("How to become a wizard.", Arg.Any<CancellationToken>());
+        await helpSearchIndex.DidNotReceiveWithAnyArgs().SearchAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FallsBackToSemanticSearch_WhenExactAndKeywordMatchesMiss()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "How to become a wizard." };
+        var helpRepository = Substitute.For<IHelpRepository>();
+        helpRepository.FindByNameOrAliasAsync("how do i become a wizard", Arg.Any<CancellationToken>()).Returns((HelpTopic?)null);
+        helpRepository.FindByKeywordAsync("how do i become a wizard", Arg.Any<CancellationToken>()).Returns([]);
+        var helpSearchIndex = Substitute.For<IHelpSearchIndex>();
+        helpSearchIndex.SearchAsync("how do i become a wizard", Arg.Any<CancellationToken>()).Returns([new HelpSearchHit(topic, 0.4)]);
+
+        var sut = MakeSut(helpRepository: helpRepository, helpSearchIndex: helpSearchIndex);
+        var ctx = new CommandContext(actor, actor, ["how", "do", "i", "become", "a", "wizard"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("How to become a wizard.", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ReportsNoTopicFound_WhenAllThreeTiersMiss()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var helpRepository = Substitute.For<IHelpRepository>();
+        helpRepository.FindByNameOrAliasAsync("nonsense", Arg.Any<CancellationToken>()).Returns((HelpTopic?)null);
+        helpRepository.FindByKeywordAsync("nonsense", Arg.Any<CancellationToken>()).Returns([]);
+        var helpSearchIndex = Substitute.For<IHelpSearchIndex>();
+        helpSearchIndex.SearchAsync("nonsense", Arg.Any<CancellationToken>()).Returns([]);
+
+        var sut = MakeSut(helpRepository: helpRepository, helpSearchIndex: helpSearchIndex);
+        var ctx = new CommandContext(actor, actor, ["nonsense"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("No help topic found for 'nonsense'.", Arg.Any<CancellationToken>());
     }
 }

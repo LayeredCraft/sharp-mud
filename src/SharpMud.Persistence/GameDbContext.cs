@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SharpMud.Engine.Core;
+using SharpMud.Engine.Help;
 
 namespace SharpMud.Persistence;
 
@@ -15,6 +16,13 @@ public sealed class GameDbContext(
 {
     public DbSet<Thing> Things => Set<Thing>();
     public DbSet<Behavior> Behaviors => Set<Behavior>();
+
+    // HelpTopic/HelpTopicChunk (ADR-0010) - unlike Thing/Behavior, these have
+    // no Rehydration/event-firing concerns, so they use EF Core normally
+    // (real conversions, no shadow FKs, no manual reconstruction) rather than
+    // ThingRepository's hand-rolled pattern. See HelpRepository.
+    public DbSet<HelpTopic> HelpTopics => Set<HelpTopic>();
+    public DbSet<HelpTopicChunk> HelpTopicChunks => Set<HelpTopicChunk>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

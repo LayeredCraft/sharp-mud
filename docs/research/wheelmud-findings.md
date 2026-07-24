@@ -364,6 +364,43 @@ high-tier roles — no separate mechanism from any other command.
 
 ---
 
+## 12. Help system — `HelpManager`, `HelpTopic`, file-based content
+
+Source dive conducted for [ADR-0010](../adr/0010-help-system-semantic-search.md)
+(Slice 5 of the reconciliation roadmap). `Core/HelpTopic.cs` +
+`Core/ManagerSystems/HelpManager.cs`: a `HelpManager` `MEF`-exported
+singleton (`HelpManager.Instance`, same static-singleton shape §10 already
+rejected) loads every file under `systemdata/Files/Help/` into memory at
+`Start()`. Each file is one `HelpTopic` (`Contents` = the raw file text,
+`Aliases` = the filename split on `__`, e.g. `foo__bar.txt` → aliases
+`foo`/`bar`, first is "primary"). Lookup (`FindHelpTopic`) is a single exact,
+case-insensitive alias match against the in-memory list — no keyword search,
+no fuzzy/partial matching (the code comment explicitly says this is
+deliberate, to leave partial-match room for falling back to command help),
+and no semantic/NL search of any kind. Content is edited by hand-editing
+files on disk; there is no in-game authoring command, and `Start()`/`Stop()`
+provide a full in-memory reload but nothing incremental. No database
+involved at all — RavenDB (§7) is not used for help content.
+
+**Not adopted**: the file-on-disk content model and the `HelpManager.Instance`
+static singleton. sharp-mud already committed to DI-registered services over
+static singletons (§10) and, separately, already committed to in-game
+authoring over file-based content for world-building (dig`/`tunnel`/`describe`,
+[ADR-0009](../adr/0009-world-building-olc-command-surface.md)) rather than
+WheelMUD's boot-time-only room creation — extending that same in-game-authoring
+precedent to help topics keeps sharp-mud with one content-authoring story
+instead of two (files for help, admin commands for the world). See
+ADR-0010's Decision Outcome for the full reasoning.
+
+**Adopted in principle**: alias-based exact lookup as the primary/first tier
+of resolution (a topic can have multiple names, matched case-insensitively)
+carries forward into ADR-0010's design, just backed by a DB column instead of
+a filename convention. Semantic/embedding-based retrieval has no WheelMUD
+precedent at all — HelpManager predates that being a reasonable thing to
+build — so that portion of ADR-0010 is new design, not reconciliation.
+
+---
+
 ## Decisions for sharp-mud
 
 Two real forks, resolved as follows (see the "Engine vs. Ruleset" architecture
@@ -438,6 +475,18 @@ don't require adding new delegate pairs to a growing interface.
    places it in `SharpMud.Ruleset.Rpg` rather than `SharpMud.Engine` - it's a
    generic RPG mechanic, not bare randomness, so it doesn't belong at the
    fully ruleset-agnostic engine tier the way WheelMUD's does.
+
+6. **Alias-based exact-match lookup is adopted from §12's `HelpManager`;
+   the file-on-disk content model and `Instance` static singleton are not.**
+   sharp-mud stores help topics as DB rows (`HelpTopic`, in-game admin
+   command to author/edit) rather than files on disk, consistent with
+   ADR-0009's in-game-authoring precedent, and resolves via a DI-registered
+   `IHelpRepository` rather than a static singleton, consistent with §10's
+   decision. Exact/alias/keyword lookup remains the primary resolution path;
+   ADR-0010 adds a semantic-search fallback tier that has no WheelMUD
+   precedent at all. Full rationale in
+   [ADR-0010](../adr/0010-help-system-semantic-search.md)/
+   [PLAN-0010](../plans/0010-help-system-semantic-search.md).
 
 Going forward, further reconciliation against WheelMUD (moderation/admin
 tooling, session reconnect, world-building commands, and more) is tracked as

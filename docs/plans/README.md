@@ -63,3 +63,4 @@ isn't settled yet — don't do that.
 | [0006](0006-nuget-package-distribution.md) | [ADR-0006](../adr/0006-nuget-package-distribution.md) | Done |
 | [0008](0008-ruleset-scaffolding-tier.md) | [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md) | Done |
 | [0009](0009-world-building-olc-command-surface.md) | [ADR-0009](../adr/0009-world-building-olc-command-surface.md) | Done |
+| [0010](0010-help-system-semantic-search.md) | [ADR-0010](../adr/0010-help-system-semantic-search.md) | Done |

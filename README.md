@@ -1,5 +1,23 @@
 # sharp-mud
 
+<table>
+<tr>
+<td><img src="icon.png" width="140" alt="sharp-mud icon" /></td>
+<td>
+
+```
+ ____  _                      __  __ _   _ ____
+/ ___|| |__   __ _ _ __ _ __ |  \/  | | | |  _ \
+\___ \| '_ \ / _` | '__| '_ \| |\/| | | | | | | |
+ ___) | | | | (_| | |  | |_) | |  | | |_| | |_| |
+|____/|_| |_|\__,_|_|  | .__/|_|  |_|\___/|____/
+                       |_|
+```
+
+</td>
+</tr>
+</table>
+
 A modern C#/.NET reimagining of a classic MUD (Multi-User Dungeon) — faithful
 to the genre's feel while built with current .NET architecture.
 

@@ -8,6 +8,7 @@ using SharpMud.Adapters.Telnet;
 using SharpMud.Engine.Commands.Builtin.Admin;
 using SharpMud.Engine.Commands.Builtin.Builder;
 using SharpMud.Engine.Core;
+using SharpMud.Engine.Help;
 using SharpMud.Hosting;
 using SharpMud.Persistence;
 using SharpMud.Persistence.Sqlite;
@@ -61,6 +62,13 @@ var hostOptions = SharpMudHostOptions.Parse(env);
 builder.Services.AddSingleton(hostOptions);
 
 builder.Services.AddSharpMudSqlitePersistence(hostOptions.DbPath);
+
+// Swaps in a real, local embedding model for the help system's semantic
+// search (ADR-0011) - overrides the IEmbeddingProvider that
+// AddSharpMudSqlitePersistence just registered by default
+// (StubEmbeddingProvider), since the last registration of a non-keyed
+// service is what DI resolves. No cloud API/key, runs fully in-process.
+builder.Services.AddSingleton<IEmbeddingProvider, LocalEmbeddingProvider>();
 builder.Services.AddSingleton<IBehaviorMappingContributor, ClassicBehaviorMappingContributor>();
 builder.Services.AddSharpMudWorld<ClassicWorldBuilder>();
 builder.Services.AddSharpMudPlayerFactory<ClassicPlayerFactory>();
@@ -69,14 +77,16 @@ builder.Services.AddSharpMudPlayerFactory<ClassicPlayerFactory>();
 // as both itself and ITickable, the dice service, its own
 // IBehaviorMappingContributor, and the kill/attack/flee commands) - see
 // docs/adr/0008-ruleset-scaffolding-tier.md. The registerConsumerCommands
-// callback wires AdminCommands (ADR-0005 moderation) and BuilderCommands
-// (ADR-0009 world-building/OLC) - Rpg has no notion of security roles
-// itself, so both are Classic's own composition-root concern.
+// callback wires AdminCommands (ADR-0005 moderation), BuilderCommands
+// (ADR-0009 world-building/OLC), and HelpAdminCommands (ADR-0010 help
+// authoring) - Rpg has no notion of security roles itself, so all three are
+// Classic's own composition-root concern.
 builder.Services.AddSharpMudRpgRuleset<ClassicCombatOutcomeHandler>((sp, registry) =>
 {
     var repository = sp.GetRequiredService<IThingRepository>();
     AdminCommands.RegisterAll(registry, repository);
     BuilderCommands.RegisterAll(registry, repository);
+    HelpAdminCommands.RegisterAll(registry, sp.GetRequiredService<IHelpRepository>(), sp.GetRequiredService<IEmbeddingProvider>());
 });
 
 // Transport mode: SHARPMUD_MODE/SHARPMUD_TELNET_PORT/--telnet, same

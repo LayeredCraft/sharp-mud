@@ -1,4 +1,5 @@
 using SharpMud.Engine.Behaviors;
+using SharpMud.Engine.Help;
 
 namespace SharpMud.Engine.Commands.Builtin;
 
@@ -13,7 +14,7 @@ namespace SharpMud.Engine.Commands.Builtin;
 // themselves" visibly separate.
 public static class BuiltinCommands
 {
-    public static void RegisterAll(ICommandRegistry registry)
+    public static void RegisterAll(ICommandRegistry registry, IHelpRepository helpRepository, IHelpSearchIndex helpSearchIndex)
     {
         registry.RegisterOpen(new MoveCommand(Direction.North, "north", ["n"]));
         registry.RegisterOpen(new MoveCommand(Direction.South, "south", ["s"]));
@@ -40,6 +41,6 @@ public static class BuiltinCommands
         registry.RegisterOpen(new RemoveCommand());
         registry.RegisterOpen(new InventoryCommand());
         registry.RegisterOpen(new GiveCommand());
-        registry.RegisterOpen(new HelpCommand(registry));
+        registry.RegisterOpen(new HelpCommand(registry, helpRepository, helpSearchIndex));
     }
 }
