@@ -121,6 +121,26 @@ public sealed class HelpRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveTopicAsync_ThrowsOnDuplicateKey_EvenWhenCasingDiffers()
+    {
+        // The unique index alone (added in an earlier PR-review round)
+        // didn't close this race - SQLite's default collation is
+        // case-sensitive, but HelpRepository's own lookups
+        // (FindByNameOrAliasAsync) match Key case-insensitively. Without
+        // the NOCASE collation on Key, "wizard" and "Wizard" would pass as
+        // two distinct rows even though the app treats them as the same
+        // topic - caught in a second round of PR review.
+        var first = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "Text." };
+        await _sut.SaveTopicAsync(first, TestContext.Current.CancellationToken);
+
+        var second = new HelpTopic { Id = HelpTopicId.New(), Key = "Wizard", Body = "Other text." };
+
+        var act = async () => await _sut.SaveTopicAsync(second, TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<DbUpdateException>();
+    }
+
+    [Fact]
     public async Task DeletingATopicDirectly_CascadesToItsChunks_EvenBypassingHelpRepository()
     {
         var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "Text." };

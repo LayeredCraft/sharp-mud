@@ -19,7 +19,15 @@ public sealed class HelpTopicConfiguration : IEntityTypeConfiguration<HelpTopic>
         builder.ToTable("HelpTopics");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasConversion(id => id.Value, value => new HelpTopicId(value));
-        builder.Property(x => x.Key).IsRequired();
+        // NOCASE, not SQLite's default BINARY collation - HelpRepository's
+        // app-level lookups (FindByNameOrAliasAsync) already match Key
+        // case-insensitively, so the unique index below has to enforce
+        // uniqueness under that same semantics or it doesn't actually
+        // guard anything: without this, "wizard" and "Wizard" pass as two
+        // distinct rows at the DB level even though the app treats them as
+        // the same topic - caught in PR review (the index alone, added in
+        // the previous round, didn't close the race it was meant to).
+        builder.Property(x => x.Key).IsRequired().UseCollation("NOCASE");
 
         // Guards the check-then-act gap in HelpTopicEditCommand
         // (FindByNameOrAliasAsync -> create-if-null -> SaveTopicAsync, no

@@ -206,3 +206,16 @@ grant `FullAdmin`, then `rolegrant Adventurer minorbuilder` to reach
   fixed-width-window splitting when no blank lines are found), and both are
   their own design decision, not a one-line fix. Revisit once multi-chunk
   topics actually matter for semantic-search precision.
+- **`HelpCommand`'s per-token keyword-tier loop reloads the entire topic
+  corpus once per query word** — found in a second round of PR review, on
+  the multi-word tokenization fix above. `FindByKeywordAsync` calls
+  `HelpRepository.GetAllTopicsAsync` (a full corpus load via a fresh
+  `DbContext`) internally, so a 5-word query does 5 full-corpus round
+  trips instead of 1. Fine at today's help-topic scale — the same "load
+  everything" shape already accepted elsewhere in this repo (see
+  `ThingRepository`, and ADR-0010's own Negative Consequences) — and the
+  reviewer flagged it as a suggestion, not a blocker. Deliberately not
+  fixed here; the real fix (load the corpus once, check every token
+  against it in memory - e.g. an `IHelpRepository` method taking multiple
+  keywords, or hoisting `GetAllTopicsAsync` up into `HelpCommand`) is worth
+  doing if/when this becomes an actual hot path, not preemptively.

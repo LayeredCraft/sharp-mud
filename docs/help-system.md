@@ -171,3 +171,8 @@ succeed.
   space before the command ever sees it. Every real topic chunks to
   exactly 1 piece today, regardless of length. Found in PR review; see
   PLAN-0010's Open questions for the fix options considered.
+- `HelpCommand`'s keyword tier reloads the entire topic corpus once per
+  query word (`FindByKeywordAsync` calls `GetAllTopicsAsync` internally),
+  since multi-word tokenization was added in PR review. Fine at today's
+  scale, worth optimizing (load once, filter tokens in memory) if it ever
+  becomes a hot path — see PLAN-0010's Open questions.
