@@ -62,3 +62,4 @@ isn't settled yet — don't do that.
 | [0005](0005-security-role-model-and-moderation-commands.md) | [ADR-0005](../adr/0005-security-role-model-and-moderation-commands.md) | Done |
 | [0006](0006-nuget-package-distribution.md) | [ADR-0006](../adr/0006-nuget-package-distribution.md) | Done |
 | [0008](0008-ruleset-scaffolding-tier.md) | [ADR-0008](../adr/0008-ruleset-scaffolding-tier.md) | Done |
+| [0009](0009-world-building-olc-command-surface.md) | [ADR-0009](../adr/0009-world-building-olc-command-surface.md) | Done |

@@ -86,6 +86,11 @@ register it inside whichever ruleset-registration callback you're already
 using — see [Rulesets](rulesets.md#putting-it-together) for why that has to
 be one callback, not several independent calls.
 
+`SharpMud.Engine` also ships two ready-made, opt-in command sets built on
+this same registration mechanism — moderation (`boot`/`mute`/`ban`/...) and
+world-building (`dig`/`tunnel`/`describe`) — see
+[Moderation & World Building](moderation-and-world-building.md).
+
 ## What's next
 
 Planned additions to this page: a deeper look at the `Thing`/`Behavior`

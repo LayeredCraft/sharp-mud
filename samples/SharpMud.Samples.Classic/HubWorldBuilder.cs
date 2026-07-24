@@ -35,11 +35,11 @@ public static class HubWorldBuilder
         var generalStore = CreateRoom(world, area, "General Store",
             "Shelves crowded with dusty goods line the walls of this cramped little shop.");
 
-        Connect(world, townSquare, marketStreet, Direction.North);
-        Connect(world, townSquare, templeSteps, Direction.East);
-        Connect(world, townSquare, southernGate, Direction.South);
-        Connect(world, townSquare, oldWell, Direction.West);
-        Connect(world, marketStreet, generalStore, Direction.East);
+        RoomConnector.Connect(world, townSquare, marketStreet, Direction.North);
+        RoomConnector.Connect(world, townSquare, templeSteps, Direction.East);
+        RoomConnector.Connect(world, townSquare, southernGate, Direction.South);
+        RoomConnector.Connect(world, townSquare, oldWell, Direction.West);
+        RoomConnector.Connect(world, marketStreet, generalStore, Direction.East);
 
         var caveRat = new Thing { Id = ThingId.New(), Name = "cave rat" };
         caveRat.Behaviors.Add(new NpcBehavior());
@@ -129,21 +129,6 @@ public static class HubWorldBuilder
         area.Add(room);
         world.Register(room);
         return room;
-    }
-
-    // Two exit Things per connection - one per direction (docs/engine-vs-ruleset.md
-    // Decisions), each a child of the room it exits from.
-    private static void Connect(World world, Thing a, Thing b, Direction direction)
-    {
-        var aToB = new Thing { Id = ThingId.New(), Name = direction.ToDisplayString() };
-        aToB.Behaviors.Add(new ExitBehavior { Direction = direction, Destination = b });
-        a.Add(aToB);
-        world.Register(aToB);
-
-        var bToA = new Thing { Id = ThingId.New(), Name = direction.Opposite().ToDisplayString() };
-        bToA.Behaviors.Add(new ExitBehavior { Direction = direction.Opposite(), Destination = a });
-        b.Add(bToA);
-        world.Register(bToA);
     }
 
     private static Thing CreateItem(World world, string name, string description, EquipSlot? slot)

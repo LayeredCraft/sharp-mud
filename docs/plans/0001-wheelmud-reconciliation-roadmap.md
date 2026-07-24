@@ -31,8 +31,9 @@ reconciliation effort stands.
 - [x] **Slice 3 — Permission/security-role model + moderation commands.**
       ADR-0005 Accepted, PLAN-0005 Done. See
       [PLAN-0005](0005-security-role-model-and-moderation-commands.md).
-- [ ] **Slice 4 — World-building/OLC command surface.** Not yet designed;
-      bundles with Slice 3.
+- [x] **Slice 4 — World-building/OLC command surface.** ADR-0009
+      Accepted, PLAN-0009 Done. See
+      [PLAN-0009](0009-world-building-olc-command-surface.md).
 - [ ] **Slice 5 — Help system.** Not yet designed.
 - [ ] **Slice 6 — Player configuration commands.** Not yet designed.
 - [ ] **Slice 7 — Commerce/shops.** Not yet designed.
@@ -42,6 +43,31 @@ reconciliation effort stands.
 - [ ] **WheelMUD's FTP server: rejected, recorded in ADR-0001.** No
       further action — checking this off just means the decision itself
       (not implementation) is settled once ADR-0001 is `Accepted`.
+- [ ] **Slice 10 (not yet numbered in ADR-0001) — NPC/item spawning,
+      mob-respawn loops, loot tables.** Not yet designed. Surfaced during
+      Slice 4's design dive (ADR-0009), deliberately kept out of it —
+      maps to WheelMUD's `Clone`/`Spawn` admin actions, already flagged as
+      deferred by PLAN-0005 pending "item/NPC creation tooling," plus a
+      genuinely new (WheelMUD doesn't have one either) tick-driven respawn
+      timer and loot-table shape. Needs its own research/design pass
+      before it's added to ADR-0001's inventory table with a real number.
+- [ ] **Slice 11 (not yet numbered in ADR-0001, not really a WheelMUD gap
+      at all) — scoped/lazy world loading.** Not yet designed. Surfaced
+      while discussing ADR-0009's `tunnel` room-lookup with the user, who
+      then walked this back to the bigger underlying question: `ThingRepository`
+      reconstructs the *entire* stored world into memory on every load —
+      fine today, won't scale to real user counts or a large world. A
+      persistence-layer/loading-strategy concern, separable from the
+      `Thing`/`Behavior` domain model itself (confirmed: `GameDbContext`
+      already `Ignore()`s every graph-reference property, so this isn't
+      even leaning on EF Core's relationship features today — it's
+      `ThingRepository`'s own hand-written full-reconstruct choice). Likely
+      fix direction: lazy/regional loading exploiting MUD spatial locality
+      (load a `Thing` when first referenced, cache while active), not a
+      domain-model rewrite. See [persistence.md](../persistence.md) Open
+      Items. Deliberately not designed now — no real world-size trigger yet;
+      revisit once there's an actual deployment approaching scale, or
+      Slice 9 makes the world big enough to matter.
 
 ## Critical files
 

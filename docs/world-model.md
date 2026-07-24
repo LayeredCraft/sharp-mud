@@ -83,11 +83,23 @@ when a move target doesn't exist yet.
 
 ## Content Authoring Evolution (not all v1)
 
-1. Hardcoded rooms in C# (bootstrap only, to get the loop working).
-2. Data-driven world files (JSON/YAML) loaded at startup — natural next step,
-   also the foundation for in-game building commands later.
-3. In-game building commands (`@dig`, `@describe`, etc.) writing to the same
-   data model.
+1. Hardcoded rooms in C# (bootstrap only, to get the loop working) — still
+   how every world's starting content is authored today
+   (`HubWorldBuilder`/`BasicWorldBuilder`).
+2. Data-driven world files (JSON/YAML) loaded at startup — **not yet
+   implemented**; still a natural next step if hardcoded content stops
+   scaling, but turned out not to be a prerequisite for stage 3 below.
+3. In-game building commands (`dig <direction> <name>`, `tunnel <direction>
+   <existing room name>`, `describe <text>`) writing directly to the live
+   `Thing` tree — **implemented**, without needing stage 2's file format
+   first (a runtime command mutates the same in-memory/persisted model
+   stage 1's rooms already use). Role-gated at
+   `SecurityRole.MinorBuilder`; see
+   [ADR-0009](adr/0009-world-building-olc-command-surface.md) and
+   [commands.md](commands.md)'s V1 Verb List. Deliberately doesn't cover
+   NPC/item spawning, mob-respawn loops, or loot tables — a separate,
+   still-undesigned gap (see
+   [PLAN-0001](plans/0001-wheelmud-reconciliation-roadmap.md)'s Slice 10).
 
 ## Sequence: Procedural Frontier Room Generated
 

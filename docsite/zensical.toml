@@ -13,7 +13,8 @@ nav = [
   { "Home" = "index.md" },
   { "Getting Started" = "getting-started.md" },
   { "Rulesets" = "rulesets.md" },
-  { "Customizing sharp-mud" = "customizing.md" }
+  { "Customizing sharp-mud" = "customizing.md" },
+  { "Moderation & World Building" = "moderation-and-world-building.md" }
 ]
 
 [project.markdown_extensions.attr_list]
