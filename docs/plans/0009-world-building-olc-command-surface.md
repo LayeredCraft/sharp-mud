@@ -4,7 +4,7 @@
 
 **Status:** Done
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-24
 
 ## Goal
 
@@ -64,6 +64,13 @@ that changed.
       (`Description` left `""`), attached as a child of
       `ctx.CurrentRoom.Parent`, registered in `ctx.World`. Calls
       `RoomConnector.Connect` between `ctx.CurrentRoom` and the new room.
+      **Checks `area.Add(room)`'s bool return** (caught in PR review —
+      `Thing.Add` publishes a cancelable `AddChildEvent`; nothing vetoes
+      it today, but proceeding regardless would have registered/connected/
+      saved a room that was never actually attached to the tree had that
+      ever changed) and rejects cleanly instead of assuming success,
+      matching `MoveCommand`'s existing precedent of checking `Remove`'s
+      return the same way.
 - [x] `TunnelCommand` (`MinorBuilder`) — usage `tunnel <direction>
       <existing room name>`. Looks up the destination room via
       `BuilderCommandHelpers.FindRoomsByName` (exact `Name` match,
@@ -72,18 +79,24 @@ that changed.
       `ObjectMatcher`, verified directly rather than assumed). Rejects
       zero matches, more than one match, and self-tunnel. Saves both the
       current room's tree root and the destination's (they may differ if
-      there's more than one area).
+      there's more than one area) — **not atomic across the two calls**,
+      flagged in PR review and tracked as a deferred gap rather than fixed
+      here (see `docs/persistence.md` Open Items and this plan's Open
+      questions/blockers below).
 - [x] `DescribeCommand` (`MinorBuilder`) — usage `describe <text>`. Sets
       `ctx.CurrentRoom.Description` to the rest-of-line text (empty
       rejected via `CommandGuards.RequireArgsAsync`).
 - [x] `BuilderCommandHelpers`
       (`src/SharpMud.Engine/Commands/Builtin/Builder/BuilderCommandHelpers.cs`)
-      — `TryParseDirection`, `FindRoomsByName`, `FindRoot`, shared by
-      `DigCommand`/`TunnelCommand`/`DescribeCommand`. Mirrors
-      `AdminCommandHelpers`'s shape (`internal static class`, no
-      `IThingRepository` dependency — each command holds its own
-      repository via its own constructor and never threads it into the
-      helper).
+      — `TryParseDirection`, `FindRoomsByName`, `HasExit`, `FindRoot`,
+      `OccupiedDirectionMessage`, shared by `DigCommand`/`TunnelCommand`/
+      `DescribeCommand`. Mirrors `AdminCommandHelpers`'s shape (`internal
+      static class`, no `IThingRepository` dependency — each command
+      holds its own repository via its own constructor and never threads
+      it into the helper). `OccupiedDirectionMessage` added during PR
+      review — the "already an exit ... from here" rejection text was
+      duplicated verbatim in `DigCommand` and `TunnelCommand`; both now
+      call the shared helper instead.
 - [x] Register all three via `RegisterWithRole` in
       `BuilderCommands.RegisterAll(registry, repository)`
       (`src/SharpMud.Engine/Commands/Builtin/Builder/BuilderCommands.cs`
@@ -145,7 +158,9 @@ Modified:
   attaches the new room as a sibling (child of `ctx.CurrentRoom.Parent`,
   not of `ctx.CurrentRoom` itself), calls `SaveTreeAsync` with the tree
   root (not `ctx.CurrentRoom`). Invalid direction and empty name each
-  rejected with a clear message, no mutation.
+  rejected with a clear message, no mutation. Added during PR review: a
+  vetoed `AddChildEvent` (a test `Behavior` subscribing to cancel it) is
+  rejected cleanly, with no room registered and no save attempted.
 - Unit: `TunnelCommand` — happy path connects `ctx.CurrentRoom` to a
   found room; zero matches and multiple matches each rejected with a
   clear, distinct message; self-tunnel (found room equals
@@ -241,3 +256,12 @@ Slice 3 test coverage.
   "quick-start default," not real game content, and this slice's `dig`
   now gives an in-game path to grow it without enlarging the fixed
   sample.
+- **Flagged in PR review, deferred rather than fixed**: `TunnelCommand`'s
+  two `SaveTreeAsync` calls (origin root, destination root) aren't atomic
+  together — a failure between them could leave a durably-saved one-way
+  exit on disk. Currently unreachable (every world built so far has
+  exactly one area, so the two roots are always the same object), but a
+  real gap once/if a multi-area world exists. Fixing it properly needs
+  `IThingRepository` to grow a multi-root atomic save — a repository-API
+  change, deliberately not bundled into the PR that found it. See
+  `docs/persistence.md` Open Items.

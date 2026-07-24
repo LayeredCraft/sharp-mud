@@ -83,6 +83,29 @@ public sealed class DigCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RejectsCleanly_WhenAddChildEventIsVetoed()
+    {
+        var repository = Substitute.For<IThingRepository>();
+        var (area, room, world, session) = MakeRoom();
+        area.Events.SubscribeRequest((_, evt) =>
+        {
+            if (evt is AddChildEvent)
+                evt.Cancel("full");
+        });
+
+        var sut = new DigCommand(repository);
+        var ctx = new CommandContext(room, room, ["north", "Storage", "Shed"], world, session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        area.Children.Should().ContainSingle("the vetoed room was never attached to the tree");
+        world.AllWithBehavior<RoomBehavior>().Should().HaveCount(1)
+            .And.Contain(room, "the vetoed room must never be registered either");
+        await session.Received(1).WriteLineAsync("Couldn't create the room here.", Arg.Any<CancellationToken>());
+        await repository.DidNotReceiveWithAnyArgs().SaveTreeAsync(default!, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsUsageMessage_WhenMissingArguments()
     {
         var repository = Substitute.For<IThingRepository>();

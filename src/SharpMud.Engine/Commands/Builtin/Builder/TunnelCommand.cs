@@ -60,7 +60,7 @@ public sealed class TunnelCommand : ICommand
 
         if (BuilderCommandHelpers.HasExit(ctx.CurrentRoom, direction))
         {
-            await ctx.Session.WriteLineAsync($"There's already an exit {direction.ToDisplayString()} from here.", ct);
+            await ctx.Session.WriteLineAsync(BuilderCommandHelpers.OccupiedDirectionMessage(direction), ct);
             return;
         }
 

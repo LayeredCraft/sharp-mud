@@ -272,3 +272,19 @@ in-memory objects, and doesn't leave stale rows behind).
 - Concurrent `SaveTreeAsync` calls (e.g. two players disconnecting at once)
   rely on SQLite's own single-writer file locking; not independently
   stress-tested.
+- `TunnelCommand` (ADR-0009) can save two independent tree roots — the
+  current room's and the destination room's, when a `tunnel` crosses
+  between two different areas — via two separate `SaveTreeAsync` calls,
+  not one atomic operation. Caught in PR review: if the first call
+  succeeds and the second throws (DB error, cancellation, crash), a
+  restart could load a durably one-way exit — the origin room's new exit
+  persisted, the destination's reverse exit back never written. Currently
+  unreachable in practice (every world built so far —
+  `BasicWorldBuilder`/`HubWorldBuilder` — has exactly one area, so the two
+  roots are always the same object and the second call never actually
+  fires), but a real gap once/if a world has more than one area. Fixing it
+  properly needs `IThingRepository` to grow a multi-root atomic save (one
+  shared transaction across both trees) — a repository-API change
+  deliberately not bundled into that PR; revisit alongside Slice 9
+  (procedural generation) if/when a multi-area world actually exists. See
+  [PLAN-0009](plans/0009-world-building-olc-command-surface.md).

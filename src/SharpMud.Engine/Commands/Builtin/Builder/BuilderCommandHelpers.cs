@@ -50,6 +50,16 @@ internal static class BuilderCommandHelpers
     public static bool HasExit(Thing room, Direction direction) =>
         room.Children.Any(c => c.FindBehavior<ExitBehavior>()?.Direction == direction);
 
+    /// <summary>
+    /// The rejection message for "the current room already has an exit in
+    /// this direction" - shared by <see cref="DigCommand"/> and <see
+    /// cref="TunnelCommand"/> (both check <see cref="HasExit"/> against
+    /// their origin room) so the wording can't drift between the two
+    /// (caught in PR review - it was duplicated verbatim in both files).
+    /// </summary>
+    public static string OccupiedDirectionMessage(Direction direction) =>
+        $"There's already an exit {direction.ToDisplayString()} from here.";
+
     /// <summary>Walks up <see cref="Thing.Parent"/> to the tree root (the first ancestor with no parent) - the node <see cref="IThingRepository.SaveTreeAsync"/> needs so a save captures every changed Thing, not just the current room's own subtree.</summary>
     public static Thing FindRoot(Thing thing)
     {

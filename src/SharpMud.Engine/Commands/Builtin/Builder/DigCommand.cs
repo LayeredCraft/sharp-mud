@@ -38,7 +38,7 @@ public sealed class DigCommand : ICommand
 
         if (BuilderCommandHelpers.HasExit(ctx.CurrentRoom, direction))
         {
-            await ctx.Session.WriteLineAsync($"There's already an exit {direction.ToDisplayString()} from here.", ct);
+            await ctx.Session.WriteLineAsync(BuilderCommandHelpers.OccupiedDirectionMessage(direction), ct);
             return;
         }
 
@@ -52,7 +52,19 @@ public sealed class DigCommand : ICommand
 
         var room = new Thing { Id = ThingId.New(), Name = name, Description = "" };
         room.Behaviors.Add(new RoomBehavior());
-        area.Add(room);
+
+        // area.Add publishes a cancelable AddChildEvent - nothing vetoes it
+        // today, but MoveCommand already checks Thing.Remove's bool return
+        // rather than assuming success (caught in PR review), so this
+        // matches that established pattern instead of proceeding blind on
+        // a rejected add (which would otherwise register/connect/save a
+        // room that was never actually attached to the tree).
+        if (!area.Add(room))
+        {
+            await ctx.Session.WriteLineAsync("Couldn't create the room here.", ct);
+            return;
+        }
+
         ctx.World.Register(room);
 
         RoomConnector.Connect(ctx.World, ctx.CurrentRoom, room, direction);

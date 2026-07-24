@@ -21,8 +21,8 @@ The two tiers relevant here:
 |---|---|---|
 | `MinorAdmin` | `Player` | `boot`, `mute`, `unmute`, `announce` |
 | `FullAdmin` | `MinorAdmin`, `Player` | everything `MinorAdmin` can do, plus `ban`, `unban`, `rolegrant`, `rolerevoke` |
-| `MinorBuilder` | — | `dig`, `tunnel`, `describe` |
-| `FullBuilder` | `MinorBuilder` | (reserved for a future builder-tier command; no consumer yet) |
+| `MinorBuilder` | `Player` | `dig`, `tunnel`, `describe` |
+| `FullBuilder` | `MinorBuilder`, `Player` | (reserved for a future builder-tier command; no consumer yet) |
 
 "Implies" is real: granting `FullAdmin` also grants `MinorAdmin` and
 `Player` in the same call, so a `FullAdmin` can immediately run every
