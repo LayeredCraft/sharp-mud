@@ -191,3 +191,18 @@ grant `FullAdmin`, then `rolegrant Adventurer minorbuilder` to reach
   `CommandParser`'s no-quoted-strings constraint per ADR-0009) is needed
   before the keyword-lookup tier has any real content to match against in
   practice.
+- **`HelpTopicChunker.Split`'s paragraph-boundary (blank-line) chunking is
+  unreachable given the v1 authoring command** — found in PR review.
+  `helptopic <key> <body>` reconstructs `Body` via
+  `string.Join(' ', ctx.Args.Skip(1))`, and `CommandParser`'s single-line
+  Telnet input has already collapsed every whitespace run (including any
+  newline) to a single space before `ctx.Args` ever sees it. There is
+  currently no way to author a body containing a blank line, so every real
+  topic chunks to exactly 1 piece today regardless of length — ADR-0010's
+  paragraph-level chunking design doesn't do anything yet in practice.
+  Deliberately not fixed in this slice: a real fix is either a multi-line
+  input mechanism (no such thing exists over single-line Telnet per
+  ADR-0009) or a different chunking fallback (e.g. sentence- or
+  fixed-width-window splitting when no blank lines are found), and both are
+  their own design decision, not a one-line fix. Revisit once multi-chunk
+  topics actually matter for semantic-search precision.

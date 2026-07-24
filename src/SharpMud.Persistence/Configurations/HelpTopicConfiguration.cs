@@ -20,6 +20,16 @@ public sealed class HelpTopicConfiguration : IEntityTypeConfiguration<HelpTopic>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasConversion(id => id.Value, value => new HelpTopicId(value));
         builder.Property(x => x.Key).IsRequired();
+
+        // Guards the check-then-act gap in HelpTopicEditCommand
+        // (FindByNameOrAliasAsync -> create-if-null -> SaveTopicAsync, no
+        // transaction spanning it) - without this, two concurrent
+        // `helptopic newtopic ...` calls for the same new key could both
+        // observe null and each insert a row, leaving FindByNameOrAliasAsync's
+        // FirstOrDefault to pick one arbitrarily. Low-probability today
+        // (solo/small-collaborator project), but cheap - caught in PR
+        // review.
+        builder.HasIndex(x => x.Key).IsUnique();
         builder.Property(x => x.Category).IsRequired();
         builder.Property(x => x.Body).IsRequired();
         builder.Property(x => x.UpdatedAtUtc).IsRequired();

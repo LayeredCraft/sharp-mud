@@ -18,6 +18,21 @@ public sealed class HelpTopicChunkConfiguration : IEntityTypeConfiguration<HelpT
         builder.HasKey(x => x.Id);
         builder.Property(x => x.HelpTopicId).HasConversion(id => id.Value, value => new HelpTopicId(value));
         builder.HasIndex(x => x.HelpTopicId);
+
+        // A real FK constraint (no navigation property needed on either
+        // side) - HelpRepository.SaveTopicAsync/DeleteTopicAsync already
+        // delete/insert a topic and its chunks in the same
+        // SaveChangesAsync batch, so EF's automatic dependency ordering
+        // doesn't change either path's behavior. This makes the "explicit
+        // HelpTopicId FK" claim in the comment above actually true at the
+        // DB level, and cascades a delete so nothing outside
+        // HelpRepository can orphan a topic's chunks - caught in PR
+        // review.
+        builder.HasOne<HelpTopic>()
+            .WithMany()
+            .HasForeignKey(x => x.HelpTopicId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Property(x => x.Text).IsRequired();
         builder.Property(x => x.EmbeddingModelId).IsRequired();
         builder.Property(x => x.SourceContentHash).IsRequired();

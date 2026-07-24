@@ -125,6 +125,32 @@ public sealed class HelpCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ChecksEachQueryWordAgainstKeywords_ForMultiWordQueries()
+    {
+        var session = Substitute.For<ISession>();
+        var actor = MakeActor(SecurityRole.Player);
+        var topic = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "How to become a wizard." };
+        var helpRepository = Substitute.For<IHelpRepository>();
+        var query = "teach me magic";
+        helpRepository.FindByNameOrAliasAsync(query, Arg.Any<CancellationToken>()).Returns((HelpTopic?)null);
+        // FindByKeywordAsync's contract is an exact match against one
+        // Keywords entry - the query as a whole ("teach me magic") never
+        // matches, only the individual token "magic" does.
+        helpRepository.FindByKeywordAsync("teach", Arg.Any<CancellationToken>()).Returns([]);
+        helpRepository.FindByKeywordAsync("me", Arg.Any<CancellationToken>()).Returns([]);
+        helpRepository.FindByKeywordAsync("magic", Arg.Any<CancellationToken>()).Returns([topic]);
+        var helpSearchIndex = Substitute.For<IHelpSearchIndex>();
+
+        var sut = MakeSut(helpRepository: helpRepository, helpSearchIndex: helpSearchIndex);
+        var ctx = new CommandContext(actor, actor, ["teach", "me", "magic"], new World(), session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await session.Received(1).WriteLineAsync("How to become a wizard.", Arg.Any<CancellationToken>());
+        await helpSearchIndex.DidNotReceiveWithAnyArgs().SearchAsync(default!, default);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_FallsBackToSemanticSearch_WhenExactAndKeywordMatchesMiss()
     {
         var session = Substitute.For<ISession>();

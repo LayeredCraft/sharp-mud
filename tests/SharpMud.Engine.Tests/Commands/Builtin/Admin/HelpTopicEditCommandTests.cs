@@ -53,6 +53,27 @@ public sealed class HelpTopicEditCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_DoesNotReassignKey_WhenExistingTopicFoundByDifferentCasing()
+    {
+        var (actor, world, session) = MakeActor();
+        var existing = new HelpTopic { Id = HelpTopicId.New(), Key = "wizard", Body = "Old text." };
+        var repository = Substitute.For<IHelpRepository>();
+        // FindByNameOrAliasAsync is case-insensitive - "Wizard" finds the
+        // "wizard" topic, same as it would for an alias once those are
+        // settable.
+        repository.FindByNameOrAliasAsync("Wizard", Arg.Any<CancellationToken>()).Returns(existing);
+
+        var sut = new HelpTopicEditCommand(repository);
+        var ctx = new CommandContext(actor, actor, ["Wizard", "New", "text."], world, session);
+
+        await sut.ExecuteAsync(ctx, TestContext.Current.CancellationToken);
+
+        await repository.Received(1).SaveTopicAsync(
+            Arg.Is<HelpTopic>(t => t.Key == "wizard" && t.Body == "New text."),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_SendsUsageMessage_WhenMissingBody()
     {
         var (actor, world, session) = MakeActor();

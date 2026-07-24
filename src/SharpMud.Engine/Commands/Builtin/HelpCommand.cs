@@ -52,8 +52,18 @@ public sealed class HelpCommand : ICommand
 
         if (topic is null)
         {
-            var keywordMatches = await _helpRepository.FindByKeywordAsync(query, ct);
-            topic = keywordMatches.FirstOrDefault();
+            // FindByKeywordAsync's contract is an exact match against one
+            // Keywords entry, not a substring/full-phrase match - so a
+            // multi-word query has to be checked one token at a time, or a
+            // query like "teach me magic" could never hit a "magic"
+            // keyword. First token to match wins - caught in PR review.
+            foreach (var token in query.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var keywordMatches = await _helpRepository.FindByKeywordAsync(token, ct);
+                topic = keywordMatches.FirstOrDefault();
+                if (topic is not null)
+                    break;
+            }
         }
 
         if (topic is null)

@@ -164,3 +164,10 @@ succeed.
   semantic matching needs to opt in the same way (or write their own
   `IEmbeddingProvider`/`RelevanceThreshold`).
 - No DynamoDB mapping for `IHelpRepository` yet.
+- `HelpTopicChunker.Split`'s paragraph-boundary (blank-line) chunking is
+  unreachable via the v1 authoring command — `helptopic <key> <body>`
+  reconstructs `Body` from single-line Telnet input, which has already
+  collapsed every whitespace run (including any newline) to a single
+  space before the command ever sees it. Every real topic chunks to
+  exactly 1 piece today, regardless of length. Found in PR review; see
+  PLAN-0010's Open questions for the fix options considered.

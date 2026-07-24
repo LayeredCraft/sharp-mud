@@ -24,6 +24,12 @@ public sealed class HelpRepository(IDbContextFactory<GameDbContext> dbContextFac
         var topics = await GetAllTopicsAsync(ct);
         return topics
             .Where(t => t.Keywords.Any(k => string.Equals(k, keyword, StringComparison.OrdinalIgnoreCase)))
+            // Deterministic order (not insertion/rowid order, which SQL
+            // makes no guarantee about) so a caller taking FirstOrDefault
+            // when multiple topics share a keyword gets a consistent
+            // result across calls, not an arbitrary one - caught in PR
+            // review.
+            .OrderBy(t => t.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
