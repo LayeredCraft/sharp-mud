@@ -54,6 +54,7 @@ you're using it) expose for you to plug into:
 | `IBehaviorMappingContributor` | `AddSingleton<IBehaviorMappingContributor, T>()` | Register EF Core mapping for your own `Behavior` subtypes |
 | `ICombatOutcomeHandler` (if using `Ruleset.Rpg`) | `AddSharpMudRpgRuleset<T>()` | Award XP/rewards on a win, apply a death penalty and pick a respawn destination on a loss |
 | `ICommand` | Registered inside your `AddSharpMudRuleset(...)`/`AddSharpMudRpgRuleset(...)` callback | Add a new player-facing verb |
+| `IEmbeddingProvider` | `AddSingleton<IEmbeddingProvider, T>()`, after `AddSharpMudSqlitePersistence(...)` | Swap in a real (or different) embedding model for [help-system](help-system.md) semantic search — the default is a deterministic placeholder |
 
 ### Adding your own `Behavior`
 
@@ -86,10 +87,12 @@ register it inside whichever ruleset-registration callback you're already
 using — see [Rulesets](rulesets.md#putting-it-together) for why that has to
 be one callback, not several independent calls.
 
-`SharpMud.Engine` also ships two ready-made, opt-in command sets built on
-this same registration mechanism — moderation (`boot`/`mute`/`ban`/...) and
-world-building (`dig`/`tunnel`/`describe`) — see
-[Moderation & World Building](moderation-and-world-building.md).
+`SharpMud.Engine` also ships ready-made, opt-in command sets built on this
+same registration mechanism — moderation (`boot`/`mute`/`ban`/...) and
+world-building (`dig`/`tunnel`/`describe`), see
+[Moderation & World Building](moderation-and-world-building.md); and help
+authoring (`helptopic`/`helpindex`), see [Help System](help-system.md).
+`help` itself (topic lookup) is always registered, not opt-in.
 
 ## What's next
 

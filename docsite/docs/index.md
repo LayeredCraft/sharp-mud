@@ -1,5 +1,14 @@
 # sharp-mud
 
+```
+ ____  _                      __  __ _   _ ____
+/ ___|| |__   __ _ _ __ _ __ |  \/  | | | |  _ \
+\___ \| '_ \ / _` | '__| '_ \| |\/| | | | | | | |
+ ___) | | | | (_| | |  | |_) | |  | | |_| | |_| |
+|____/|_| |_|\__,_|_|  | .__/|_|  |_|\___/|____/
+                       |_|
+```
+
 A modern C#/.NET engine for building MUDs (Multi-User Dungeons) — faithful to
 the genre's feel while built on current .NET architecture: the .NET generic
 host, EF Core, and a `Thing`/`Behavior` composition model instead of a

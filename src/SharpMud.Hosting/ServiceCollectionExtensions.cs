@@ -3,6 +3,7 @@ using SharpMud.Engine.Behaviors;
 using SharpMud.Engine.Commands;
 using SharpMud.Engine.Commands.Builtin;
 using SharpMud.Engine.Core;
+using SharpMud.Engine.Help;
 using SharpMud.Engine.Sessions;
 using SharpMud.Engine.Ticking;
 
@@ -27,7 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
-            BuiltinCommands.RegisterAll(registry);
+            BuiltinCommands.RegisterAll(registry, sp.GetRequiredService<IHelpRepository>(), sp.GetRequiredService<IHelpSearchIndex>());
             registerRuleset(sp, registry);
             return registry;
         });

@@ -69,3 +69,5 @@ the mechanics: numbering, status, and the index.
 | [0007](0007-narrow-meta-package-scope.md) | Narrow the `SharpMud` Meta-Package to Engine + Hosting + Persistence | Accepted |
 | [0008](0008-ruleset-scaffolding-tier.md) | A Reusable RPG Scaffolding Tier Between `Engine` and Concrete Rulesets | Accepted |
 | [0009](0009-world-building-olc-command-surface.md) | World-Building/OLC Command Surface | Accepted |
+| [0010](0010-help-system-semantic-search.md) | Help System + Semantic Search Fallback | Accepted |
+| [0011](0011-local-embedding-provider-for-sample.md) | Local Embedding Provider for the Sample App | Accepted |

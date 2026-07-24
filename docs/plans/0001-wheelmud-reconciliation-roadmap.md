@@ -4,7 +4,7 @@
 
 **Status:** In Progress
 
-**Last updated:** 2026-07-17
+**Last updated:** 2026-07-24
 
 ## Goal
 
@@ -34,7 +34,8 @@ reconciliation effort stands.
 - [x] **Slice 4 — World-building/OLC command surface.** ADR-0009
       Accepted, PLAN-0009 Done. See
       [PLAN-0009](0009-world-building-olc-command-surface.md).
-- [ ] **Slice 5 — Help system.** Not yet designed.
+- [x] **Slice 5 — Help system.** ADR-0010 Accepted, PLAN-0010 Done.
+      See [PLAN-0010](0010-help-system-semantic-search.md).
 - [ ] **Slice 6 — Player configuration commands.** Not yet designed.
 - [ ] **Slice 7 — Commerce/shops.** Not yet designed.
 - [ ] **Slice 8 — Plugin/extensibility for a second ruleset.** Placeholder

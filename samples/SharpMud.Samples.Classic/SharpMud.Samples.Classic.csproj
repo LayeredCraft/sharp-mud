@@ -19,6 +19,9 @@
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Settings.Configuration" />
+    <!-- Local embedding provider for the help system's semantic search
+         (ADR-0011) - swaps in for the default StubEmbeddingProvider. -->
+    <PackageReference Include="SmartComponents.LocalEmbeddings" />
   </ItemGroup>
 
   <ItemGroup>
