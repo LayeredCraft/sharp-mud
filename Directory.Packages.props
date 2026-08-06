@@ -21,7 +21,7 @@
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
-    <PackageVersion Include="LayeredCraft.StructuredLogging" Version="1.2.3" />
+    <PackageVersion Include="LayeredCraft.StructuredLogging" Version="1.2.4" />
     <!-- Configuration: appsettings.json + env vars feeding Serilog.Settings.Configuration
          and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
@@ -110,7 +110,7 @@
          xunit.v3.core.mtp-v1, whose Microsoft.Testing.Platform version is incompatible with
          a directly-referenced/newer Microsoft.Testing.Platform and throws TypeLoadException
          (IDataConsumer) at test-host startup. -->
-    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.3.2" />
+    <PackageVersion Include="Microsoft.Testing.Platform" Version="2.3.3" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
