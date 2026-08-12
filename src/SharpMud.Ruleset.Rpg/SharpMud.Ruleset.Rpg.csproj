@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="LayeredCraft.OptimizedEnums" />
     <ProjectReference Include="..\SharpMud.Engine\SharpMud.Engine.csproj" />
     <ProjectReference Include="..\SharpMud.Hosting\SharpMud.Hosting.csproj" />
     <!-- IBehaviorMappingContributor lives in Persistence - see
