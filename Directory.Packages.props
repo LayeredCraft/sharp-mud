@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- App -->
-    <PackageVersion Include="LayeredCraft.OptimizedEnums" Version="1.4.2" />
+    <PackageVersion Include="LayeredCraft.OptimizedEnums" Version="1.4.3" />
     <!-- Pin past the transitive SQLitePCLRaw.lib.e_sqlite3 2.1.11 that
          Microsoft.Data.Sqlite.Core 10.0.9 pulls in - flagged NU1903 high
          severity (GHSA-2m69-gcr7-jv3q). -->
@@ -13,7 +13,7 @@
          tool, versioned in lockstep with the .NET SDK preview builds here -
          pinned to match global.json's SDK pin, same as the
          Microsoft.Extensions.*/EF Core net11.0 group below. -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.6.26359.118" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.7.26381.103" />
     <!-- Logging: Serilog + LayeredCraft.StructuredLogging call-site extensions,
          per .agents/skills/engineering-workflow/references/coding-standards.md.
          Console sink only - this repo runs in Docker (docs/deployment.md),
@@ -126,7 +126,7 @@
          validated against 6.0.0 by this repo's own test suite. Revisit
          (and drop the suppression) once AutoFixture.AutoNSubstitute
          publishes a stable release supporting NSubstitute 6.x. -->
-    <PackageVersion Include="NSubstitute" Version="6.0.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <!-- Assertions -->
     <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
   </ItemGroup>
