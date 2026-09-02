@@ -128,6 +128,6 @@
          publishes a stable release supporting NSubstitute 6.x. -->
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <!-- Assertions -->
-    <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
   </ItemGroup>
 </Project>
