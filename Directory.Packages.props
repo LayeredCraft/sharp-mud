@@ -13,7 +13,7 @@
          tool, versioned in lockstep with the .NET SDK preview builds here -
          pinned to match global.json's SDK pin, same as the
          Microsoft.Extensions.*/EF Core net11.0 group below. -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-preview.7.26381.103" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="11.0.100-rc.1.26425.128" />
     <!-- Logging: Serilog + LayeredCraft.StructuredLogging call-site extensions,
          per .agents/skills/engineering-workflow/references/coding-standards.md.
          Console sink only - this repo runs in Docker (docs/deployment.md),
@@ -111,7 +111,7 @@
          a directly-referenced/newer Microsoft.Testing.Platform and throws TypeLoadException
          (IDataConsumer) at test-host startup. -->
     <PackageVersion Include="Microsoft.Testing.Platform" Version="2.4.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <!-- AutoFixture -->
