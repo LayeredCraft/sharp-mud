@@ -21,7 +21,7 @@
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="10.0.0" />
-    <PackageVersion Include="LayeredCraft.StructuredLogging" Version="1.2.4" />
+    <PackageVersion Include="LayeredCraft.StructuredLogging" Version="1.2.5" />
     <!-- Configuration: appsettings.json + env vars feeding Serilog.Settings.Configuration
          and IOptions<T> - see ADR-0003 (docs/adr/0003-allow-appsettingsjson-for-non-secret-config.md). -->
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
