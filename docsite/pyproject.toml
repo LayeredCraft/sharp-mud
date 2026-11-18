@@ -3,7 +3,7 @@ name = "sharp-mud-docsite"
 version = "0.1.0"
 requires-python = ">=3.14"
 dependencies = [
-    "zensical>=0.0.53",
+    "zensical>=0.1.1",
     "mdformat",
     "mdformat-mkdocs",
     "mdformat-frontmatter",
